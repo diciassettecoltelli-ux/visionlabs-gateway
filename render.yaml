@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: vision-gateway
+    runtime: python
+    rootDir: .
+    plan: starter
+    buildCommand: pip install -r requirements-vision-gateway.txt
+    startCommand: python scripts/vision_gateway.py
+    autoDeploy: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: VISION_GATEWAY_HOST
+        value: 0.0.0.0
+      - key: VISION_GATEWAY_VISION_ROOT
+        value: vision
+      - key: VISION_GATEWAY_PUBLIC_BASE_URL
+        sync: false
+      - key: VISION_GATEWAY_CORS_ALLOW_ORIGINS
+        value: https://visionlabs.cloud,https://www.visionlabs.cloud
+      - key: VISION_KLING_COOKIE_HEADER
+        sync: false
+      - key: VISION_KLING_REQUEST_HEADERS_JSON
+        sync: false
+      - key: VISION_KLING_SUBMIT_PAYLOAD_JSON
+        sync: false
