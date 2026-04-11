@@ -1,10 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const FORMATTER_BUNDLE_URL =
   "https://s15-kling.klingai.com/kos/s101/nlav112918/kling-web/assets/js/formatter-zn7YLI44.js";
-const CACHE_ROOT = "/Users/a1/palantir_engine/.runtime/kling_sig4_bundle";
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const CACHE_ROOT =
+  process.env.VISION_KLING_SIG4_CACHE_ROOT ||
+  path.resolve(SCRIPT_DIR, "..", ".runtime", "kling_sig4_bundle");
 
 function setGlobal(name, value) {
   try {
