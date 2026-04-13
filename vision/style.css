@@ -4409,6 +4409,10 @@ body {
 }
 
 .gallery-tile--stack .gallery-frame {
+  position: relative;
+  display: block;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
   border-radius: 1rem;
   background: rgba(34, 36, 41, 1);
   box-shadow:
@@ -4418,8 +4422,10 @@ body {
 
 .gallery-tile--stack .gallery-video {
   display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 100%;
   object-fit: cover;
   filter: brightness(0.96) saturate(0.96) contrast(1.02);
 }
