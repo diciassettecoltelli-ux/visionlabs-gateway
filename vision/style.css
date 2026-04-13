@@ -4232,7 +4232,7 @@ body {
 .atom-trigger {
   position: absolute;
   left: 50%;
-  top: 50% !important;
+  top: 50svh !important;
   transform: translate(-50%, -50%) !important;
 }
 
@@ -4259,9 +4259,13 @@ body {
 .atom-guide {
   position: absolute;
   left: 50%;
-  top: calc(50% + 3.65rem) !important;
+  top: calc(50svh + 3.65rem) !important;
   transform: translateX(-50%) !important;
   margin-top: 0;
+}
+
+.search-cluster {
+  top: calc(50svh + 4.9rem) !important;
 }
 
 .search-panel {
