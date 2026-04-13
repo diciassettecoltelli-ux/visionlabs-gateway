@@ -4234,6 +4234,7 @@ body {
   left: 50%;
   top: 50svh !important;
   transform: translate(-50%, -50%) !important;
+  pointer-events: auto;
 }
 
 .atom-trigger:hover {
@@ -4262,6 +4263,7 @@ body {
   top: calc(50svh + 3.65rem) !important;
   transform: translateX(-50%) !important;
   margin-top: 0;
+  pointer-events: none;
 }
 
 .search-cluster {
