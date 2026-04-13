@@ -44,6 +44,8 @@ def _cors_allow_origins() -> list[str]:
         "http://127.0.0.1:4173",
         "https://visionlabs.cloud",
         "https://www.visionlabs.cloud",
+        "https://visionstudiolab.com",
+        "https://www.visionstudiolab.com",
     ]
     configured = os.environ.get("VISION_GATEWAY_CORS_ALLOW_ORIGINS", "").strip()
     if not configured:
