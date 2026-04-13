@@ -4180,10 +4180,6 @@ body {
   position: absolute;
   inset: 0;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   pointer-events: none;
 }
 
@@ -4234,14 +4230,14 @@ body {
 }
 
 .atom-trigger {
-  position: relative;
-  left: auto;
-  top: auto;
-  transform: none;
+  position: absolute;
+  left: 50%;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
 }
 
 .atom-trigger:hover {
-  transform: scale(1.04);
+  transform: translate(-50%, -50%) scale(1.04) !important;
 }
 
 .atom-trigger-core {
@@ -4261,11 +4257,11 @@ body {
 }
 
 .atom-guide {
-  position: relative;
-  left: auto;
-  top: auto;
-  transform: none;
-  margin-top: 1rem;
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 3.65rem) !important;
+  transform: translateX(-50%) !important;
+  margin-top: 0;
 }
 
 .search-panel {
