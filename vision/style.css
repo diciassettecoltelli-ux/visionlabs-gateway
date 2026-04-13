@@ -4580,3 +4580,71 @@ body {
 .generation-step.is-complete {
   color: rgba(198, 211, 230, 0.7);
 }
+
+/* Clean future about rail */
+.about-grid {
+  margin-top: 2.4rem;
+  gap: 1.2rem;
+}
+
+.about-card {
+  border: 0;
+  border-top: 1px solid rgba(223, 235, 252, 0.12);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 1rem 0 0 0;
+}
+
+.about-card::before,
+.about-card::after {
+  content: none;
+}
+
+.about-card-top {
+  margin-bottom: 0.8rem;
+  gap: 0.55rem;
+}
+
+.about-card-top::after {
+  content: none;
+}
+
+.about-card-label {
+  font-size: 0.64rem;
+  letter-spacing: 0.18em;
+  color: rgba(194, 209, 230, 0.52);
+}
+
+.about-card-pulse {
+  width: 0.28rem;
+  height: 0.28rem;
+  background: rgba(237, 245, 255, 0.72);
+  box-shadow: 0 0 10px rgba(181, 214, 255, 0.12);
+}
+
+.about-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.18rem;
+  font-weight: 450;
+  letter-spacing: -0.02em;
+}
+
+.about-card p {
+  max-width: 26ch;
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.62;
+  color: rgba(198, 211, 230, 0.7);
+}
+
+@media (max-width: 720px) {
+  .about-card {
+    padding-top: 0.9rem;
+  }
+
+  .about-card h3 {
+    font-size: 1.04rem;
+  }
+}
