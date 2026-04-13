@@ -4129,3 +4129,137 @@ body {
     padding: 1.1rem 1rem;
   }
 }
+
+/* Hero video override */
+.hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  filter: saturate(0.96) contrast(1.02) brightness(0.82);
+  transform: scale(1.02);
+}
+
+.hero-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(19, 15, 12, 0.18) 0%, rgba(19, 15, 12, 0.06) 18%, rgba(18, 14, 11, 0.18) 58%, rgba(18, 14, 11, 0.54) 100%),
+    radial-gradient(circle at 50% 44%, rgba(255, 235, 205, 0.16), rgba(255, 235, 205, 0) 26%);
+}
+
+.hero-architecture,
+.scene-backdrop,
+.scene-overlay {
+  display: none;
+}
+
+.vision-shell {
+  background: #0f0c0a;
+}
+
+.hero {
+  isolation: isolate;
+}
+
+.hero > *:not(.hero-media) {
+  position: relative;
+  z-index: 1;
+}
+
+.topbar,
+.brand,
+.topnav a,
+.topbar-cta,
+.atom-guide-text {
+  color: rgba(248, 241, 231, 0.96);
+}
+
+.topnav a:hover,
+.topbar-cta:hover {
+  color: rgba(255, 248, 238, 1);
+}
+
+.brand-mark {
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.22));
+}
+
+.brand-atom-orbit {
+  border-color: rgba(247, 240, 230, 0.82);
+}
+
+.brand-atom-core {
+  background: linear-gradient(180deg, rgba(255, 247, 237, 0.98), rgba(227, 211, 190, 0.96));
+}
+
+.brand-atom-electron {
+  background: linear-gradient(180deg, rgba(255, 247, 237, 0.98), rgba(214, 194, 170, 0.94));
+}
+
+.topbar-cta::before {
+  background: radial-gradient(circle, rgba(255, 246, 232, 1) 0%, rgba(232, 214, 191, 0.92) 46%, rgba(186, 154, 119, 0.88) 100%);
+}
+
+.topbar-cta::after {
+  background: linear-gradient(90deg, rgba(255, 244, 227, 0.42), rgba(255, 244, 227, 0.12) 56%, rgba(255, 244, 227, 0));
+}
+
+.atom-trigger-core {
+  background:
+    radial-gradient(circle at 40% 36%, rgba(255, 252, 247, 0.98), rgba(248, 237, 220, 0.96) 38%, rgba(221, 191, 149, 0.9) 76%, rgba(160, 126, 87, 0.92) 100%);
+  box-shadow:
+    0 0 34px rgba(255, 229, 196, 0.36),
+    0 0 76px rgba(244, 205, 150, 0.16);
+}
+
+.atom-trigger-halo {
+  background: radial-gradient(circle, rgba(255, 241, 215, 0.5) 0%, rgba(240, 204, 154, 0.16) 34%, rgba(0, 0, 0, 0) 66%);
+}
+
+.atom-guide-line {
+  background: linear-gradient(180deg, rgba(248, 236, 218, 0.44), rgba(248, 236, 218, 0.06));
+}
+
+.search-panel {
+  border-color: rgba(255, 240, 219, 0.18);
+  background:
+    linear-gradient(180deg, rgba(46, 33, 24, 0.8), rgba(30, 21, 15, 0.82)),
+    rgba(18, 13, 10, 0.8);
+  box-shadow:
+    0 26px 64px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 243, 224, 0.12),
+    inset 0 0 0 1px rgba(255, 235, 206, 0.06);
+}
+
+.search-panel::before {
+  background:
+    linear-gradient(180deg, rgba(255, 248, 238, 0.14), transparent 28%),
+    radial-gradient(circle at 18% 16%, rgba(255, 235, 204, 0.12), transparent 28%);
+}
+
+.search-icon {
+  color: rgba(242, 227, 207, 0.72);
+}
+
+.search-panel input {
+  color: rgba(250, 243, 234, 0.96);
+}
+
+.search-panel input::placeholder {
+  color: rgba(230, 213, 191, 0.48);
+}
+
+@media (max-width: 720px) {
+  .hero-video {
+    object-position: 58% center;
+  }
+}
