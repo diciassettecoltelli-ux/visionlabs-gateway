@@ -4176,6 +4176,17 @@ body {
   z-index: 1;
 }
 
+.hero-center {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 .topbar,
 .brand,
 .topnav a,
@@ -4206,6 +4217,7 @@ body {
 }
 
 .topbar-cta::before {
+  content: none;
   background: radial-gradient(circle, rgba(255, 246, 232, 1) 0%, rgba(232, 214, 191, 0.92) 46%, rgba(186, 154, 119, 0.88) 100%);
   width: 0.34rem;
   height: 0.34rem;
@@ -4217,14 +4229,19 @@ body {
   background: linear-gradient(90deg, rgba(255, 244, 227, 0.22), rgba(255, 244, 227, 0.08) 56%, rgba(255, 244, 227, 0));
 }
 
+.topbar-cta {
+  gap: 0;
+}
+
 .atom-trigger {
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
 }
 
 .atom-trigger:hover {
-  transform: translate(-50%, -50%) scale(1.04);
+  transform: scale(1.04);
 }
 
 .atom-trigger-core {
@@ -4244,9 +4261,11 @@ body {
 }
 
 .atom-guide {
-  left: 50%;
-  top: calc(50% + 3.65rem);
-  transform: translateX(-50%);
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  margin-top: 1rem;
 }
 
 .search-panel {
