@@ -1,5 +1,12 @@
 services:
   - type: web
+    name: vision-frontend
+    runtime: static
+    rootDir: vision
+    buildCommand: sh build-static.sh
+    staticPublishPath: public
+    autoDeploy: true
+  - type: web
     name: vision-gateway
     runtime: python
     rootDir: .
@@ -17,7 +24,7 @@ services:
       - key: VISION_GATEWAY_PUBLIC_BASE_URL
         sync: false
       - key: VISION_GATEWAY_CORS_ALLOW_ORIGINS
-        value: https://visionlabs.cloud,https://www.visionlabs.cloud
+        value: https://visionlabs.cloud,https://www.visionlabs.cloud,https://visionstudiolab.com,https://www.visionstudiolab.com,https://vision-frontend-6g09.onrender.com
       - key: VISION_KLING_COOKIE_HEADER
         sync: false
       - key: VISION_KLING_REQUEST_HEADERS_JSON
