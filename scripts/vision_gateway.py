@@ -12,6 +12,7 @@ from typing import Any
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -25,7 +26,7 @@ from vision_kling_session_bridge import status as kling_session_bridge_status
 def _resolve_default_vision_root() -> Path:
     candidates = [
         os.environ.get("VISION_GATEWAY_VISION_ROOT", "").strip(),
-        str(Path(__file__).resolve().parents[2] / "vision"),
+        str(Path(__file__).resolve().parents[1] / "vision"),
         "/Users/a1/vision",
     ]
     for candidate in candidates:
@@ -257,6 +258,36 @@ def get_job(job_id: str) -> dict[str, Any]:
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
     return job
+
+
+if (VISION_ROOT / "assets").exists():
+    APP.mount("/assets", StaticFiles(directory=str(VISION_ROOT / "assets")), name="assets")
+
+
+if (VISION_ROOT / "index.html").exists():
+    @APP.get("/", include_in_schema=False)
+    def frontend_index() -> FileResponse:
+        return FileResponse(VISION_ROOT / "index.html")
+
+
+    @APP.get("/favicon.svg", include_in_schema=False)
+    def frontend_favicon() -> FileResponse:
+        return FileResponse(VISION_ROOT / "favicon.svg")
+
+
+    @APP.get("/style.css", include_in_schema=False)
+    def frontend_style() -> FileResponse:
+        return FileResponse(VISION_ROOT / "style.css")
+
+
+    @APP.get("/app.js", include_in_schema=False)
+    def frontend_app() -> FileResponse:
+        return FileResponse(VISION_ROOT / "app.js")
+
+
+    @APP.get("/vision-config.js", include_in_schema=False)
+    def frontend_config() -> FileResponse:
+        return FileResponse(VISION_ROOT / "vision-config.js")
 
 
 def main() -> None:

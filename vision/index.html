@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vision</title>
+    <meta
+      name="description"
+      content="Vision is a cinematic creation interface for turning prompts into premium visual worlds, images, and moving scenes."
+    />
+    <link rel="canonical" href="https://visionlabs.cloud/" />
+    <meta property="og:title" content="Vision" />
+    <meta
+      property="og:description"
+      content="A more cinematic way to search, shape, and create."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://visionlabs.cloud/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Vision" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="shortcut icon" href="./favicon.svg" />
+    <meta
+      name="twitter:description"
+      content="A more cinematic way to search, shape, and create."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Onest:wght@200;300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="vision-shell">
+      <div class="scene-backdrop" aria-hidden="true">
+        <div class="scene-sky"></div>
+        <div class="scene-glow"></div>
+        <div class="scene-field">
+          <div class="scene-orbit scene-orbit--one"></div>
+          <div class="scene-orbit scene-orbit--two"></div>
+          <div class="scene-orbit scene-orbit--three"></div>
+          <div class="scene-electron scene-electron--one"></div>
+          <div class="scene-electron scene-electron--two"></div>
+          <div class="scene-electron scene-electron--three"></div>
+        </div>
+      </div>
+      <div class="scene-overlay"></div>
+
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Vision home">
+          <span class="brand-mark" aria-hidden="true">
+            <span class="brand-atom-orbit brand-atom-orbit--one"></span>
+            <span class="brand-atom-orbit brand-atom-orbit--two"></span>
+            <span class="brand-atom-orbit brand-atom-orbit--three"></span>
+            <span class="brand-atom-core"></span>
+            <span class="brand-atom-electron brand-atom-electron--one"></span>
+            <span class="brand-atom-electron brand-atom-electron--two"></span>
+          </span>
+          <span class="brand-name">Vision</span>
+        </a>
+
+        <nav class="topnav" aria-label="Primary">
+          <a href="#studio">Studio</a>
+          <a href="#about">About us</a>
+          <a href="#gallery">Gallery</a>
+          <a href="#contact">Contact</a>
+        </nav>
+
+        <a class="topbar-cta" href="#subscribe" data-subscribe-trigger>Subscribe</a>
+      </header>
+
+      <main class="hero">
+        <button class="atom-trigger" type="button" aria-controls="vision-search-panel" aria-expanded="false" aria-label="Open search">
+          <span class="atom-trigger-halo"></span>
+          <span class="atom-trigger-core"></span>
+        </button>
+        <div class="atom-guide" aria-hidden="true">
+          <span class="atom-guide-line"></span>
+          <span class="atom-guide-text">Tap to begin</span>
+        </div>
+        <div class="search-cluster" id="vision-search-panel" aria-hidden="true">
+          <form class="search-panel" id="vision-search-form" action="#" method="get">
+            <div class="search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="11" cy="11" r="7"></circle>
+                <path d="m20 20-3.5-3.5"></path>
+              </svg>
+            </div>
+            <input id="vision-prompt" type="text" name="q" placeholder="Describe your video or image..." autocomplete="off" tabindex="-1" />
+            <button class="search-launch-button" type="submit" aria-label="Search" tabindex="-1">
+              <span class="search-launch-ring" aria-hidden="true"></span>
+              <span class="search-launch-core" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M7 12h10"></path>
+                  <path d="m13 6 6 6-6 6"></path>
+                </svg>
+              </span>
+            </button>
+          </form>
+        </div>
+      </main>
+
+      <section class="about-section" id="about">
+        <div class="about-atmosphere" aria-hidden="true">
+          <div class="about-aurora"></div>
+          <div class="about-trace about-trace--one"></div>
+          <div class="about-trace about-trace--two"></div>
+          <div class="about-trace about-trace--three"></div>
+        </div>
+
+        <div class="about-shell">
+          <div class="about-header">
+            <div class="about-intro">
+              <div class="about-kicker">About us</div>
+              <h2 class="about-title">A more cinematic way to search, shape, and create.</h2>
+            </div>
+
+            <div class="about-manifest">
+              <p class="about-copy">
+                Vision is a creative interface for people who think in images, motion, atmosphere, and worlds. It is built to turn a raw idea into
+                something sharper, more visual, and more intentional without losing taste.
+              </p>
+              <p class="about-copy about-copy--secondary">
+                We care about direction, not noise. Better prompts. Better scenes. Better visual decisions. The goal is simple: make creation feel
+                precise, beautiful, and immediate.
+              </p>
+            </div>
+          </div>
+
+          <div class="about-grid">
+            <article class="about-card">
+              <div class="about-card-top">
+                <div class="about-card-label">01</div>
+                <span class="about-card-pulse" aria-hidden="true"></span>
+              </div>
+              <h3>Search with intent</h3>
+              <p>Start from a feeling, a scene, or a reference, and shape it into something clear enough to build.</p>
+            </article>
+
+            <article class="about-card">
+              <div class="about-card-top">
+                <div class="about-card-label">02</div>
+                <span class="about-card-pulse" aria-hidden="true"></span>
+              </div>
+              <h3>Direct the outcome</h3>
+              <p>Refine tone, motion, atmosphere, and detail until the result feels authored, not generic.</p>
+            </article>
+
+            <article class="about-card">
+              <div class="about-card-top">
+                <div class="about-card-label">03</div>
+                <span class="about-card-pulse" aria-hidden="true"></span>
+              </div>
+              <h3>Build visual worlds</h3>
+              <p>Move from concept to image to video inside one system designed for cinematic creation.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="gallery-section" id="gallery">
+        <div class="gallery-atmosphere" aria-hidden="true">
+          <div class="gallery-aurora"></div>
+          <div class="gallery-trace gallery-trace--one"></div>
+          <div class="gallery-trace gallery-trace--two"></div>
+        </div>
+
+        <div class="gallery-shell">
+          <div class="gallery-header">
+            <div class="gallery-heading">
+              <div class="gallery-kicker">Gallery</div>
+              <h2 class="gallery-title">Two stronger studies.</h2>
+            </div>
+            <p class="gallery-copy">One pure speed study. One atmospheric narrative study. Nothing else competing for attention.</p>
+          </div>
+
+          <div class="gallery-composition">
+            <div class="gallery-stage">
+              <article class="gallery-tile gallery-tile--hero">
+                <button
+                  class="gallery-open"
+                  type="button"
+                  data-video-src="./assets/field-vision.mp4"
+                  data-video-title="Imagined by Vision"
+                  data-video-caption="A lone man wakes in tall wet grass at sunrise and hears the line: You were imagined by Vision."
+                  aria-label="Open Imagined by Vision video"
+                >
+                  <span class="gallery-frame">
+                    <video class="gallery-video" src="./assets/field-vision.mp4" autoplay muted loop playsinline preload="metadata"></video>
+                    <span class="gallery-overlay"></span>
+                    <span class="gallery-meta">
+                      <span class="gallery-index">01</span>
+                      <span class="gallery-chip">Narrative / Atmosphere</span>
+                    </span>
+                  </span>
+                  <span class="gallery-text">
+                    <strong>Imagined by Vision</strong>
+                    <span>Wet grass, sunrise air and a clean cinematic reveal.</span>
+                  </span>
+                </button>
+              </article>
+
+              <article class="gallery-tile gallery-tile--feature">
+                <button
+                  class="gallery-open"
+                  type="button"
+                  data-video-src="./assets/red-dress.mp4"
+                  data-video-title="Red Dress"
+                  data-video-caption="A poised woman in a red dress turning through soft architectural light with clean luxury-film atmosphere."
+                  aria-label="Open Red Dress video"
+                >
+                  <span class="gallery-frame">
+                    <video class="gallery-video" src="./assets/red-dress.mp4" autoplay muted loop playsinline preload="metadata"></video>
+                    <span class="gallery-overlay"></span>
+                    <span class="gallery-meta">
+                      <span class="gallery-index">02</span>
+                      <span class="gallery-chip">Portrait / Luxury</span>
+                    </span>
+                  </span>
+                  <span class="gallery-text">
+                    <strong>Red Dress</strong>
+                    <span>Soft turn, elegant silhouette and polished cinematic light.</span>
+                  </span>
+                </button>
+              </article>
+            </div>
+
+            <div class="gallery-band">
+              <div class="gallery-band-head">
+                <div class="gallery-band-kicker">Supporting studies / 02</div>
+                <p class="gallery-band-copy">Two extra scenes with the same Vision language: one atmospheric landmark, one interior human moment.</p>
+              </div>
+
+              <div class="gallery-strip">
+                <article class="gallery-tile gallery-tile--support">
+                  <button
+                    class="gallery-open"
+                    type="button"
+                    data-video-src="./assets/lighthouse-blue-hour.mp4"
+                    data-video-title="Lighthouse Blue Hour"
+                    data-video-caption="A lone lighthouse on a storm cliff at blue hour with sea spray, cold wind and restrained cinematic tension."
+                    aria-label="Open Lighthouse Blue Hour video"
+                  >
+                    <span class="gallery-frame">
+                      <video class="gallery-video" src="./assets/lighthouse-blue-hour.mp4" autoplay muted loop playsinline preload="metadata"></video>
+                      <span class="gallery-overlay"></span>
+                      <span class="gallery-meta">
+                        <span class="gallery-index">03</span>
+                        <span class="gallery-chip">Coast / Storm</span>
+                      </span>
+                    </span>
+                    <span class="gallery-text">
+                      <strong>Lighthouse Blue Hour</strong>
+                      <span>Cold horizon, sea force and clean atmospheric drama.</span>
+                    </span>
+                  </button>
+                </article>
+
+                <article class="gallery-tile gallery-tile--support">
+                  <button
+                    class="gallery-open"
+                    type="button"
+                    data-video-src="./assets/city-window-couple.mp4"
+                    data-video-title="City Window Couple"
+                    data-video-caption="A man and woman looking out over the city from a high apartment, held in a quiet premium interior frame."
+                    aria-label="Open City Window Couple video"
+                  >
+                    <span class="gallery-frame">
+                      <video class="gallery-video" src="./assets/city-window-couple.mp4" autoplay muted loop playsinline preload="metadata"></video>
+                      <span class="gallery-overlay"></span>
+                      <span class="gallery-meta">
+                        <span class="gallery-index">04</span>
+                        <span class="gallery-chip">Interior / City</span>
+                      </span>
+                    </span>
+                    <span class="gallery-text">
+                      <strong>City Window Couple</strong>
+                      <span>Quiet interior light, skyline depth and human scale.</span>
+                    </span>
+                  </button>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="pricing-section" id="pricing">
+        <div class="pricing-atmosphere" aria-hidden="true">
+          <div class="pricing-glow pricing-glow--one"></div>
+          <div class="pricing-glow pricing-glow--two"></div>
+        </div>
+
+        <div class="pricing-shell">
+          <div class="pricing-header">
+            <div class="pricing-heading">
+              <div class="pricing-kicker">Pricing</div>
+              <h2 class="pricing-title">Three ways into Vision.</h2>
+            </div>
+            <p class="pricing-copy">
+              Built for different rhythms of making, from occasional studies to daily production. Every plan includes cinematic generations up to ten
+              seconds each.
+            </p>
+          </div>
+
+          <div class="pricing-grid">
+            <article class="pricing-card pricing-card--start">
+              <div class="pricing-card-top">
+                <div class="pricing-plan">Vision Start</div>
+                <div class="pricing-price">€9.99 <span>/ month</span></div>
+              </div>
+              <div class="pricing-volume">10 videos</div>
+              <p class="pricing-meta">Up to 10 seconds each</p>
+              <ul class="pricing-list">
+                <li>Fast monthly access</li>
+                <li>Core cinematic generations</li>
+                <li>Built for occasional studies</li>
+              </ul>
+              <a
+                class="pricing-button"
+                href="https://buy.stripe.com/bJe8wP6JR5E2gyl6WO9EI00"
+                rel="noreferrer"
+              >
+                Choose Start
+              </a>
+            </article>
+
+            <article class="pricing-card pricing-card--pro">
+              <div class="pricing-badge">Most used</div>
+              <div class="pricing-card-top">
+                <div class="pricing-plan">Vision Pro</div>
+                <div class="pricing-price">€29.99 <span>/ month</span></div>
+              </div>
+              <div class="pricing-volume">30 videos</div>
+              <p class="pricing-meta">Up to 10 seconds each</p>
+              <ul class="pricing-list">
+                <li>For recurring visual work</li>
+                <li>Stronger monthly output volume</li>
+                <li>Best fit for active creators</li>
+              </ul>
+              <a
+                class="pricing-button"
+                href="https://buy.stripe.com/7sYbJ12tBgiG2Hvepg9EI01"
+                rel="noreferrer"
+              >
+                Choose Pro
+              </a>
+            </article>
+
+            <article class="pricing-card pricing-card--studio">
+              <div class="pricing-card-top">
+                <div class="pricing-plan">Vision Studio</div>
+                <div class="pricing-price">€134.00 <span>/ month</span></div>
+              </div>
+              <div class="pricing-volume">134 videos</div>
+              <p class="pricing-meta">Up to 10 seconds each</p>
+              <ul class="pricing-list">
+                <li>For teams and daily production</li>
+                <li>High-volume monthly generation</li>
+                <li>Built for always-on pipelines</li>
+              </ul>
+              <a
+                class="pricing-button"
+                href="https://buy.stripe.com/dRmaEX0ltd6ugylgxo9EI02"
+                rel="noreferrer"
+              >
+                Choose Studio
+              </a>
+            </article>
+          </div>
+
+        </div>
+      </section>
+    </div>
+
+    <div class="gallery-lightbox" id="gallery-lightbox" aria-hidden="true">
+      <button class="gallery-lightbox-close" type="button" aria-label="Close gallery item">Close</button>
+      <div class="gallery-lightbox-panel" role="dialog" aria-modal="true" aria-labelledby="gallery-lightbox-title">
+        <div class="gallery-lightbox-media">
+          <video id="gallery-lightbox-video" controls playsinline preload="metadata"></video>
+        </div>
+        <div class="gallery-lightbox-copy">
+          <div class="gallery-lightbox-kicker">Gallery / Playback</div>
+          <h3 id="gallery-lightbox-title">Title</h3>
+          <p id="gallery-lightbox-caption">Caption</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="subscribe-modal" id="subscribe-modal" aria-hidden="true">
+      <div class="subscribe-panel" role="dialog" aria-modal="true" aria-labelledby="subscribe-title">
+        <button class="subscribe-close" type="button" aria-label="Close subscribe panel">Close</button>
+        <div class="subscribe-intro">
+          <div class="subscribe-kicker">Vision / Invitation</div>
+          <h3 id="subscribe-title">Request access</h3>
+          <p class="subscribe-copy">Leave your email and we’ll reach out when Vision opens.</p>
+          <div class="subscribe-plan-line" id="subscribe-plan-line" hidden></div>
+        </div>
+
+        <form class="subscribe-form" id="subscribe-form">
+          <label class="subscribe-label" for="subscribe-email">Email</label>
+          <div class="subscribe-field-row">
+            <input class="subscribe-input" id="subscribe-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
+            <button class="subscribe-submit" type="submit">Request access</button>
+          </div>
+          <p class="subscribe-note">Private invite only. No spam, no noisy launch emails.</p>
+        </form>
+
+        <div class="subscribe-success" id="subscribe-success" hidden>
+          <div class="subscribe-success-title">Request received.</div>
+          <p>We’ll reach out when Vision opens.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="generation-modal" id="generation-modal" aria-hidden="true">
+      <div class="generation-panel" role="dialog" aria-modal="true" aria-labelledby="generation-title">
+        <button class="generation-close" type="button" aria-label="Close generation panel">Close</button>
+        <div class="generation-kicker">Vision / Render</div>
+        <div class="generation-head">
+          <h3 id="generation-title">Queued inside Vision</h3>
+          <div class="generation-state" id="generation-state">Queued</div>
+        </div>
+        <p class="generation-copy" id="generation-copy">Preparing your prompt inside the hidden generation lane.</p>
+        <div class="generation-steps" aria-hidden="true">
+          <span class="generation-step" data-step="queued">Queued</span>
+          <span class="generation-step" data-step="preparing">Preparing</span>
+          <span class="generation-step" data-step="generating">Generating</span>
+          <span class="generation-step" data-step="downloading">Finishing</span>
+          <span class="generation-step" data-step="ready">Ready</span>
+        </div>
+        <p class="generation-prompt" id="generation-prompt"></p>
+        <div class="generation-ready" id="generation-ready" hidden>
+          <div class="generation-ready-shell">
+            <button class="generation-preview" id="generation-preview" type="button" aria-label="Open generated video">
+              <video id="generation-video" muted loop playsinline preload="metadata"></video>
+              <span class="generation-preview-badge">Tap to expand</span>
+            </button>
+            <div class="generation-delivery">
+              <div class="generation-delivery-copy">
+                <div class="generation-delivery-kicker">Delivery</div>
+                <strong>Render imported into Vision</strong>
+                <span>Preview it as a miniature, open it full-size, or download the source file.</span>
+              </div>
+              <div class="generation-actions">
+                <button class="generation-expand" id="generation-expand" type="button">Open video</button>
+                <a class="generation-download" id="generation-download" href="#" download>Download</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="generation-prepare" id="generation-prepare" type="button" hidden>Prepare engine</button>
+      </div>
+    </div>
+
+    <script src="./vision-config.js"></script>
+    <script src="./app.js"></script>
+  </body>
+  </html>
