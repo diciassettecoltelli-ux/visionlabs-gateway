@@ -4361,3 +4361,84 @@ body {
 .atom-guide-text {
   text-shadow: 0 0 16px rgba(0, 0, 0, 0.14);
 }
+
+/* Minimal dark gallery */
+.gallery-section {
+  background: linear-gradient(180deg, rgba(17, 18, 21, 0.98) 0%, rgba(22, 23, 27, 1) 100%);
+  padding-top: 5.5rem;
+  padding-bottom: 5.5rem;
+}
+
+.gallery-atmosphere,
+.gallery-copy,
+.gallery-kicker,
+.gallery-band,
+.gallery-composition,
+.gallery-stage,
+.gallery-strip,
+.gallery-meta,
+.gallery-text {
+  display: none;
+}
+
+.gallery-shell {
+  width: min(100%, 72rem);
+}
+
+.gallery-header {
+  display: block;
+  margin-bottom: 2rem;
+}
+
+.gallery-title {
+  font-size: clamp(1.3rem, 2vw, 1.65rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(248, 251, 255, 0.96);
+}
+
+.gallery-stack {
+  display: grid;
+  gap: 1.6rem;
+}
+
+.gallery-tile--stack .gallery-open {
+  display: block;
+}
+
+.gallery-tile--stack .gallery-frame {
+  border-radius: 1rem;
+  background: rgba(34, 36, 41, 1);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.26),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.gallery-tile--stack .gallery-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  filter: brightness(0.96) saturate(0.96) contrast(1.02);
+}
+
+.gallery-overlay {
+  background: linear-gradient(180deg, rgba(10, 11, 14, 0.02), rgba(10, 11, 14, 0.06) 42%, rgba(10, 11, 14, 0.22) 100%);
+}
+
+@media (max-width: 720px) {
+  .gallery-section {
+    padding-top: 4.25rem;
+    padding-bottom: 4.25rem;
+  }
+
+  .gallery-stack {
+    gap: 1rem;
+  }
+
+  .gallery-tile--stack .gallery-frame {
+    border-radius: 0.8rem;
+  }
+}
