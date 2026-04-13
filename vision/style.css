@@ -4213,6 +4213,16 @@ body {
   background: linear-gradient(90deg, rgba(255, 244, 227, 0.42), rgba(255, 244, 227, 0.12) 56%, rgba(255, 244, 227, 0));
 }
 
+.atom-trigger {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.atom-trigger:hover {
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
 .atom-trigger-core {
   background:
     radial-gradient(circle at 40% 36%, rgba(255, 252, 247, 0.98), rgba(248, 237, 220, 0.96) 38%, rgba(221, 191, 149, 0.9) 76%, rgba(160, 126, 87, 0.92) 100%);
@@ -4227,6 +4237,12 @@ body {
 
 .atom-guide-line {
   background: linear-gradient(180deg, rgba(248, 236, 218, 0.44), rgba(248, 236, 218, 0.06));
+}
+
+.atom-guide {
+  left: 50%;
+  top: calc(50% + 3.65rem);
+  transform: translateX(-50%);
 }
 
 .search-panel {
