@@ -4207,10 +4207,14 @@ body {
 
 .topbar-cta::before {
   background: radial-gradient(circle, rgba(255, 246, 232, 1) 0%, rgba(232, 214, 191, 0.92) 46%, rgba(186, 154, 119, 0.88) 100%);
+  width: 0.34rem;
+  height: 0.34rem;
+  box-shadow: none;
+  filter: none;
 }
 
 .topbar-cta::after {
-  background: linear-gradient(90deg, rgba(255, 244, 227, 0.42), rgba(255, 244, 227, 0.12) 56%, rgba(255, 244, 227, 0));
+  background: linear-gradient(90deg, rgba(255, 244, 227, 0.22), rgba(255, 244, 227, 0.08) 56%, rgba(255, 244, 227, 0));
 }
 
 .atom-trigger {
