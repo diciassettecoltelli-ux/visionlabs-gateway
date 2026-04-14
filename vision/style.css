@@ -4399,6 +4399,15 @@ body {
   color: rgba(248, 251, 255, 0.96);
 }
 
+.gallery-intro-text {
+  display: block;
+  max-width: 40rem;
+  margin: 0.95rem 0 0;
+  font-size: 0.96rem;
+  line-height: 1.68;
+  color: rgba(214, 224, 238, 0.68);
+}
+
 .gallery-stack {
   display: grid;
   gap: 1.6rem;
@@ -4713,9 +4722,7 @@ body {
 }
 
 .still-gallery-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: block;
   margin-bottom: 1.25rem;
 }
 
@@ -4726,6 +4733,14 @@ body {
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: rgba(241, 246, 255, 0.88);
+}
+
+.still-gallery-intro-text {
+  max-width: 40rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.94rem;
+  line-height: 1.66;
+  color: rgba(201, 213, 230, 0.64);
 }
 
 .still-gallery-grid {
