@@ -4271,32 +4271,32 @@ body {
 }
 
 .search-panel {
-  border-color: rgba(255, 240, 219, 0.18);
+  border-color: rgba(214, 228, 248, 0.12);
   background:
-    linear-gradient(180deg, rgba(46, 33, 24, 0.8), rgba(30, 21, 15, 0.82)),
-    rgba(18, 13, 10, 0.8);
+    linear-gradient(180deg, rgba(20, 24, 31, 0.84), rgba(12, 15, 21, 0.9)),
+    rgba(9, 11, 16, 0.86);
   box-shadow:
-    0 26px 64px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 243, 224, 0.12),
-    inset 0 0 0 1px rgba(255, 235, 206, 0.06);
+    0 26px 64px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(241, 246, 255, 0.08),
+    inset 0 0 0 1px rgba(214, 228, 248, 0.04);
 }
 
 .search-panel::before {
   background:
-    linear-gradient(180deg, rgba(255, 248, 238, 0.14), transparent 28%),
-    radial-gradient(circle at 18% 16%, rgba(255, 235, 204, 0.12), transparent 28%);
+    linear-gradient(180deg, rgba(247, 250, 255, 0.08), transparent 28%),
+    radial-gradient(circle at 18% 16%, rgba(196, 223, 255, 0.08), transparent 28%);
 }
 
 .search-icon {
-  color: rgba(242, 227, 207, 0.72);
+  color: rgba(226, 236, 248, 0.72);
 }
 
 .search-panel input {
-  color: rgba(250, 243, 234, 0.96);
+  color: rgba(248, 251, 255, 0.96);
 }
 
 .search-panel input::placeholder {
-  color: rgba(230, 213, 191, 0.48);
+  color: rgba(198, 210, 226, 0.58);
 }
 
 @media (max-width: 720px) {
