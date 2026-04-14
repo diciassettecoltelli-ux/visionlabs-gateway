@@ -45,3 +45,13 @@ services:
         sync: false
       - key: BYTEPLUS_SEEDANCE_PREMIUM_MODEL
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_VEO_FAST_MODEL
+        value: veo-3.1-fast-generate-preview
+      - key: GOOGLE_VEO_STANDARD_MODEL
+        value: veo-3.1-fast-generate-preview
+      - key: GOOGLE_VEO_PREMIUM_MODEL
+        value: veo-3.1-generate-preview
+      - key: GOOGLE_IMAGE_MODEL
+        value: gemini-3.1-flash-image-preview

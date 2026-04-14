@@ -17,6 +17,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from run_google_nano_banana2 import status as google_image_status
+from run_google_veo31 import generate_video as generate_google_veo_video
+from run_google_veo31 import status as google_video_status
 from run_seedance_modelark import generate_video as generate_seedance_video
 from run_seedance_modelark import status as seedance_status
 from vision_kling_session_bridge import SessionBridgeNotReadyError
@@ -71,7 +74,7 @@ def _default_generation_quality() -> str:
 
 def _default_generation_provider() -> str:
     requested = os.environ.get("VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER", "auto").strip().lower()
-    return requested if requested in {"auto", "seedance", "kling"} else "auto"
+    return requested if requested in {"auto", "seedance", "google", "kling"} else "auto"
 
 
 def _normalize_quality(value: str | None) -> str:
@@ -110,16 +113,79 @@ def _seedance_candidates_for_quality(quality: str, job_id: str) -> list[str]:
     }.get(quality, ["studio", "director", "fast"])
 
 
+def _google_video_model_for_quality(quality: str) -> str | None:
+    env_map = {
+        "fast": os.environ.get("GOOGLE_VEO_FAST_MODEL", "veo-3.1-fast-generate-preview").strip(),
+        "studio": os.environ.get("GOOGLE_VEO_STANDARD_MODEL", "veo-3.1-fast-generate-preview").strip(),
+        "director": os.environ.get("GOOGLE_VEO_PREMIUM_MODEL", "veo-3.1-generate-preview").strip(),
+    }
+    return env_map.get(quality) or None
+
+
+def _google_fallback_models_for_quality(quality: str) -> str:
+    fallback_map = {
+        "fast": os.environ.get("GOOGLE_VEO_FAST_FALLBACK_MODELS", "").strip(),
+        "studio": os.environ.get(
+            "GOOGLE_VEO_STANDARD_FALLBACK_MODELS",
+            os.environ.get("GOOGLE_VEO_FAST_MODEL", "veo-3.1-fast-generate-preview"),
+        ).strip(),
+        "director": os.environ.get(
+            "GOOGLE_VEO_PREMIUM_FALLBACK_MODELS",
+            ",".join(
+                value
+                for value in [
+                    os.environ.get("GOOGLE_VEO_STANDARD_MODEL", "veo-3.1-fast-generate-preview").strip(),
+                    os.environ.get("GOOGLE_VEO_FAST_MODEL", "veo-3.1-fast-generate-preview").strip(),
+                ]
+                if value
+            ),
+        ).strip(),
+    }
+    return fallback_map.get(quality, "").strip()
+
+
+def _google_status() -> dict[str, Any]:
+    image_state = google_image_status()
+    video_state = google_video_status()
+    return {
+        "ready": bool(image_state.get("ready") or video_state.get("ready")),
+        "image": image_state,
+        "video": video_state,
+    }
+
+
 
 def _select_generation_route(quality: str, job_id: str) -> dict[str, str]:
     seedance_state = seedance_status()
+    google_state = _google_status()
     kling_state = kling_session_bridge_status()
     default_provider = _default_generation_provider()
     requested_quality = "studio" if quality == "auto" else quality
     seedance_candidates = _seedance_candidates_for_quality(quality, job_id)
 
+    if default_provider == "google" and google_state["video"].get("ready"):
+        model_name = _google_video_model_for_quality(requested_quality)
+        if model_name:
+            return {
+                "provider": "google_veo",
+                "quality": requested_quality,
+                "model": model_name,
+                "fallback_models": _google_fallback_models_for_quality(requested_quality),
+                "aspect_ratio": "16:9",
+            }
+
     if default_provider in {"auto", "seedance"} and seedance_state.get("ready"):
         for candidate in seedance_candidates:
+            if candidate == "director" and google_state["video"].get("ready"):
+                google_model = _google_video_model_for_quality(candidate)
+                if google_model:
+                    return {
+                        "provider": "google_veo",
+                        "quality": candidate,
+                        "model": google_model,
+                        "fallback_models": _google_fallback_models_for_quality(candidate),
+                        "aspect_ratio": "16:9",
+                    }
             model_name = _seedance_model_for_quality(candidate)
             if model_name:
                 return {
@@ -128,6 +194,17 @@ def _select_generation_route(quality: str, job_id: str) -> dict[str, str]:
                     "model": model_name,
                     "resolution": _seedance_resolution_for_quality(candidate),
                 }
+
+    if default_provider in {"auto", "google"} and google_state["video"].get("ready"):
+        model_name = _google_video_model_for_quality(requested_quality)
+        if model_name:
+            return {
+                "provider": "google_veo",
+                "quality": requested_quality,
+                "model": model_name,
+                "fallback_models": _google_fallback_models_for_quality(requested_quality),
+                "aspect_ratio": "16:9",
+            }
 
     if default_provider in {"auto", "kling"} and kling_state.get("ready"):
         return {
@@ -139,6 +216,8 @@ def _select_generation_route(quality: str, job_id: str) -> dict[str, str]:
 
     if default_provider == "seedance":
         raise RuntimeError("Seedance is not ready yet for this Vision deployment.")
+    if default_provider == "google":
+        raise RuntimeError("Google Veo is not ready yet for this Vision deployment.")
     raise SessionBridgeNotReadyError("No ready generation provider is available for Vision right now.")
 
 
@@ -250,6 +329,16 @@ def _process_job(job_id: str) -> None:
                 aspect_ratio="16:9",
                 resolution=route["resolution"],
             )
+        elif route["provider"] == "google_veo":
+            JOBS.update(job_id, status="generating", message=f"Generating inside Vision ({route['quality']} Google lane).")
+            output_video = generate_google_veo_video(
+                prompt=job["prompt"],
+                output_dir=output_dir,
+                model=route["model"],
+                duration=5,
+                aspect_ratio=route["aspect_ratio"],
+                fallback_models=route.get("fallback_models", ""),
+            )
         else:
             lane_state = kling_session_bridge_status()
             if not lane_state.get("ready"):
@@ -336,6 +425,7 @@ def engine_status() -> dict[str, Any]:
     return {
         "kling_session_bridge": kling_session_bridge_status(),
         "seedance": seedance_status(),
+        "google": _google_status(),
         "default_provider": _default_generation_provider(),
         "default_quality": _default_generation_quality(),
     }
