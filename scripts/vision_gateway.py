@@ -17,6 +17,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from run_seedance_modelark import generate_video as generate_seedance_video
+from run_seedance_modelark import status as seedance_status
 from vision_kling_session_bridge import SessionBridgeNotReadyError
 from vision_kling_session_bridge import generate as generate_kling_session_bridge
 from vision_kling_session_bridge import prepare as prepare_kling_session_bridge
@@ -62,7 +64,85 @@ def _public_output_url(job_id: str, filename: str) -> str:
     return relative_path
 
 
-APP = FastAPI(title="Vision Gateway", version="0.1.0")
+def _default_generation_quality() -> str:
+    requested = os.environ.get("VISION_GATEWAY_DEFAULT_GENERATION_QUALITY", "auto").strip().lower()
+    return requested if requested in {"auto", "fast", "studio", "director"} else "studio"
+
+
+def _default_generation_provider() -> str:
+    requested = os.environ.get("VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER", "auto").strip().lower()
+    return requested if requested in {"auto", "seedance", "kling"} else "auto"
+
+
+def _normalize_quality(value: str | None) -> str:
+    if not value:
+        return _default_generation_quality()
+    normalized = value.strip().lower()
+    return normalized if normalized in {"auto", "fast", "studio", "director"} else _default_generation_quality()
+
+
+def _seedance_model_for_quality(quality: str) -> str | None:
+    env_map = {
+        "fast": os.environ.get("BYTEPLUS_SEEDANCE_FAST_MODEL", "").strip(),
+        "studio": os.environ.get("BYTEPLUS_SEEDANCE_STANDARD_MODEL", "").strip(),
+        "director": os.environ.get("BYTEPLUS_SEEDANCE_PREMIUM_MODEL", "").strip(),
+    }
+    return env_map.get(quality) or None
+
+
+def _seedance_resolution_for_quality(quality: str) -> str:
+    return {
+        "fast": "480p",
+        "studio": "720p",
+        "director": "1080p",
+    }.get(quality, "720p")
+
+
+def _seedance_candidates_for_quality(quality: str, job_id: str) -> list[str]:
+    if quality == "auto":
+        auto_lanes = ["fast", "studio", "director"]
+        seed = int(job_id[-2:], 16) % len(auto_lanes)
+        return auto_lanes[seed:] + auto_lanes[:seed]
+    return {
+        "fast": ["fast", "studio", "director"],
+        "studio": ["studio", "director", "fast"],
+        "director": ["director", "studio", "fast"],
+    }.get(quality, ["studio", "director", "fast"])
+
+
+
+def _select_generation_route(quality: str, job_id: str) -> dict[str, str]:
+    seedance_state = seedance_status()
+    kling_state = kling_session_bridge_status()
+    default_provider = _default_generation_provider()
+    requested_quality = "studio" if quality == "auto" else quality
+    seedance_candidates = _seedance_candidates_for_quality(quality, job_id)
+
+    if default_provider in {"auto", "seedance"} and seedance_state.get("ready"):
+        for candidate in seedance_candidates:
+            model_name = _seedance_model_for_quality(candidate)
+            if model_name:
+                return {
+                    "provider": "byteplus_seedance",
+                    "quality": candidate,
+                    "model": model_name,
+                    "resolution": _seedance_resolution_for_quality(candidate),
+                }
+
+    if default_provider in {"auto", "kling"} and kling_state.get("ready"):
+        return {
+            "provider": "kling_web_session_bridge",
+            "quality": requested_quality,
+            "model": os.environ.get("WORLDSIM_KLING_MODEL", "kling-2.6-pro"),
+            "resolution": "1080p",
+        }
+
+    if default_provider == "seedance":
+        raise RuntimeError("Seedance is not ready yet for this Vision deployment.")
+    raise SessionBridgeNotReadyError("No ready generation provider is available for Vision right now.")
+
+
+APP = FastAPI(title="Vision Gateway", version="0.2.0")
 APP.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_allow_origins(),
@@ -85,6 +165,7 @@ APP.mount("/generated", StaticFiles(directory=str(OUTPUT_ROOT)), name="generated
 
 class CreateJobRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=5000)
+    quality: str | None = Field(default=None, min_length=4, max_length=16)
 
 
 class JobsStore:
@@ -106,14 +187,15 @@ class JobsStore:
     def save(self) -> None:
         self.path.write_text(json.dumps(self.jobs, indent=2), encoding="utf-8")
 
-    def create(self, prompt: str) -> dict[str, Any]:
+    def create(self, prompt: str, quality: str) -> dict[str, Any]:
         with self.lock:
             job_id = uuid.uuid4().hex[:12]
             now = datetime.now(timezone.utc).isoformat()
             job = {
                 "id": job_id,
                 "prompt": prompt,
-                "provider": "kling_web_session_bridge",
+                "provider": "auto",
+                "quality": quality,
                 "status": "queued",
                 "message": "Queued inside Vision.",
                 "created_at": now,
@@ -149,16 +231,34 @@ def _process_job(job_id: str) -> None:
     if not job:
         return
     output_dir = OUTPUT_ROOT / job_id
+    route = _select_generation_route(str(job.get("quality") or "auto"), job_id)
     try:
-        JOBS.update(job_id, status="preparing", message="Preparing invisible Kling session bridge.")
-        lane_state = kling_session_bridge_status()
-        if not lane_state.get("ready"):
-            prepare_kling_session_bridge()
-        JOBS.update(job_id, status="generating", message="Generating inside Vision.")
-        output_video = generate_kling_session_bridge(
-            prompt=job["prompt"],
-            output_dir=output_dir,
+        JOBS.update(
+            job_id,
+            provider=route["provider"],
+            quality=route["quality"],
+            status="preparing",
+            message="Preparing generation lane inside Vision.",
         )
+        if route["provider"] == "byteplus_seedance":
+            JOBS.update(job_id, status="generating", message=f"Generating inside Vision ({route['quality']} lane).")
+            output_video = generate_seedance_video(
+                prompt=job["prompt"],
+                output_dir=output_dir,
+                model=route["model"],
+                duration=5,
+                aspect_ratio="16:9",
+                resolution=route["resolution"],
+            )
+        else:
+            lane_state = kling_session_bridge_status()
+            if not lane_state.get("ready"):
+                prepare_kling_session_bridge()
+            JOBS.update(job_id, status="generating", message="Generating inside Vision.")
+            output_video = generate_kling_session_bridge(
+                prompt=job["prompt"],
+                output_dir=output_dir,
+            )
         JOBS.update(job_id, status="downloading", message="Finishing and importing result.")
         JOBS.update(
             job_id,
@@ -172,14 +272,14 @@ def _process_job(job_id: str) -> None:
         JOBS.update(
             job_id,
             status="failed",
-            message="The invisible Kling session bridge is not ready yet.",
+            message="No ready invisible generation lane is available yet.",
             error=str(exc) if str(exc) else None,
         )
     except RuntimeError as exc:
         JOBS.update(
             job_id,
             status="failed",
-            message="The Kling session bridge failed before Vision could import the result.",
+            message="The generation lane failed before Vision could import the result.",
             error=str(exc) if str(exc) else None,
         )
     except Exception as exc:
@@ -235,6 +335,9 @@ def health() -> dict[str, str]:
 def engine_status() -> dict[str, Any]:
     return {
         "kling_session_bridge": kling_session_bridge_status(),
+        "seedance": seedance_status(),
+        "default_provider": _default_generation_provider(),
+        "default_quality": _default_generation_quality(),
     }
 
 
@@ -249,7 +352,7 @@ def engine_prepare() -> JSONResponse:
 
 @APP.post("/api/jobs")
 def create_job(payload: CreateJobRequest) -> dict[str, Any]:
-    job = JOBS.create(payload.prompt.strip())
+    job = JOBS.create(payload.prompt.strip(), _normalize_quality(payload.quality))
     QUEUE.put(job["id"])
     return job
 

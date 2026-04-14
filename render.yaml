@@ -25,9 +25,23 @@ services:
         sync: false
       - key: VISION_GATEWAY_CORS_ALLOW_ORIGINS
         value: https://visionlabs.cloud,https://www.visionlabs.cloud,https://visionstudiolab.com,https://www.visionstudiolab.com,https://vision-frontend-6g09.onrender.com
+      - key: VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER
+        value: auto
+      - key: VISION_GATEWAY_DEFAULT_GENERATION_QUALITY
+        value: auto
       - key: VISION_KLING_COOKIE_HEADER
         sync: false
       - key: VISION_KLING_REQUEST_HEADERS_JSON
         sync: false
       - key: VISION_KLING_SUBMIT_PAYLOAD_JSON
+        sync: false
+      - key: BYTEPLUS_API_KEY
+        sync: false
+      - key: BYTEPLUS_BASE_URL
+        value: https://ark.ap-southeast.bytepluses.com/api/v3
+      - key: BYTEPLUS_SEEDANCE_FAST_MODEL
+        sync: false
+      - key: BYTEPLUS_SEEDANCE_STANDARD_MODEL
+        sync: false
+      - key: BYTEPLUS_SEEDANCE_PREMIUM_MODEL
         sync: false
