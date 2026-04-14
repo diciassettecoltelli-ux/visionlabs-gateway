@@ -7,6 +7,7 @@ const searchSubmit = document.querySelector(".search-launch-button");
 const galleryButtons = document.querySelectorAll(".gallery-open");
 const galleryLightbox = document.querySelector("#gallery-lightbox");
 const galleryLightboxVideo = document.querySelector("#gallery-lightbox-video");
+const galleryLightboxImage = document.querySelector("#gallery-lightbox-image");
 const galleryLightboxTitle = document.querySelector("#gallery-lightbox-title");
 const galleryLightboxCaption = document.querySelector("#gallery-lightbox-caption");
 const galleryLightboxClose = document.querySelector(".gallery-lightbox-close");
@@ -91,25 +92,48 @@ const setGalleryLightboxState = (open, payload = {}) => {
   galleryLightbox?.classList.toggle("is-open", open);
   galleryLightbox?.setAttribute("aria-hidden", open ? "false" : "true");
 
-  if (!galleryLightboxVideo) {
+  if (!galleryLightboxVideo || !galleryLightboxImage) {
     return;
   }
 
   if (open) {
+    const mediaType = payload.mediaType || "video";
+    galleryLightboxTitle.textContent = payload.title || "Untitled";
+    galleryLightboxCaption.textContent = payload.caption || "";
+
+    if (mediaType === "image") {
+      galleryLightboxVideo.pause();
+      galleryLightboxVideo.hidden = true;
+      galleryLightboxVideo.removeAttribute("src");
+      galleryLightboxVideo.load();
+
+      galleryLightboxImage.hidden = false;
+      galleryLightboxImage.src = payload.src || "";
+      galleryLightboxImage.alt = payload.title || "Gallery image";
+      return;
+    }
+
+    galleryLightboxImage.hidden = true;
+    galleryLightboxImage.removeAttribute("src");
+    galleryLightboxImage.alt = "";
+
+    galleryLightboxVideo.hidden = false;
     if (payload.src && galleryLightboxVideo.getAttribute("src") !== payload.src) {
       galleryLightboxVideo.src = payload.src;
     }
-
-    galleryLightboxTitle.textContent = payload.title || "Untitled";
-    galleryLightboxCaption.textContent = payload.caption || "";
     galleryLightboxVideo.currentTime = 0;
     galleryLightboxVideo.play().catch(() => {});
     return;
   }
 
   galleryLightboxVideo.pause();
+  galleryLightboxVideo.hidden = true;
   galleryLightboxVideo.removeAttribute("src");
   galleryLightboxVideo.load();
+
+  galleryLightboxImage.hidden = true;
+  galleryLightboxImage.removeAttribute("src");
+  galleryLightboxImage.alt = "";
 };
 
 const openGenerationLightbox = () => {
@@ -118,6 +142,7 @@ const openGenerationLightbox = () => {
   }
 
   setGalleryLightboxState(true, {
+    mediaType: "video",
     src: generationVideo.src,
     title: "Latest Vision render",
     caption: generationPrompt?.textContent || "Generated inside Vision.",
@@ -386,10 +411,12 @@ promptInput?.addEventListener("blur", () => {
 
 galleryButtons.forEach((button) => {
   button.addEventListener("click", () => {
+    const mediaType = button.dataset.mediaType || (button.dataset.imageSrc ? "image" : "video");
     setGalleryLightboxState(true, {
-      src: button.dataset.videoSrc,
-      title: button.dataset.videoTitle,
-      caption: button.dataset.videoCaption,
+      mediaType,
+      src: mediaType === "image" ? button.dataset.imageSrc : button.dataset.videoSrc,
+      title: button.dataset.imageTitle || button.dataset.videoTitle,
+      caption: button.dataset.imageCaption || button.dataset.videoCaption,
     });
   });
 });
