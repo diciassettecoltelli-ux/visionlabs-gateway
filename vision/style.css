@@ -4403,9 +4403,11 @@ body {
   display: block;
   max-width: 40rem;
   margin: 0.95rem 0 0;
-  font-size: 0.96rem;
-  line-height: 1.68;
-  color: rgba(214, 224, 238, 0.68);
+  font-size: 1rem;
+  line-height: 1.7;
+  color: rgba(226, 234, 245, 0.9);
+  position: relative;
+  z-index: 2;
 }
 
 .gallery-stack {
@@ -4738,9 +4740,11 @@ body {
 .still-gallery-intro-text {
   max-width: 40rem;
   margin: 0.85rem 0 0;
-  font-size: 0.94rem;
-  line-height: 1.66;
-  color: rgba(201, 213, 230, 0.64);
+  font-size: 0.98rem;
+  line-height: 1.68;
+  color: rgba(224, 232, 242, 0.88);
+  position: relative;
+  z-index: 2;
 }
 
 .still-gallery-grid {
