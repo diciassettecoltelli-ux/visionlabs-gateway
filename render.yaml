@@ -28,7 +28,7 @@ services:
       - key: VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER
         value: auto
       - key: VISION_GATEWAY_DEFAULT_GENERATION_QUALITY
-        value: auto
+        value: studio
       - key: VISION_KLING_COOKIE_HEADER
         sync: false
       - key: VISION_KLING_REQUEST_HEADERS_JSON
@@ -54,7 +54,9 @@ services:
       - key: GOOGLE_VEO_PREMIUM_MODEL
         value: veo-3.1-generate-preview
       - key: GOOGLE_IMAGE_MODEL
-        value: gemini-3.1-flash-image-preview
+        value: imagen-4.0-generate-001
+      - key: GOOGLE_IMAGE_FALLBACK_MODELS
+        value: imagen-4.0-fast-generate-001
       - key: GOOGLE_PROMPT_MODEL
         value: gemini-2.5-flash
       - key: STRIPE_SECRET_KEY

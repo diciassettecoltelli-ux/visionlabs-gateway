@@ -53,9 +53,45 @@ def _first_text(response: Any) -> str:
     return ""
 
 
+def _looks_already_enhanced(prompt: str, mode: str) -> bool:
+    lowered = prompt.strip().lower()
+    prefixes = [
+        "ultra-realistic cinematic shot of",
+        "ultra realistic cinematic shot of",
+        "ultra-realistic cinematic still of",
+        "ultra realistic cinematic still of",
+    ]
+    if any(lowered.startswith(prefix) for prefix in prefixes):
+        return True
+    if mode == "video" and "feature-film realism" in lowered:
+        return True
+    if mode == "image" and "clean visual hierarchy" in lowered:
+        return True
+    return False
+
+
+def _dedupe_intro(prompt: str) -> str:
+    cleaned = " ".join(prompt.strip().split())
+    duplicate_pairs = [
+        ("Ultra-realistic cinematic shot of Ultra-realistic cinematic shot of ", "Ultra-realistic cinematic shot of "),
+        ("Ultra-realistic cinematic still of Ultra-realistic cinematic still of ", "Ultra-realistic cinematic still of "),
+    ]
+    for before, after in duplicate_pairs:
+        while before in cleaned:
+            cleaned = cleaned.replace(before, after)
+    return cleaned
+
+
 def _local_prompt(prompt: str, mode: str) -> dict[str, str | None]:
     normalized = "image" if mode == "image" else "video"
-    cleaned = " ".join(prompt.strip().split())
+    cleaned = _dedupe_intro(prompt)
+    if _looks_already_enhanced(cleaned, normalized):
+        return {
+            "improved_prompt": cleaned,
+            "summary": "Prompt already sharpened by Vision.",
+            "provider": "vision_local",
+            "model": None,
+        }
     if normalized == "image":
         improved = (
             f"Ultra-realistic cinematic still of {cleaned}, premium lighting, refined composition, detailed textures, "
@@ -90,9 +126,16 @@ def status() -> dict[str, Any]:
 
 def improve_prompt(*, prompt: str, mode: str = "video", model: str | None = None) -> dict[str, str | None]:
     normalized_mode = "image" if mode == "image" else "video"
-    cleaned_prompt = " ".join(prompt.strip().split())
+    cleaned_prompt = _dedupe_intro(prompt)
     if not cleaned_prompt:
         raise RuntimeError("Prompt enhancement needs a prompt first.")
+    if _looks_already_enhanced(cleaned_prompt, normalized_mode):
+        return {
+            "improved_prompt": cleaned_prompt,
+            "summary": "Prompt already sharpened by Vision.",
+            "provider": "vision_local",
+            "model": None,
+        }
 
     try:
         from google import genai
@@ -117,6 +160,8 @@ Rules:
 - Improve realism, atmosphere, lighting, framing, material detail, and visual tone.
 - If mode is video, add natural motion and restrained camera direction.
 - If mode is image, optimize for a powerful still frame.
+- If the prompt already sounds premium, only tighten it lightly instead of rewriting the opening phrase.
+- Never repeat the same cinematic intro twice.
 - Never mention provider names, model names, aspect ratios, resolutions, credits, or pricing.
 - Do not use markdown.
 - Return strict JSON with keys: improved_prompt, summary.

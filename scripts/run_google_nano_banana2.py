@@ -7,6 +7,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+DEFAULT_IMAGE_MODEL = "imagen-4.0-generate-001"
+DEFAULT_IMAGE_FALLBACK_MODELS = ("imagen-4.0-fast-generate-001",)
+
 
 def _resolve_api_key() -> str:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -70,14 +73,60 @@ def _save_first_image(response: Any, output_image: Path) -> tuple[Path, str]:
     raise RuntimeError("Gemini image response did not contain an inline image.")
 
 
+def _save_generated_image(response: Any, output_image: Path) -> tuple[Path, str]:
+    generated_images = getattr(response, "generated_images", None)
+    if generated_images is None and isinstance(response, dict):
+        generated_images = response.get("generated_images") or response.get("generatedImages")
+    if not generated_images:
+        raise RuntimeError("Google image response did not contain a generated image.")
+
+    first = generated_images[0]
+    image = getattr(first, "image", None)
+    if image is None and isinstance(first, dict):
+        image = first.get("image")
+    if image is None:
+        raise RuntimeError("Google image response did not include image bytes.")
+
+    image_bytes = getattr(image, "image_bytes", None)
+    mime_type = getattr(image, "mime_type", None)
+    if isinstance(image, dict):
+        image_bytes = image.get("image_bytes") or image.get("imageBytes") or image_bytes
+        mime_type = image.get("mime_type") or image.get("mimeType") or mime_type
+    if not image_bytes:
+        raise RuntimeError("Google image response did not include image bytes.")
+
+    output_image.parent.mkdir(parents=True, exist_ok=True)
+    output_image.write_bytes(bytes(image_bytes))
+    return output_image, str(mime_type or "image/png")
+
+
+def _default_primary_model() -> str:
+    return os.getenv("GOOGLE_IMAGE_MODEL", "").strip() or DEFAULT_IMAGE_MODEL
+
+
+def _parse_fallback_models(raw: str | None) -> list[str]:
+    configured = raw if raw is not None else os.getenv("GOOGLE_IMAGE_FALLBACK_MODELS", "")
+    values = [value.strip() for value in str(configured or "").split(",") if value.strip()]
+    return values or list(DEFAULT_IMAGE_FALLBACK_MODELS)
+
+
+def _candidate_models(primary: str | None, fallback_models: str | None = None) -> list[str]:
+    models: list[str] = []
+    for candidate in [primary or _default_primary_model(), *_parse_fallback_models(fallback_models)]:
+        if candidate and candidate not in models:
+            models.append(candidate)
+    return models
+
+
 def status() -> dict[str, Any]:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
-    model = os.getenv("GOOGLE_IMAGE_MODEL", "gemini-3.1-flash-image-preview").strip()
+    model = _default_primary_model()
     return {
         "ready": bool(api_key and model),
         "mode": "google",
         "has_api_key": bool(api_key),
         "model": model or None,
+        "fallback_models": ",".join(_parse_fallback_models(None)),
     }
 
 
@@ -87,6 +136,7 @@ def generate_image(
     output_dir: str | Path,
     output_image: str | Path | None = None,
     model: str | None = None,
+    fallback_models: str | None = None,
     input_images: list[str | Path] | None = None,
 ) -> Path:
     output_dir = Path(output_dir)
@@ -100,36 +150,60 @@ def generate_image(
         raise RuntimeError("google-genai is required for Gemini image runtime integration.") from exc
 
     client = genai.Client(api_key=_resolve_api_key())
-    config = types.GenerateContentConfig(response_modalities=["IMAGE"])
-    contents: list[Any] = []
     normalized_inputs = [Path(value).expanduser().resolve() for value in (input_images or [])]
-    for image_path in normalized_inputs:
-        if not image_path.exists():
-            raise FileNotFoundError(f"Input image not found: {image_path}")
-        contents.append(
-            types.Part.from_bytes(
-                data=image_path.read_bytes(),
-                mime_type=_guess_mime_type(image_path),
-            )
-        )
-    contents.append(prompt)
-    resolved_model = model or os.getenv("GOOGLE_IMAGE_MODEL", "gemini-3.1-flash-image-preview")
-    response = client.models.generate_content(
-        model=resolved_model,
-        contents=contents,
-        config=config,
-    )
-    saved_image, mime_type = _save_first_image(response, output_image_path)
-    metadata = {
-        "provider": "google",
-        "model": resolved_model,
-        "prompt": prompt,
-        "output_image": str(saved_image),
-        "mime_type": mime_type,
-        "input_images": [str(path) for path in normalized_inputs],
-    }
-    (output_dir / "google_image_metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    return saved_image
+    candidate_models = _candidate_models(model, fallback_models)
+    failures: list[str] = []
+
+    for resolved_model in candidate_models:
+        try:
+            if normalized_inputs:
+                config = types.GenerateContentConfig(response_modalities=["IMAGE"])
+                contents: list[Any] = []
+                for image_path in normalized_inputs:
+                    if not image_path.exists():
+                        raise FileNotFoundError(f"Input image not found: {image_path}")
+                    contents.append(
+                        types.Part.from_bytes(
+                            data=image_path.read_bytes(),
+                            mime_type=_guess_mime_type(image_path),
+                        )
+                    )
+                contents.append(prompt)
+                response = client.models.generate_content(
+                    model=resolved_model,
+                    contents=contents,
+                    config=config,
+                )
+                saved_image, mime_type = _save_first_image(response, output_image_path)
+            else:
+                response = client.models.generate_images(
+                    model=resolved_model,
+                    prompt=prompt,
+                    config=types.GenerateImagesConfig(
+                        numberOfImages=1,
+                        aspectRatio="16:9",
+                        outputMimeType="image/png",
+                        addWatermark=False,
+                        enhancePrompt=True,
+                    ),
+                )
+                saved_image, mime_type = _save_generated_image(response, output_image_path)
+
+            metadata = {
+                "provider": "google",
+                "model": resolved_model,
+                "prompt": prompt,
+                "output_image": str(saved_image),
+                "mime_type": mime_type,
+                "input_images": [str(path) for path in normalized_inputs],
+                "fallback_models": candidate_models[1:],
+            }
+            (output_dir / "google_image_metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+            return saved_image
+        except Exception as exc:
+            failures.append(f"{resolved_model}: {exc}")
+
+    raise RuntimeError(" ; ".join(failures) if failures else "Google image generation failed.")
 
 
 def main() -> None:
@@ -138,7 +212,8 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--output-image")
     parser.add_argument("--input-image", action="append", default=[])
-    parser.add_argument("--model", default=os.getenv("GOOGLE_IMAGE_MODEL", "gemini-3.1-flash-image-preview"))
+    parser.add_argument("--model", default=_default_primary_model())
+    parser.add_argument("--fallback-models", default=os.getenv("GOOGLE_IMAGE_FALLBACK_MODELS", ",".join(DEFAULT_IMAGE_FALLBACK_MODELS)))
     args = parser.parse_args()
 
     saved_image = generate_image(
@@ -146,6 +221,7 @@ def main() -> None:
         output_dir=args.output_dir,
         output_image=args.output_image,
         model=args.model,
+        fallback_models=args.fallback_models,
         input_images=args.input_image,
     )
     print(saved_image)

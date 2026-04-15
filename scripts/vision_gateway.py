@@ -122,9 +122,7 @@ def _seedance_resolution_for_quality(quality: str) -> str:
 
 def _seedance_candidates_for_quality(quality: str, job_id: str) -> list[str]:
     if quality == "auto":
-        auto_lanes = ["fast", "studio", "director"]
-        seed = int(job_id[-2:], 16) % len(auto_lanes)
-        return auto_lanes[seed:] + auto_lanes[:seed]
+        return ["studio", "director", "fast"]
     return {
         "fast": ["fast", "studio", "director"],
         "studio": ["studio", "director", "fast"],
@@ -181,7 +179,8 @@ def _select_image_route() -> dict[str, str]:
     if image_state.get("ready"):
         return {
             "provider": "google_image",
-            "model": str(image_state.get("model") or os.environ.get("GOOGLE_IMAGE_MODEL", "gemini-3.1-flash-image-preview")),
+            "model": str(image_state.get("model") or os.environ.get("GOOGLE_IMAGE_MODEL", "imagen-4.0-generate-001")),
+            "fallback_models": str(image_state.get("fallback_models") or os.environ.get("GOOGLE_IMAGE_FALLBACK_MODELS", "imagen-4.0-fast-generate-001")),
         }
     raise RuntimeError("Google image generation is not ready yet for this Vision deployment.")
 
@@ -847,6 +846,7 @@ def _process_job(job_id: str) -> None:
                 prompt=job["prompt"],
                 output_dir=output_dir,
                 model=route["model"],
+                fallback_models=route.get("fallback_models", ""),
             )
             JOBS.update(
                 job_id,

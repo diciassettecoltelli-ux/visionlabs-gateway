@@ -377,6 +377,47 @@ const setGenerationStage = (status, message = "") => {
   });
 };
 
+const resetGenerationDelivery = (outputType, prompt = "") => {
+  const normalizedType = outputType === "image" ? "image" : "video";
+  currentGenerationOutput = null;
+
+  if (generationReady) {
+    generationReady.hidden = true;
+  }
+
+  if (generationDownload) {
+    generationDownload.removeAttribute("href");
+    generationDownload.removeAttribute("download");
+    generationDownload.textContent = normalizedType === "image" ? "Download image" : "Download video";
+    generationDownload.setAttribute("aria-disabled", "true");
+  }
+
+  if (generationExpand) {
+    generationExpand.textContent = normalizedType === "image" ? "Open image" : "Open video";
+    generationExpand.setAttribute("aria-disabled", "true");
+  }
+
+  if (generationPreview) {
+    generationPreview.setAttribute(
+      "aria-label",
+      normalizedType === "image" ? "Generated image preview unavailable" : "Generated video preview unavailable",
+    );
+  }
+
+  if (generationImage) {
+    generationImage.hidden = true;
+    generationImage.removeAttribute("src");
+    generationImage.alt = prompt || "";
+  }
+
+  if (generationVideo) {
+    generationVideo.pause();
+    generationVideo.hidden = true;
+    generationVideo.removeAttribute("src");
+    generationVideo.load();
+  }
+};
+
 const presentGenerationJob = (job) => {
   const status = (job.status || "queued").toLowerCase();
   const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
@@ -414,7 +455,7 @@ const presentGenerationJob = (job) => {
   }
 
   if (!isReady) {
-    currentGenerationOutput = null;
+    resetGenerationDelivery(outputType, job.prompt || "");
     return;
   }
 
@@ -428,9 +469,12 @@ const presentGenerationJob = (job) => {
 
   if (generationDownload) {
     generationDownload.href = resolvedOutputUrl;
+    generationDownload.setAttribute("download", "");
+    generationDownload.removeAttribute("aria-disabled");
     generationDownload.textContent = outputType === "image" ? "Download image" : "Download video";
   }
   if (generationExpand) {
+    generationExpand.removeAttribute("aria-disabled");
     generationExpand.textContent = outputType === "image" ? "Open image" : "Open video";
   }
   if (generationPreview) {
