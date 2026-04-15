@@ -55,3 +55,19 @@ services:
         value: veo-3.1-generate-preview
       - key: GOOGLE_IMAGE_MODEL
         value: gemini-3.1-flash-image-preview
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: VISION_ACCESS_SECRET
+        sync: false
+      - key: VISION_ADMIN_TOKEN
+        sync: false
+      - key: VISION_FRONTEND_BASE_URL
+        value: https://visionstudiolab.com
+      - key: VISION_PACK_PRICE_CENTS
+        value: 499
+      - key: VISION_PACK_CURRENCY
+        value: eur
+      - key: VISION_PACK_VIDEO_CREDITS
+        value: 3
+      - key: VISION_PACK_IMAGE_CREDITS
+        value: 5

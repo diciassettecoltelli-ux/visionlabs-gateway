@@ -4,6 +4,8 @@ const searchCluster = document.querySelector(".search-cluster");
 const searchForm = document.querySelector("#vision-search-form");
 const promptInput = document.querySelector("#vision-prompt");
 const searchSubmit = document.querySelector(".search-launch-button");
+const modeButtons = document.querySelectorAll("[data-generation-mode]");
+const accessPill = document.querySelector("#vision-access-pill");
 const galleryButtons = document.querySelectorAll(".gallery-open");
 const galleryLightbox = document.querySelector("#gallery-lightbox");
 const galleryLightboxVideo = document.querySelector("#gallery-lightbox-video");
@@ -21,6 +23,8 @@ const subscribeKicker = document.querySelector(".subscribe-kicker");
 const subscribeTitle = document.querySelector("#subscribe-title");
 const subscribeCopy = document.querySelector(".subscribe-copy");
 const subscribePlanLine = document.querySelector("#subscribe-plan-line");
+const subscribeSubmit = document.querySelector(".subscribe-submit");
+const subscribeNote = document.querySelector("#subscribe-note");
 const generationModal = document.querySelector("#generation-modal");
 const generationClose = document.querySelector(".generation-close");
 const generationTitle = document.querySelector("#generation-title");
@@ -30,6 +34,7 @@ const generationPrompt = document.querySelector("#generation-prompt");
 const generationSteps = document.querySelectorAll(".generation-step");
 const generationReady = document.querySelector("#generation-ready");
 const generationVideo = document.querySelector("#generation-video");
+const generationImage = document.querySelector("#generation-image");
 const generationPreview = document.querySelector("#generation-preview");
 const generationExpand = document.querySelector("#generation-expand");
 const generationDownload = document.querySelector("#generation-download");
@@ -38,8 +43,27 @@ const generationPrepare = document.querySelector("#generation-prepare");
 const configuredApiBase = typeof window.VISION_API_BASE === "string" ? window.VISION_API_BASE.trim() : "";
 const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 const VISION_API_BASE = configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "");
+const VISION_ACCESS_STORAGE_KEY = "vision_access_token";
+const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
+
+const defaultPack = {
+  name: "Vision Pack",
+  price_cents: 499,
+  currency: "eur",
+  video_credits: 3,
+  image_credits: 5,
+};
+
+const defaultAccess = {
+  has_access: false,
+  admin: false,
+  video_remaining: 0,
+  image_remaining: 0,
+  access_id: null,
+};
 
 const visionApiUrl = (path) => `${VISION_API_BASE}${path}`;
+
 const visionAssetUrl = (path) => {
   if (!path) {
     return path;
@@ -53,16 +77,129 @@ const visionAssetUrl = (path) => {
   return path;
 };
 
-const subscribeDefaults = {
-  kicker: subscribeKicker?.textContent || "Vision / Invitation",
-  title: subscribeTitle?.textContent || "Request access",
-  copy: subscribeCopy?.textContent || "Leave your email and we’ll reach out when Vision opens.",
+const parseJsonSafely = async (response) => {
+  try {
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
 };
 
-let lastSubscribeTrigger = null;
+const readStoredAccessToken = () => {
+  try {
+    return window.localStorage.getItem(VISION_ACCESS_STORAGE_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+};
+
+const storeAccessToken = (token) => {
+  try {
+    if (token) {
+      window.localStorage.setItem(VISION_ACCESS_STORAGE_KEY, token);
+      return;
+    }
+    window.localStorage.removeItem(VISION_ACCESS_STORAGE_KEY);
+  } catch (error) {
+    // Ignore storage failures in restricted browsing modes.
+  }
+};
+
+const savePendingPrompt = (prompt, mode) => {
+  try {
+    window.sessionStorage.setItem(
+      VISION_PENDING_PROMPT_KEY,
+      JSON.stringify({
+        prompt,
+        mode,
+        saved_at: Date.now(),
+      }),
+    );
+  } catch (error) {
+    // Ignore storage failures.
+  }
+};
+
+const readPendingPrompt = () => {
+  try {
+    const raw = window.sessionStorage.getItem(VISION_PENDING_PROMPT_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed?.prompt) {
+      return null;
+    }
+    return {
+      prompt: String(parsed.prompt),
+      mode: parsed.mode === "image" ? "image" : "video",
+    };
+  } catch (error) {
+    return null;
+  }
+};
+
+const clearPendingPrompt = () => {
+  try {
+    window.sessionStorage.removeItem(VISION_PENDING_PROMPT_KEY);
+  } catch (error) {
+    // Ignore storage failures.
+  }
+};
+
+const visionFetch = (path, options = {}) => {
+  const headers = {
+    ...(options.headers || {}),
+  };
+  const token = readStoredAccessToken();
+  if (token && !headers.Authorization) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return fetch(visionApiUrl(path), {
+    credentials: "include",
+    ...options,
+    headers,
+  });
+};
+
+const stripUrlParams = (...params) => {
+  const url = new URL(window.location.href);
+  let changed = false;
+  params.forEach((param) => {
+    if (url.searchParams.has(param)) {
+      url.searchParams.delete(param);
+      changed = true;
+    }
+  });
+  if (changed) {
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+};
+
+const formatPackPrice = (pack) => {
+  const amount = Number(pack?.price_cents ?? defaultPack.price_cents) / 100;
+  const currency = String(pack?.currency || defaultPack.currency).toUpperCase();
+  try {
+    return new Intl.NumberFormat("it-IT", {
+      style: "currency",
+      currency,
+    }).format(amount);
+  } catch (error) {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
+};
+
+const formatPackLine = (pack) =>
+  `${formatPackPrice(pack)} · one time · ${pack.video_credits} videos + ${pack.image_credits} images`;
+
+let selectedMode = "video";
 let activeGenerationJobId = null;
 let generationPollHandle = null;
 let visionFocusGuardHandle = null;
+let accessState = { ...defaultAccess };
+let currentPack = { ...defaultPack };
+let currentGenerationOutput = null;
+let lastSubscribeTrigger = null;
 
 const stopVisionFocusGuard = () => {
   if (visionFocusGuardHandle) {
@@ -87,68 +224,6 @@ const startVisionFocusGuard = (durationMs = 20000) => {
   visionFocusGuardHandle = window.setInterval(refocus, 300);
 };
 
-const setGalleryLightboxState = (open, payload = {}) => {
-  body.classList.toggle("gallery-lightbox-open", open);
-  galleryLightbox?.classList.toggle("is-open", open);
-  galleryLightbox?.setAttribute("aria-hidden", open ? "false" : "true");
-
-  if (!galleryLightboxVideo || !galleryLightboxImage) {
-    return;
-  }
-
-  if (open) {
-    const mediaType = payload.mediaType || "video";
-    galleryLightboxTitle.textContent = payload.title || "Untitled";
-    galleryLightboxCaption.textContent = payload.caption || "";
-
-    if (mediaType === "image") {
-      galleryLightboxVideo.pause();
-      galleryLightboxVideo.hidden = true;
-      galleryLightboxVideo.removeAttribute("src");
-      galleryLightboxVideo.load();
-
-      galleryLightboxImage.hidden = false;
-      galleryLightboxImage.src = payload.src || "";
-      galleryLightboxImage.alt = payload.title || "Gallery image";
-      return;
-    }
-
-    galleryLightboxImage.hidden = true;
-    galleryLightboxImage.removeAttribute("src");
-    galleryLightboxImage.alt = "";
-
-    galleryLightboxVideo.hidden = false;
-    if (payload.src && galleryLightboxVideo.getAttribute("src") !== payload.src) {
-      galleryLightboxVideo.src = payload.src;
-    }
-    galleryLightboxVideo.currentTime = 0;
-    galleryLightboxVideo.play().catch(() => {});
-    return;
-  }
-
-  galleryLightboxVideo.pause();
-  galleryLightboxVideo.hidden = true;
-  galleryLightboxVideo.removeAttribute("src");
-  galleryLightboxVideo.load();
-
-  galleryLightboxImage.hidden = true;
-  galleryLightboxImage.removeAttribute("src");
-  galleryLightboxImage.alt = "";
-};
-
-const openGenerationLightbox = () => {
-  if (!generationVideo?.src) {
-    return;
-  }
-
-  setGalleryLightboxState(true, {
-    mediaType: "video",
-    src: generationVideo.src,
-    title: "Latest Vision render",
-    caption: generationPrompt?.textContent || "Generated inside Vision.",
-  });
-};
-
 const setSearchState = (open) => {
   body.classList.toggle("search-open", open);
   atomTrigger?.setAttribute("aria-expanded", open ? "true" : "false");
@@ -171,6 +246,64 @@ const setSearchState = (open) => {
   }
 };
 
+const setGalleryLightboxState = (open, payload = {}) => {
+  body.classList.toggle("gallery-lightbox-open", open);
+  galleryLightbox?.classList.toggle("is-open", open);
+  galleryLightbox?.setAttribute("aria-hidden", open ? "false" : "true");
+
+  if (!galleryLightboxVideo || !galleryLightboxImage) {
+    return;
+  }
+
+  if (open) {
+    const mediaType = payload.mediaType || "video";
+    if (galleryLightboxTitle) galleryLightboxTitle.textContent = payload.title || "Untitled";
+    if (galleryLightboxCaption) galleryLightboxCaption.textContent = payload.caption || "";
+
+    if (mediaType === "image") {
+      galleryLightboxVideo.pause();
+      galleryLightboxVideo.hidden = true;
+      galleryLightboxVideo.removeAttribute("src");
+      galleryLightboxVideo.load();
+      galleryLightboxImage.hidden = false;
+      galleryLightboxImage.src = payload.src || "";
+      galleryLightboxImage.alt = payload.title || "Vision image";
+      return;
+    }
+
+    galleryLightboxImage.hidden = true;
+    galleryLightboxImage.removeAttribute("src");
+    galleryLightboxImage.alt = "";
+    galleryLightboxVideo.hidden = false;
+    if (payload.src && galleryLightboxVideo.getAttribute("src") !== payload.src) {
+      galleryLightboxVideo.src = payload.src;
+    }
+    galleryLightboxVideo.currentTime = 0;
+    galleryLightboxVideo.play().catch(() => {});
+    return;
+  }
+
+  galleryLightboxVideo.pause();
+  galleryLightboxVideo.hidden = true;
+  galleryLightboxVideo.removeAttribute("src");
+  galleryLightboxVideo.load();
+  galleryLightboxImage.hidden = true;
+  galleryLightboxImage.removeAttribute("src");
+  galleryLightboxImage.alt = "";
+};
+
+const openGenerationLightbox = () => {
+  if (!currentGenerationOutput?.src) {
+    return;
+  }
+  setGalleryLightboxState(true, {
+    mediaType: currentGenerationOutput.type,
+    src: currentGenerationOutput.src,
+    title: currentGenerationOutput.title,
+    caption: currentGenerationOutput.caption,
+  });
+};
+
 const setGenerationState = (open) => {
   body.classList.toggle("generation-open", open);
   generationModal?.classList.toggle("is-open", open);
@@ -179,7 +312,15 @@ const setGenerationState = (open) => {
   if (!open) {
     if (generationVideo) {
       generationVideo.pause();
+      generationVideo.removeAttribute("src");
+      generationVideo.load();
     }
+    if (generationImage) {
+      generationImage.hidden = true;
+      generationImage.removeAttribute("src");
+      generationImage.alt = "";
+    }
+    currentGenerationOutput = null;
     stopVisionFocusGuard();
     if (generationPollHandle) {
       window.clearTimeout(generationPollHandle);
@@ -197,29 +338,31 @@ const setGenerationStage = (status, message = "") => {
   if (generationCopy && message) {
     generationCopy.textContent = message;
   }
+  const order = ["queued", "preparing", "generating", "downloading", "ready"];
+  const effectiveStatus = normalized === "operator_required" ? "generating" : normalized;
+  const statusIndex = order.indexOf(effectiveStatus);
   generationSteps.forEach((step) => {
-    const current = step.dataset.step;
-    const order = ["queued", "preparing", "generating", "downloading", "ready"];
-    const effectiveStatus = normalized === "operator_required" ? "generating" : normalized;
-    const currentIndex = order.indexOf(current);
-    const statusIndex = order.indexOf(effectiveStatus);
-    step.classList.toggle("is-active", currentIndex === statusIndex);
-    step.classList.toggle("is-complete", statusIndex > -1 && currentIndex > -1 && currentIndex < statusIndex);
+    const stepIndex = order.indexOf(step.dataset.step);
+    step.classList.toggle("is-active", stepIndex === statusIndex);
+    step.classList.toggle("is-complete", statusIndex > -1 && stepIndex > -1 && stepIndex < statusIndex);
   });
 };
 
 const presentGenerationJob = (job) => {
-  const status = job.status || "queued";
+  const status = (job.status || "queued").toLowerCase();
+  const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
+
   if (["ready", "failed", "setup_required"].includes(status)) {
     stopVisionFocusGuard();
   }
+
   const friendlyTitles = {
     queued: "Queued inside Vision",
     preparing: "Preparing generation",
     generating: "Generating in the background",
     operator_required: "Generation active",
     downloading: "Importing result into Vision",
-    ready: "Your render is ready",
+    ready: outputType === "image" ? "Your image is ready" : "Your render is ready",
     setup_required: "Engine setup required",
     failed: "Generation failed",
   };
@@ -230,28 +373,68 @@ const presentGenerationJob = (job) => {
   if (generationPrompt) {
     generationPrompt.textContent = job.prompt || "";
   }
-
-  setGenerationStage(status, job.message || "");
+  setGenerationStage(status, job.message || job.error || "");
 
   const isReady = status === "ready" && job.output_url;
   if (generationReady) {
     generationReady.hidden = !isReady;
   }
-  if (isReady) {
-    stopVisionFocusGuard();
-    const resolvedOutputUrl = visionAssetUrl(job.output_url);
-    if (generationVideo && generationVideo.src !== resolvedOutputUrl) {
-      generationVideo.src = resolvedOutputUrl;
-      generationVideo.load();
-    }
-    generationVideo?.play().catch(() => {});
-    if (generationDownload) {
-      generationDownload.href = resolvedOutputUrl;
-    }
-  }
 
   if (generationPrepare) {
     generationPrepare.hidden = !["setup_required", "operator_required"].includes(status);
+  }
+
+  if (!isReady) {
+    currentGenerationOutput = null;
+    return;
+  }
+
+  const resolvedOutputUrl = visionAssetUrl(job.output_url);
+  currentGenerationOutput = {
+    type: outputType,
+    src: resolvedOutputUrl,
+    title: outputType === "image" ? "Latest Vision image" : "Latest Vision render",
+    caption: job.prompt || "Generated inside Vision.",
+  };
+
+  if (generationDownload) {
+    generationDownload.href = resolvedOutputUrl;
+    generationDownload.textContent = outputType === "image" ? "Download image" : "Download video";
+  }
+  if (generationExpand) {
+    generationExpand.textContent = outputType === "image" ? "Open image" : "Open video";
+  }
+  if (generationPreview) {
+    generationPreview.setAttribute("aria-label", outputType === "image" ? "Open generated image" : "Open generated video");
+  }
+
+  if (outputType === "image") {
+    if (generationVideo) {
+      generationVideo.pause();
+      generationVideo.hidden = true;
+      generationVideo.removeAttribute("src");
+      generationVideo.load();
+    }
+    if (generationImage) {
+      generationImage.hidden = false;
+      generationImage.src = resolvedOutputUrl;
+      generationImage.alt = job.prompt || "Generated image";
+    }
+    return;
+  }
+
+  if (generationImage) {
+    generationImage.hidden = true;
+    generationImage.removeAttribute("src");
+    generationImage.alt = "";
+  }
+  if (generationVideo) {
+    generationVideo.hidden = false;
+    if (generationVideo.src !== resolvedOutputUrl) {
+      generationVideo.src = resolvedOutputUrl;
+      generationVideo.load();
+    }
+    generationVideo.play().catch(() => {});
   }
 };
 
@@ -268,7 +451,7 @@ const pollGenerationJob = async () => {
   }
 
   try {
-    const response = await fetch(visionApiUrl(`/api/jobs/${activeGenerationJobId}`));
+    const response = await visionFetch(`/api/jobs/${activeGenerationJobId}`);
     if (!response.ok) {
       throw new Error("Unable to fetch job status.");
     }
@@ -280,45 +463,106 @@ const pollGenerationJob = async () => {
       return;
     }
   } catch (error) {
-    if (generationTitle) {
-      generationTitle.textContent = "Generation service offline";
-    }
-    if (generationCopy) {
-      generationCopy.textContent = "The Vision generation service is not reachable for this site yet.";
-    }
+    if (generationTitle) generationTitle.textContent = "Generation service offline";
+    if (generationCopy) generationCopy.textContent = "The Vision generation service is not reachable for this site yet.";
     stopGenerationPolling();
+    stopVisionFocusGuard();
     return;
   }
 
   generationPollHandle = window.setTimeout(pollGenerationJob, 2600);
 };
 
-const setSubscribeContent = (trigger) => {
-  const planName = trigger?.dataset.planName;
-  const planPrice = trigger?.dataset.planPrice;
-  const planAllocation = trigger?.dataset.planAllocation;
-
-  if (!planName) {
-    if (subscribeKicker) subscribeKicker.textContent = subscribeDefaults.kicker;
-    if (subscribeTitle) subscribeTitle.textContent = subscribeDefaults.title;
-    if (subscribeCopy) subscribeCopy.textContent = subscribeDefaults.copy;
-    if (subscribePlanLine) {
-      subscribePlanLine.hidden = true;
-      subscribePlanLine.textContent = "";
-    }
-    return;
-  }
-
-  if (subscribeKicker) subscribeKicker.textContent = `Vision / ${planName}`;
-  if (subscribeTitle) subscribeTitle.textContent = `Join ${planName}`;
-  if (subscribeCopy) subscribeCopy.textContent = "Leave your email and we’ll send access details for this plan.";
-  if (subscribePlanLine) {
-    subscribePlanLine.hidden = false;
-    subscribePlanLine.textContent = `${planPrice} · ${planAllocation}`;
+const setMode = (mode) => {
+  selectedMode = mode === "image" ? "image" : "video";
+  modeButtons.forEach((button) => {
+    const active = button.dataset.generationMode === selectedMode;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  if (promptInput) {
+    promptInput.placeholder = selectedMode === "image" ? "Describe your image..." : "Describe your video or image...";
   }
 };
 
-const setSubscribeState = (open, trigger = null) => {
+const renderAccessState = (access, pack) => {
+  accessState = { ...defaultAccess, ...(access || {}) };
+  currentPack = { ...defaultPack, ...(pack || {}) };
+
+  if (subscribePlanLine) {
+    subscribePlanLine.hidden = false;
+    subscribePlanLine.textContent = formatPackLine(currentPack);
+  }
+
+  if (accessPill) {
+    if (accessState.admin) {
+      accessPill.textContent = "Admin unlocked · unlimited";
+    } else if (accessState.access_id) {
+      accessPill.textContent = `${accessState.video_remaining ?? 0} videos · ${accessState.image_remaining ?? 0} images remaining`;
+    } else {
+      accessPill.textContent = "Locked · Vision Pack required";
+    }
+  }
+
+  subscribeTriggers.forEach((trigger) => {
+    if (!(trigger instanceof HTMLElement)) {
+      return;
+    }
+    if (accessState.admin) {
+      trigger.textContent = "Vision unlocked";
+      return;
+    }
+    trigger.textContent = accessState.access_id ? "Buy another pack" : "Unlock Vision";
+  });
+};
+
+const setSubscribeLoading = (loading, label = "Continue to checkout") => {
+  if (subscribeSubmit) {
+    subscribeSubmit.disabled = loading;
+    subscribeSubmit.textContent = loading ? label : "Continue to checkout";
+  }
+  if (subscribeEmail) {
+    subscribeEmail.disabled = loading;
+  }
+};
+
+const setSubscribeContent = (context = {}) => {
+  const reason = context.reason || "unlock";
+  const pendingPrompt = context.prompt || "";
+  const pendingMode = context.mode === "image" ? "image" : "video";
+  const title =
+    reason === "insufficient_credits" || accessState.access_id
+      ? "Get another Vision Pack"
+      : "Unlock Vision Pack";
+  const copy = pendingPrompt
+    ? `Pay once and unlock ${currentPack.video_credits} videos plus ${currentPack.image_credits} images. Your ${pendingMode} prompt will start after payment is confirmed.`
+    : `Pay once and unlock ${currentPack.video_credits} videos plus ${currentPack.image_credits} images inside Vision.`;
+  const note = pendingPrompt
+    ? "Secure checkout via Stripe. Your current prompt will resume right after payment."
+    : "Secure checkout via Stripe. Your prompt starts only after payment is confirmed.";
+
+  if (subscribeKicker) {
+    subscribeKicker.textContent = reason === "insufficient_credits" ? "Vision / Top up" : "Vision / Unlock";
+  }
+  if (subscribeTitle) {
+    subscribeTitle.textContent = title;
+  }
+  if (subscribeCopy) {
+    subscribeCopy.textContent = copy;
+  }
+  if (subscribeNote) {
+    subscribeNote.textContent = note;
+  }
+  if (subscribeSuccess) {
+    subscribeSuccess.hidden = true;
+  }
+  if (subscribeForm) {
+    subscribeForm.hidden = false;
+  }
+  setSubscribeLoading(false);
+};
+
+const setSubscribeState = (open, context = {}) => {
   body.classList.toggle("subscribe-open", open);
   subscribeModal?.classList.toggle("is-open", open);
   subscribeModal?.setAttribute("aria-hidden", open ? "false" : "true");
@@ -327,31 +571,239 @@ const setSubscribeState = (open, trigger = null) => {
     return;
   }
 
-  lastSubscribeTrigger = trigger;
-  setSubscribeContent(trigger);
-  if (subscribeForm) {
-    subscribeForm.hidden = false;
+  lastSubscribeTrigger = context.trigger || null;
+  setSubscribeContent(context);
+  window.setTimeout(() => subscribeEmail?.focus(), 220);
+};
+
+const loadAccessState = async () => {
+  try {
+    const response = await visionFetch("/api/access/me");
+    if (!response.ok) {
+      return;
+    }
+    const payload = await response.json();
+    renderAccessState(payload.access, payload.pack);
+  } catch (error) {
+    renderAccessState(defaultAccess, currentPack);
   }
-  if (subscribeSuccess) {
-    subscribeSuccess.hidden = true;
+};
+
+const beginCheckout = async (email) => {
+  setSubscribeLoading(true, "Opening checkout...");
+  if (subscribeNote) {
+    subscribeNote.textContent = "Preparing secure checkout...";
   }
 
-  window.setTimeout(() => subscribeEmail?.focus(), 220);
+  try {
+    const response = await visionFetch("/api/checkout/session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+    const payload = await parseJsonSafely(response);
+    if (!response.ok || !payload?.url) {
+      throw new Error(payload?.detail || payload?.message || "Checkout is not configured yet.");
+    }
+    window.location.assign(payload.url);
+  } catch (error) {
+    setSubscribeLoading(false);
+    if (subscribeNote) {
+      subscribeNote.textContent = error instanceof Error ? error.message : "Checkout could not start.";
+    }
+  }
+};
+
+const handleCheckoutRequired = (detail, prompt, mode) => {
+  savePendingPrompt(prompt, mode);
+  setSubscribeState(true, {
+    reason: detail?.code || "payment_required",
+    prompt,
+    mode,
+  });
+};
+
+const queueGeneration = async (prompt, mode) => {
+  if (!prompt) {
+    return;
+  }
+
+  if (!accessState.has_access && !accessState.admin) {
+    handleCheckoutRequired(
+      { code: accessState.access_id ? "insufficient_credits" : "payment_required" },
+      prompt,
+      mode,
+    );
+    return;
+  }
+
+  if (searchSubmit) {
+    searchSubmit.disabled = true;
+  }
+
+  setGenerationState(true);
+  startVisionFocusGuard(30000);
+  presentGenerationJob({
+    status: "queued",
+    message: "Preparing your prompt inside Vision.",
+    prompt,
+    output_type: mode,
+  });
+
+  try {
+    const response = await visionFetch("/api/jobs", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt, mode }),
+    });
+    const payload = await parseJsonSafely(response);
+
+    if (response.status === 402) {
+      setGenerationState(false);
+      handleCheckoutRequired(payload?.detail, prompt, mode);
+      return;
+    }
+
+    if (!response.ok || !payload?.id) {
+      throw new Error(payload?.detail || payload?.message || "Generation service unavailable.");
+    }
+
+    clearPendingPrompt();
+    activeGenerationJobId = payload.id;
+    presentGenerationJob(payload);
+    stopGenerationPolling();
+    generationPollHandle = window.setTimeout(pollGenerationJob, 1200);
+    await loadAccessState();
+  } catch (error) {
+    stopVisionFocusGuard();
+    if (generationTitle) generationTitle.textContent = "Generation service offline";
+    if (generationState) generationState.textContent = "offline";
+    if (generationCopy) {
+      generationCopy.textContent = error instanceof Error ? error.message : "Vision could not reach the generation service for this site.";
+    }
+  } finally {
+    if (searchSubmit) {
+      searchSubmit.disabled = false;
+    }
+  }
+};
+
+const maybeResumePendingPrompt = async () => {
+  const pending = readPendingPrompt();
+  if (!pending || (!accessState.has_access && !accessState.admin)) {
+    return;
+  }
+  setSearchState(true);
+  setMode(pending.mode);
+  if (promptInput) {
+    promptInput.value = pending.prompt;
+  }
+  await queueGeneration(pending.prompt, pending.mode);
+};
+
+const confirmCheckoutIfNeeded = async () => {
+  const url = new URL(window.location.href);
+  const sessionId = url.searchParams.get("session_id");
+  const checkoutStatus = url.searchParams.get("checkout");
+
+  if (!sessionId || checkoutStatus !== "success") {
+    if (checkoutStatus === "cancel") {
+      stripUrlParams("checkout", "session_id");
+      setSubscribeState(true, { reason: "unlock" });
+      if (subscribeNote) {
+        subscribeNote.textContent = "Checkout cancelled. You can reopen it any time.";
+      }
+    }
+    return false;
+  }
+
+  try {
+    const response = await visionFetch("/api/checkout/confirm", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    const payload = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(payload?.detail || "Payment confirmation failed.");
+    }
+    if (payload?.access_token) {
+      storeAccessToken(payload.access_token);
+    }
+    renderAccessState(payload.access, payload.pack);
+    stripUrlParams("checkout", "session_id");
+    return true;
+  } catch (error) {
+    stripUrlParams("checkout", "session_id");
+    setSubscribeState(true, { reason: "unlock" });
+    if (subscribeNote) {
+      subscribeNote.textContent = error instanceof Error ? error.message : "Payment confirmation failed.";
+    }
+    return false;
+  }
+};
+
+const unlockAdminIfNeeded = async () => {
+  const url = new URL(window.location.href);
+  const token = url.searchParams.get("vision_admin");
+  if (!token) {
+    return false;
+  }
+
+  try {
+    const response = await visionFetch("/api/admin/unlock", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token }),
+    });
+    const payload = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(payload?.detail || "Admin unlock failed.");
+    }
+    if (payload?.access_token) {
+      storeAccessToken(payload.access_token);
+    }
+    renderAccessState(payload.access, payload.pack);
+    stripUrlParams("vision_admin");
+    return true;
+  } catch (error) {
+    stripUrlParams("vision_admin");
+    return false;
+  }
 };
 
 setSearchState(false);
 setSubscribeState(false);
 setGenerationState(false);
+setMode("video");
+renderAccessState(defaultAccess, defaultPack);
 
 atomTrigger?.addEventListener("click", () => {
   const nextState = !body.classList.contains("search-open");
   setSearchState(nextState);
 });
 
+modeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setMode(button.dataset.generationMode);
+  });
+});
+
 subscribeTriggers.forEach((trigger) => {
   trigger.addEventListener("click", (event) => {
     event.preventDefault();
-    setSubscribeState(true, trigger);
+    setSubscribeState(true, {
+      trigger,
+      reason: accessState.access_id ? "insufficient_credits" : "unlock",
+    });
   });
 });
 
@@ -362,43 +814,7 @@ searchForm?.addEventListener("submit", async (event) => {
     promptInput?.focus();
     return;
   }
-
-  setGenerationState(true);
-  startVisionFocusGuard(30000);
-  presentGenerationJob({
-    status: "queued",
-    message: "Preparing your prompt inside Vision.",
-    prompt,
-  });
-
-  try {
-    const response = await fetch(visionApiUrl("/api/jobs"), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prompt }),
-    });
-    if (!response.ok) {
-      throw new Error("Generation service unavailable.");
-    }
-    const job = await response.json();
-    activeGenerationJobId = job.id;
-    presentGenerationJob(job);
-    stopGenerationPolling();
-    generationPollHandle = window.setTimeout(pollGenerationJob, 1200);
-  } catch (error) {
-    stopVisionFocusGuard();
-    if (generationTitle) {
-      generationTitle.textContent = "Generation service offline";
-    }
-    if (generationState) {
-      generationState.textContent = "offline";
-    }
-    if (generationCopy) {
-      generationCopy.textContent = "Vision could not reach the generation service for this site.";
-    }
-  }
+  await queueGeneration(prompt, selectedMode);
 });
 
 promptInput?.addEventListener("focus", () => {
@@ -441,12 +857,14 @@ subscribeModal?.addEventListener("click", (event) => {
   }
 });
 
-subscribeForm?.addEventListener("submit", (event) => {
+subscribeForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  subscribeForm.hidden = true;
-  if (subscribeSuccess) {
-    subscribeSuccess.hidden = false;
+  const email = subscribeEmail?.value?.trim();
+  if (!email) {
+    subscribeEmail?.focus();
+    return;
   }
+  await beginCheckout(email);
 });
 
 generationClose?.addEventListener("click", () => {
@@ -463,7 +881,7 @@ generationPrepare?.addEventListener("click", async () => {
   generationPrepare.disabled = true;
   generationPrepare.textContent = "Syncing engine...";
   try {
-    await fetch(visionApiUrl("/api/engine/prepare"), { method: "POST" });
+    await visionFetch("/api/engine/prepare", { method: "POST" });
     if (generationCopy) {
       generationCopy.textContent = "Vision is checking the generation engine.";
     }
@@ -508,3 +926,14 @@ document.addEventListener("keydown", (event) => {
     atomTrigger?.focus();
   }
 });
+
+const initializeVision = async () => {
+  const unlockedAdmin = await unlockAdminIfNeeded();
+  const confirmedCheckout = await confirmCheckoutIfNeeded();
+  await loadAccessState();
+  if (unlockedAdmin || confirmedCheckout) {
+    await maybeResumePendingPrompt();
+  }
+};
+
+void initializeVision();

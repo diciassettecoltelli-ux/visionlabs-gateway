@@ -68,7 +68,7 @@
           <a href="#about">About us</a>
         </nav>
 
-        <a class="topbar-cta" href="#subscribe" data-subscribe-trigger>Subscribe</a>
+        <a class="topbar-cta" href="#pricing" data-subscribe-trigger>Unlock Vision</a>
       </header>
 
       <main class="hero">
@@ -93,6 +93,13 @@
           </div>
         </div>
         <div class="search-cluster" id="vision-search-panel" aria-hidden="true">
+          <div class="search-tools">
+            <div class="generation-mode-switch" role="tablist" aria-label="Generation mode">
+              <button class="mode-toggle is-active" type="button" data-generation-mode="video" aria-pressed="true">Video</button>
+              <button class="mode-toggle" type="button" data-generation-mode="image" aria-pressed="false">Image</button>
+            </div>
+            <div class="access-pill" id="vision-access-pill">Locked · Vision Pack required</div>
+          </div>
           <form class="search-panel" id="vision-search-form" action="#" method="get">
             <div class="search-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -408,77 +415,33 @@
           <div class="pricing-header">
             <div class="pricing-heading">
               <div class="pricing-kicker">Pricing</div>
-              <h2 class="pricing-title">Three ways into Vision.</h2>
+              <h2 class="pricing-title">One pack into Vision.</h2>
             </div>
             <p class="pricing-copy">
-              Built for different rhythms of making, from occasional studies to daily production. Every plan includes cinematic generations up to ten
-              seconds each.
+              Pay once, unlock your credits, then prompt. Vision starts only after payment is confirmed.
             </p>
           </div>
 
-          <div class="pricing-grid">
-            <article class="pricing-card pricing-card--start">
+          <div class="pricing-grid pricing-grid--single">
+            <article class="pricing-card pricing-card--single">
               <div class="pricing-card-top">
-                <div class="pricing-plan">Vision Start</div>
-                <div class="pricing-price">€9.99 <span>/ month</span></div>
+                <div class="pricing-plan">Vision Pack</div>
+                <div class="pricing-price">€4.99 <span>/ one time</span></div>
               </div>
-              <div class="pricing-volume">10 videos</div>
-              <p class="pricing-meta">Up to 10 seconds each</p>
+              <div class="pricing-volume">3 videos + 5 images</div>
+              <p class="pricing-meta">One secure checkout. One pack. Instant access inside Vision.</p>
               <ul class="pricing-list">
-                <li>Fast monthly access</li>
-                <li>Core cinematic generations</li>
-                <li>Built for occasional studies</li>
+                <li>3 cinematic video generations</li>
+                <li>5 still image generations</li>
+                <li>Prompt unlocks only after payment</li>
               </ul>
-              <a
+              <button
                 class="pricing-button"
-                href="https://buy.stripe.com/bJe8wP6JR5E2gyl6WO9EI00"
-                rel="noreferrer"
+                type="button"
+                data-subscribe-trigger
               >
-                Choose Start
-              </a>
-            </article>
-
-            <article class="pricing-card pricing-card--pro">
-              <div class="pricing-badge">Most used</div>
-              <div class="pricing-card-top">
-                <div class="pricing-plan">Vision Pro</div>
-                <div class="pricing-price">€29.99 <span>/ month</span></div>
-              </div>
-              <div class="pricing-volume">30 videos</div>
-              <p class="pricing-meta">Up to 10 seconds each</p>
-              <ul class="pricing-list">
-                <li>For recurring visual work</li>
-                <li>Stronger monthly output volume</li>
-                <li>Best fit for active creators</li>
-              </ul>
-              <a
-                class="pricing-button"
-                href="https://buy.stripe.com/7sYbJ12tBgiG2Hvepg9EI01"
-                rel="noreferrer"
-              >
-                Choose Pro
-              </a>
-            </article>
-
-            <article class="pricing-card pricing-card--studio">
-              <div class="pricing-card-top">
-                <div class="pricing-plan">Vision Studio</div>
-                <div class="pricing-price">€134.00 <span>/ month</span></div>
-              </div>
-              <div class="pricing-volume">134 videos</div>
-              <p class="pricing-meta">Up to 10 seconds each</p>
-              <ul class="pricing-list">
-                <li>For teams and daily production</li>
-                <li>High-volume monthly generation</li>
-                <li>Built for always-on pipelines</li>
-              </ul>
-              <a
-                class="pricing-button"
-                href="https://buy.stripe.com/dRmaEX0ltd6ugylgxo9EI02"
-                rel="noreferrer"
-              >
-                Choose Studio
-              </a>
+                Unlock Vision Pack
+              </button>
             </article>
           </div>
 
@@ -563,24 +526,24 @@
       <div class="subscribe-panel" role="dialog" aria-modal="true" aria-labelledby="subscribe-title">
         <button class="subscribe-close" type="button" aria-label="Close subscribe panel">Close</button>
         <div class="subscribe-intro">
-          <div class="subscribe-kicker">Vision / Invitation</div>
-          <h3 id="subscribe-title">Request access</h3>
-          <p class="subscribe-copy">Leave your email and we’ll reach out when Vision opens.</p>
-          <div class="subscribe-plan-line" id="subscribe-plan-line" hidden></div>
+          <div class="subscribe-kicker">Vision / Unlock</div>
+          <h3 id="subscribe-title">Unlock Vision Pack</h3>
+          <p class="subscribe-copy">Pay once and unlock 3 videos plus 5 images inside Vision.</p>
+          <div class="subscribe-plan-line" id="subscribe-plan-line">€4.99 · one time · 3 videos + 5 images</div>
         </div>
 
         <form class="subscribe-form" id="subscribe-form">
           <label class="subscribe-label" for="subscribe-email">Email</label>
           <div class="subscribe-field-row">
             <input class="subscribe-input" id="subscribe-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
-            <button class="subscribe-submit" type="submit">Request access</button>
+            <button class="subscribe-submit" type="submit">Continue to checkout</button>
           </div>
-          <p class="subscribe-note">Private invite only. No spam, no noisy launch emails.</p>
+          <p class="subscribe-note" id="subscribe-note">Secure checkout via Stripe. Your prompt starts only after payment is confirmed.</p>
         </form>
 
         <div class="subscribe-success" id="subscribe-success" hidden>
-          <div class="subscribe-success-title">Request received.</div>
-          <p>We’ll reach out when Vision opens.</p>
+          <div class="subscribe-success-title">Vision unlocked.</div>
+          <p>Your pack is active and the prompt can run now.</p>
         </div>
       </div>
     </div>
@@ -606,6 +569,7 @@
           <div class="generation-ready-shell">
             <button class="generation-preview" id="generation-preview" type="button" aria-label="Open generated video">
               <video id="generation-video" muted loop playsinline preload="metadata"></video>
+              <img id="generation-image" alt="" hidden />
               <span class="generation-preview-badge">Tap to expand</span>
             </button>
             <div class="generation-delivery">
