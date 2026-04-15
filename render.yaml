@@ -55,8 +55,26 @@ services:
         value: veo-3.1-generate-preview
       - key: GOOGLE_IMAGE_MODEL
         value: gemini-3.1-flash-image-preview
+      - key: GOOGLE_PROMPT_MODEL
+        value: gemini-2.5-flash
       - key: STRIPE_SECRET_KEY
         sync: false
+      - key: VISION_NOTIFY_EMAIL_TO
+        sync: false
+      - key: VISION_NOTIFY_EMAIL_FROM
+        sync: false
+      - key: VISION_NOTIFY_SMTP_HOST
+        sync: false
+      - key: VISION_NOTIFY_SMTP_PORT
+        value: 587
+      - key: VISION_NOTIFY_SMTP_USERNAME
+        sync: false
+      - key: VISION_NOTIFY_SMTP_PASSWORD
+        sync: false
+      - key: VISION_NOTIFY_SMTP_USE_SSL
+        value: false
+      - key: VISION_NOTIFY_SMTP_USE_STARTTLS
+        value: true
       - key: VISION_ACCESS_SECRET
         sync: false
       - key: VISION_ADMIN_TOKEN

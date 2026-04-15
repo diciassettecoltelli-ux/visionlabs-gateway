@@ -30,7 +30,7 @@
       href="https://fonts.googleapis.com/css2?family=Onest:wght@200;300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./style.css?v=5" />
+    <link rel="stylesheet" href="./style.css?v=7" />
   </head>
   <body>
     <div class="vision-shell">
@@ -118,6 +118,10 @@
               </span>
             </button>
           </form>
+          <div class="prompt-actions">
+            <p class="prompt-helper" id="prompt-helper">From one raw idea to a sharper cinematic result. Vision strengthens mood, realism, framing, and visual tone before generation begins.</p>
+            <button class="action-pill" id="improve-prompt-button" type="button">Improve Prompt</button>
+          </div>
         </div>
       </main>
 
@@ -415,10 +419,10 @@
           <div class="pricing-header">
             <div class="pricing-heading">
               <div class="pricing-kicker">Pricing</div>
-              <h2 class="pricing-title">One pack into Vision.</h2>
+              <h2 class="pricing-title">Unlock your first cinematic drop.</h2>
             </div>
             <p class="pricing-copy">
-              Pay once, unlock your credits, then prompt. Vision starts only after payment is confirmed.
+              Vision takes a raw prompt, sharpens the direction, and turns it into a complete visual drop: 3 cinematic videos, 5 still images, and a stronger creative trajectory in one unlock.
             </p>
           </div>
 
@@ -429,18 +433,19 @@
                 <div class="pricing-price">€4.99 <span>/ one time</span></div>
               </div>
               <div class="pricing-volume">3 videos + 5 images</div>
-              <p class="pricing-meta">One secure checkout. One pack. Instant access inside Vision.</p>
+              <p class="pricing-meta">Built for covers, campaigns, launch visuals, moodboards, and fast cinematic concept direction inside Vision.</p>
               <ul class="pricing-list">
-                <li>3 cinematic video generations</li>
-                <li>5 still image generations</li>
-                <li>Prompt unlocks only after payment</li>
+                <li>3 cinematic videos shaped by Vision</li>
+                <li>5 still images for covers, moodboards, and launches</li>
+                <li>Automatic prompt enhancement included</li>
+                <li>One-time unlock, no subscription required</li>
               </ul>
               <button
                 class="pricing-button"
                 type="button"
                 data-subscribe-trigger
               >
-                Unlock Vision Pack
+                Unlock my pack
               </button>
             </article>
           </div>
@@ -526,19 +531,24 @@
       <div class="subscribe-panel" role="dialog" aria-modal="true" aria-labelledby="subscribe-title">
         <button class="subscribe-close" type="button" aria-label="Close subscribe panel">Close</button>
         <div class="subscribe-intro">
-          <div class="subscribe-kicker">Vision / Unlock</div>
-          <h3 id="subscribe-title">Unlock Vision Pack</h3>
-          <p class="subscribe-copy">Pay once and unlock 3 videos plus 5 images inside Vision.</p>
-          <div class="subscribe-plan-line" id="subscribe-plan-line">€4.99 · one time · 3 videos + 5 images</div>
+          <div class="subscribe-kicker">Vision / Access</div>
+          <h3 id="subscribe-title">Turn one prompt into a cinematic pack.</h3>
+          <p class="subscribe-copy">Unlock 3 cinematic videos, 5 still images, and a prompt shaped by Vision into something sharper, richer, and more campaign-ready before generation begins.</p>
+          <div class="subscribe-plan-line" id="subscribe-plan-line">€4.99 · one-time unlock · 3 videos + 5 images</div>
+          <ul class="subscribe-highlights">
+            <li>Prompt enhancement guided by the Vision engine</li>
+            <li>Built for covers, concepts, drops, campaigns, and moodboards</li>
+            <li>One secure unlock inside Vision with no subscription</li>
+          </ul>
         </div>
 
         <form class="subscribe-form" id="subscribe-form">
           <label class="subscribe-label" for="subscribe-email">Email</label>
           <div class="subscribe-field-row">
             <input class="subscribe-input" id="subscribe-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
-            <button class="subscribe-submit" type="submit">Continue to checkout</button>
+            <button class="subscribe-submit" type="submit">Unlock my pack</button>
           </div>
-          <p class="subscribe-note" id="subscribe-note">Secure checkout via Stripe. Your prompt starts only after payment is confirmed.</p>
+          <p class="subscribe-note" id="subscribe-note">Secure checkout with Stripe. Vision resumes your prompt automatically after payment.</p>
         </form>
 
         <div class="subscribe-success" id="subscribe-success" hidden>
@@ -551,12 +561,12 @@
     <div class="generation-modal" id="generation-modal" aria-hidden="true">
       <div class="generation-panel" role="dialog" aria-modal="true" aria-labelledby="generation-title">
         <button class="generation-close" type="button" aria-label="Close generation panel">Close</button>
-        <div class="generation-kicker">Vision / Render</div>
+        <div class="generation-kicker">Vision / Engine</div>
         <div class="generation-head">
           <h3 id="generation-title">Queued inside Vision</h3>
           <div class="generation-state" id="generation-state">Queued</div>
         </div>
-        <p class="generation-copy" id="generation-copy">Preparing your prompt inside the hidden generation lane.</p>
+        <p class="generation-copy" id="generation-copy">The Vision engine is shaping your idea into a stronger cinematic direction with cleaner mood, framing, and visual tone.</p>
         <div class="generation-steps" aria-hidden="true">
           <span class="generation-step" data-step="queued">Queued</span>
           <span class="generation-step" data-step="preparing">Preparing</span>
@@ -575,8 +585,8 @@
             <div class="generation-delivery">
               <div class="generation-delivery-copy">
                 <div class="generation-delivery-kicker">Delivery</div>
-                <strong>Render imported into Vision</strong>
-                <span>Preview it as a miniature, open it full-size, or download the source file.</span>
+                <strong>Created inside Vision</strong>
+                <span>Preview it in miniature, open it full-size, or download the original output.</span>
               </div>
               <div class="generation-actions">
                 <button class="generation-expand" id="generation-expand" type="button">Open video</button>
@@ -589,7 +599,7 @@
       </div>
     </div>
 
-    <script src="./vision-config.js"></script>
-    <script src="./app.js"></script>
+    <script src="./vision-config.js?v=7"></script>
+    <script src="./app.js?v=7"></script>
   </body>
   </html>

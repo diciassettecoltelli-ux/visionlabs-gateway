@@ -6,12 +6,15 @@ import hmac
 import json
 import os
 import queue
+import smtplib
+import ssl
 import threading
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime, timezone
+from email.message import EmailMessage
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +28,8 @@ from pydantic import BaseModel, Field
 
 from run_google_nano_banana2 import generate_image as generate_google_image
 from run_google_nano_banana2 import status as google_image_status
+from run_google_prompt_enhancer import improve_prompt as improve_vision_prompt
+from run_google_prompt_enhancer import status as google_prompt_status
 from run_google_veo31 import generate_video as generate_google_veo_video
 from run_google_veo31 import status as google_video_status
 from run_seedance_modelark import generate_video as generate_seedance_video
@@ -161,10 +166,12 @@ def _google_fallback_models_for_quality(quality: str) -> str:
 def _google_status() -> dict[str, Any]:
     image_state = google_image_status()
     video_state = google_video_status()
+    prompt_state = _prompt_status()
     return {
-        "ready": bool(image_state.get("ready") or video_state.get("ready")),
+        "ready": bool(image_state.get("ready") or video_state.get("ready") or prompt_state.get("ready")),
         "image": image_state,
         "video": video_state,
+        "prompt": prompt_state,
     }
 
 
@@ -226,6 +233,105 @@ def _access_cookie_name() -> str:
 
 def _access_secret() -> str:
     return os.environ.get("VISION_ACCESS_SECRET", "vision-dev-access-secret").strip()
+
+
+def _notification_log_path() -> Path:
+    return RUNTIME_ROOT / "purchase_notifications.jsonl"
+
+
+def _notification_recipients() -> list[str]:
+    raw = os.environ.get("VISION_NOTIFY_EMAIL_TO", "").strip()
+    return [item.strip() for item in raw.replace(";", ",").split(",") if item.strip()]
+
+
+def _notification_sender() -> str:
+    configured = os.environ.get("VISION_NOTIFY_EMAIL_FROM", "").strip()
+    if configured:
+        return configured
+    username = os.environ.get("VISION_NOTIFY_SMTP_USERNAME", "").strip()
+    if username:
+        return username
+    return "vision@localhost"
+
+
+def _prompt_status() -> dict[str, Any]:
+    return google_prompt_status()
+
+
+def _write_purchase_notification(record: dict[str, Any]) -> None:
+    log_path = _notification_log_path()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _send_purchase_notification_email(record: dict[str, Any]) -> None:
+    recipients = _notification_recipients()
+    host = os.environ.get("VISION_NOTIFY_SMTP_HOST", "").strip()
+    if not recipients or not host:
+        return
+
+    port = int(os.environ.get("VISION_NOTIFY_SMTP_PORT", "587"))
+    username = os.environ.get("VISION_NOTIFY_SMTP_USERNAME", "").strip()
+    password = os.environ.get("VISION_NOTIFY_SMTP_PASSWORD", "").strip()
+    use_ssl = os.environ.get("VISION_NOTIFY_SMTP_USE_SSL", "false").strip().lower() in {"1", "true", "yes", "on"}
+    use_starttls = os.environ.get("VISION_NOTIFY_SMTP_USE_STARTTLS", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+    message = EmailMessage()
+    message["Subject"] = f"New Vision Pack purchase · {record.get('email') or 'unknown email'}"
+    message["From"] = _notification_sender()
+    message["To"] = ", ".join(recipients)
+    body = [
+        "A new Vision Pack purchase has been confirmed.",
+        "",
+        f"Email: {record.get('email') or 'not provided'}",
+        f"Pack: {record.get('pack_name')}",
+        f"Credits: {record.get('video_credits')} videos + {record.get('image_credits')} images",
+        f"Amount: {record.get('amount_total')} {str(record.get('currency') or '').upper()}",
+        f"Access ID: {record.get('access_id')}",
+        f"Checkout session: {record.get('session_id')}",
+        f"Purchased at: {record.get('confirmed_at')}",
+    ]
+    message.set_content("\n".join(body))
+
+    if use_ssl:
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL(host, port, context=context, timeout=30) as server:
+            if username and password:
+                server.login(username, password)
+            server.send_message(message)
+        return
+
+    with smtplib.SMTP(host, port, timeout=30) as server:
+        if use_starttls:
+            context = ssl.create_default_context()
+            server.starttls(context=context)
+        if username and password:
+            server.login(username, password)
+        server.send_message(message)
+
+
+def _notify_purchase_async(*, session: dict[str, Any], entry: dict[str, Any]) -> None:
+    record = {
+        "session_id": session.get("id"),
+        "email": entry.get("email"),
+        "access_id": entry.get("id"),
+        "pack_name": _pack_name(),
+        "video_credits": _pack_video_credits(),
+        "image_credits": _pack_image_credits(),
+        "amount_total": (session.get("amount_total") or _pack_price_cents()) / 100,
+        "currency": session.get("currency") or _pack_currency(),
+        "confirmed_at": _now_iso(),
+    }
+
+    def _worker() -> None:
+        try:
+            _write_purchase_notification(record)
+            _send_purchase_notification_email(record)
+        except Exception as exc:
+            print(f"[vision] purchase notification failed: {exc}")
+
+    threading.Thread(target=_worker, daemon=True).start()
 
 
 def _sign_access_token(payload: dict[str, Any]) -> str:
@@ -526,6 +632,11 @@ class AdminUnlockRequest(BaseModel):
     token: str = Field(min_length=8, max_length=255)
 
 
+class ImprovePromptRequest(BaseModel):
+    prompt: str = Field(min_length=3, max_length=1500)
+    mode: str | None = Field(default="video", min_length=5, max_length=16)
+
+
 class JobsStore:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -599,6 +710,7 @@ class AccessStore:
         self.lock = threading.Lock()
         self.entries: dict[str, dict[str, Any]] = {}
         self.applied_sessions: dict[str, str] = {}
+        self.notified_sessions: set[str] = set()
         self.load()
 
     def load(self) -> None:
@@ -608,6 +720,7 @@ class AccessStore:
         if isinstance(raw, dict) and "entries" in raw:
             self.entries = raw.get("entries", {})
             self.applied_sessions = raw.get("applied_sessions", {})
+            self.notified_sessions = set(raw.get("notified_sessions", []))
             return
         if isinstance(raw, dict):
             self.entries = raw
@@ -617,6 +730,7 @@ class AccessStore:
         payload = {
             "entries": self.entries,
             "applied_sessions": self.applied_sessions,
+            "notified_sessions": sorted(self.notified_sessions),
         }
         self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -688,6 +802,14 @@ class AccessStore:
             self.save()
             return dict(entry)
 
+    def claim_notification(self, session_id: str) -> bool:
+        with self.lock:
+            if session_id in self.notified_sessions:
+                return False
+            self.notified_sessions.add(session_id)
+            self.save()
+            return True
+
 
 JOBS = JobsStore(JOBS_FILE)
 ACCESS = AccessStore(ACCESS_FILE)
@@ -718,9 +840,9 @@ def _process_job(job_id: str) -> None:
                 job_id,
                 provider=route["provider"],
                 status="preparing",
-                message="Preparing image generation inside Vision.",
+                message="Shaping the still image inside Vision.",
             )
-            JOBS.update(job_id, status="generating", message="Generating image inside Vision.")
+            JOBS.update(job_id, status="generating", message="Building the still frame inside Vision.")
             output_image = generate_google_image(
                 prompt=job["prompt"],
                 output_dir=output_dir,
@@ -743,10 +865,10 @@ def _process_job(job_id: str) -> None:
             provider=route["provider"],
             quality=route["quality"],
             status="preparing",
-            message="Preparing generation lane inside Vision.",
+            message="Shaping the cinematic direction inside Vision.",
         )
         if route["provider"] == "byteplus_seedance":
-            JOBS.update(job_id, status="generating", message=f"Generating inside Vision ({route['quality']} lane).")
+            JOBS.update(job_id, status="generating", message="Building your cinematic render inside Vision.")
             output_video = generate_seedance_video(
                 prompt=job["prompt"],
                 output_dir=output_dir,
@@ -756,7 +878,7 @@ def _process_job(job_id: str) -> None:
                 resolution=route["resolution"],
             )
         elif route["provider"] == "google_veo":
-            JOBS.update(job_id, status="generating", message=f"Generating inside Vision ({route['quality']} Google lane).")
+            JOBS.update(job_id, status="generating", message="Building your cinematic render inside Vision.")
             output_video = generate_google_veo_video(
                 prompt=job["prompt"],
                 output_dir=output_dir,
@@ -769,12 +891,12 @@ def _process_job(job_id: str) -> None:
             lane_state = kling_session_bridge_status()
             if not lane_state.get("ready"):
                 prepare_kling_session_bridge()
-            JOBS.update(job_id, status="generating", message="Generating inside Vision.")
+            JOBS.update(job_id, status="generating", message="Building your cinematic render inside Vision.")
             output_video = generate_kling_session_bridge(
                 prompt=job["prompt"],
                 output_dir=output_dir,
             )
-        JOBS.update(job_id, status="downloading", message="Finishing and importing result.")
+        JOBS.update(job_id, status="downloading", message="Finishing and importing your result into Vision.")
         JOBS.update(
             job_id,
             status="ready",
@@ -789,7 +911,7 @@ def _process_job(job_id: str) -> None:
         JOBS.update(
             job_id,
             status="failed",
-            message="No ready invisible generation lane is available yet.",
+            message="Vision could not open a render lane right now.",
             error=str(exc) if str(exc) else None,
         )
     except RuntimeError as exc:
@@ -797,7 +919,7 @@ def _process_job(job_id: str) -> None:
         JOBS.update(
             job_id,
             status="failed",
-            message="The generation lane failed before Vision could import the result.",
+            message="Vision could not complete the render before import.",
             error=str(exc) if str(exc) else None,
         )
     except Exception as exc:
@@ -823,7 +945,7 @@ def _process_job(job_id: str) -> None:
         JOBS.update(
             job_id,
             status="failed",
-            message="Generation failed before Vision could import the result.",
+            message="Vision could not complete the render before import.",
             error=str(exc),
         )
 
@@ -841,7 +963,7 @@ def _worker_loop() -> None:
                     JOBS.update(
                         job_id,
                         status="failed",
-                        message="Generation failed before Vision could import the result.",
+                        message="Vision could not complete the render before import.",
                         error=str(exc),
                     )
                 except Exception:
@@ -885,6 +1007,17 @@ def access_me(request: Request) -> dict[str, Any]:
     return {
         "access": _access_summary(access),
         "pack": _pack_summary(),
+    }
+
+
+@APP.post("/api/prompt/improve")
+def improve_prompt(payload: ImprovePromptRequest) -> dict[str, Any]:
+    mode = _normalize_mode(payload.mode)
+    result = improve_vision_prompt(prompt=payload.prompt.strip(), mode=mode)
+    return {
+        "ok": True,
+        "mode": mode,
+        **result,
     }
 
 
@@ -943,11 +1076,14 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
     email = customer_details.get("email") or session.get("customer_email")
     current_access = _access_from_request(request)
     current_access_id = current_access.get("id") if current_access and not current_access.get("admin") else None
+    normalized_session_id = payload.session_id.strip()
     entry = ACCESS.apply_paid_session(
-        session_id=payload.session_id.strip(),
+        session_id=normalized_session_id,
         email=email,
         current_access_id=current_access_id,
     )
+    if ACCESS.claim_notification(normalized_session_id):
+        _notify_purchase_async(session=session, entry=entry)
     response = JSONResponse(
         {
             "ok": True,
@@ -970,7 +1106,7 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
             status_code=402,
             detail={
                 "code": "payment_required",
-                "message": "Unlock Vision Pack before generating.",
+                "message": "Unlock Vision Pack to turn this idea into a cinematic result.",
                 "access": summary,
                 "pack": _pack_summary(),
             },
@@ -986,7 +1122,7 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
                 status_code=402,
                 detail={
                     "code": "insufficient_credits",
-                    "message": f"You need another Vision Pack to generate more {mode}s.",
+                    "message": f"Unlock another Vision Pack to keep creating more {mode}s inside Vision.",
                     "access": summary,
                     "pack": _pack_summary(),
                 },
