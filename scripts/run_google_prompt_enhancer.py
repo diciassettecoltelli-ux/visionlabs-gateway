@@ -290,8 +290,8 @@ def _local_prompt(prompt: str, mode: str) -> dict[str, str | None]:
     if normalized == "image":
         if profile == "human":
             improved = _trim_prompt(
-                f"Ultra-realistic editorial portrait of {cleaned}, natural skin texture, realistic facial anatomy, soft directional light, "
-                "subtle imperfections, premium fashion realism, clean composition, no text, no watermark."
+                f"Ultra-realistic editorial portrait of {cleaned}, consistent facial identity, natural skin texture with subtle pores, "
+                "believable anatomy, soft directional light, restrained premium styling, clean composition, no text, no watermark."
             )
         elif profile == "architecture":
             improved = _trim_prompt(
@@ -312,8 +312,9 @@ def _local_prompt(prompt: str, mode: str) -> dict[str, str | None]:
     else:
         if profile in {"human", "human_video"}:
             improved = _trim_prompt(
-                f"Ultra-realistic cinematic portrait sequence of {cleaned}, realistic skin and anatomy, restrained camera movement, "
-                "soft directional light, premium editorial realism, natural motion, feature-film finish, no text, no watermark."
+                f"Ultra-realistic single-shot editorial fashion video of {cleaned}, medium-wide framing, restrained tracking camera, "
+                "consistent facial identity throughout, natural skin texture, elegant fabric movement, soft directional light, "
+                "quiet luxury atmosphere, feature-film realism, no text, no watermark."
             )
         elif profile in {"architecture", "architecture_video"}:
             improved = _trim_prompt(
@@ -373,7 +374,7 @@ def improve_prompt(*, prompt: str, mode: str = "video", model: str | None = None
     try:
         client = genai.Client(api_key=_resolve_api_key())
         config = types.GenerateContentConfig(
-            temperature=0.9,
+            temperature=0.55,
             response_mime_type="application/json",
         )
         instruction = f"""
@@ -387,14 +388,16 @@ Rules:
 - Improve realism, atmosphere, lighting, framing, material detail, and visual tone.
 - If mode is video, add natural motion and restrained camera direction.
 - If mode is image, optimize for a powerful still frame.
-- For people, prefer realistic skin texture, believable anatomy, and premium editorial realism.
+- For people, prefer single-shot continuity, consistent facial identity, realistic skin texture, believable anatomy, and premium editorial realism.
 - For architecture and interiors, prefer refined natural light, realistic materials, and controlled camera movement.
 - For landscapes and environments, prefer one strong time-of-day cue, atmospheric depth, and grounded realism.
+- For human video, prefer medium or medium-wide framing, restrained tracking or locked camera movement, and avoid sudden close-up escalation.
 - If the prompt already sounds premium, only tighten it lightly instead of rewriting the opening phrase.
 - Never repeat the same cinematic intro twice.
 - Remove stacked or duplicated phrases such as "shot of shot of", "cinematic cinematic", or repeated realism modifiers.
 - Avoid generic filler like "strong visual direction" unless it adds something concrete.
 - Prefer one clear cinematic idea over a pile of vague adjectives.
+- Avoid melodramatic prose, overly literary verbs, and vague luxury language that does not change the shot.
 - Never mention provider names, model names, aspect ratios, resolutions, credits, or pricing.
 - Do not use markdown.
 - Return strict JSON with keys: improved_prompt, summary.

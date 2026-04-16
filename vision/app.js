@@ -40,9 +40,14 @@ const generationReady = document.querySelector("#generation-ready");
 const generationVideo = document.querySelector("#generation-video");
 const generationImage = document.querySelector("#generation-image");
 const generationPreview = document.querySelector("#generation-preview");
+const generationPreviewPlaceholder = document.querySelector("#generation-preview-placeholder");
+const generationPreviewStage = document.querySelector("#generation-preview-stage");
+const generationPreviewNote = document.querySelector("#generation-preview-note");
 const generationExpand = document.querySelector("#generation-expand");
 const generationDownload = document.querySelector("#generation-download");
 const generationPrepare = document.querySelector("#generation-prepare");
+const generationDeliveryTitle = document.querySelector("#generation-delivery-title");
+const generationDeliveryNote = document.querySelector("#generation-delivery-note");
 const topNav = document.querySelector(".topnav");
 const topbarCta = document.querySelector(".topbar-cta");
 
@@ -252,6 +257,100 @@ let currentPack = { ...defaultPack };
 let currentGenerationOutput = null;
 let lastSubscribeTrigger = null;
 
+const generationUiCopy = (status, outputType = "video") => {
+  const isImage = outputType === "image";
+  const typeLabel = isImage ? "image" : "render";
+  const states = {
+    queued: {
+      badge: "Queued in Vision",
+      stage: `Queued ${isImage ? "for image build" : "inside Vision"}`,
+      note: isImage
+        ? "Your prompt entered the still-image lane. Vision is shaping atmosphere, texture, and framing."
+        : "Your prompt entered the cinematic lane. Vision is mapping subject, movement, and visual tone.",
+      deliveryTitle: "Queued in Vision",
+      deliveryNote: isImage
+        ? "Vision is preparing a sharper still with cleaner light, texture, and composition."
+        : "Vision is preparing a cleaner cinematic pass with stronger realism and motion.",
+      expandLabel: "Preview pending",
+      downloadLabel: "Source pending",
+    },
+    preparing: {
+      badge: "Shaping direction",
+      stage: "Shaping the scene",
+      note: isImage
+        ? "Balancing light, atmosphere, texture response, and still-frame hierarchy."
+        : "Balancing realism, light direction, subject continuity, and camera language.",
+      deliveryTitle: "Preparing inside Vision",
+      deliveryNote: isImage
+        ? "Vision is tightening composition before the final image render begins."
+        : "Vision is tightening mood, movement, and visual hierarchy before the render begins.",
+      expandLabel: "Preview pending",
+      downloadLabel: "Source pending",
+    },
+    generating: {
+      badge: isImage ? "Rendering image" : "Rendering motion",
+      stage: isImage ? "Building the still" : "Building the motion pass",
+      note: isImage
+        ? "Rendering light falloff, texture detail, clean edges, and premium atmosphere."
+        : "Rendering light, skin, fabric response, scene depth, and controlled cinematic motion.",
+      deliveryTitle: "Rendering inside Vision",
+      deliveryNote: isImage
+        ? "Vision is finishing your image with stronger texture, depth, and still-frame impact."
+        : "Vision is finishing your motion pass with richer detail and a cleaner premium finish.",
+      expandLabel: "Preview pending",
+      downloadLabel: "Source pending",
+    },
+    operator_required: {
+      badge: "Engine syncing",
+      stage: "Syncing the engine",
+      note: "Vision is coordinating the next render lane so your prompt can keep moving.",
+      deliveryTitle: "Syncing inside Vision",
+      deliveryNote: "A generation lane is being prepared behind the scenes.",
+      expandLabel: "Preview pending",
+      downloadLabel: "Source pending",
+    },
+    downloading: {
+      badge: "Importing",
+      stage: `Importing the ${typeLabel}`,
+      note: `The ${typeLabel} is finished. Vision is packaging the source output back into the studio.`,
+      deliveryTitle: "Importing into Vision",
+      deliveryNote: "The source output is being attached so preview and download are ready together.",
+      expandLabel: "Preview pending",
+      downloadLabel: "Source pending",
+    },
+    ready: {
+      badge: "Tap to expand",
+      stage: "Preview ready",
+      note: `Open the full ${typeLabel}, inspect it, or download the original source file.`,
+      deliveryTitle: "Created inside Vision",
+      deliveryNote: `Preview it in miniature, open it full-size, or download the original ${typeLabel}.`,
+      expandLabel: isImage ? "Open image" : "Open video",
+      downloadLabel: isImage ? "Download image" : "Download video",
+    },
+    failed: {
+      badge: "Try another pass",
+      stage: "Render not completed",
+      note: `This ${typeLabel} did not complete cleanly. Tighten the prompt or try another variation.`,
+      deliveryTitle: "Render not completed",
+      deliveryNote: isImage
+        ? "Try a cleaner image prompt with one subject, one lighting idea, and one strong composition."
+        : "Try a tighter motion prompt with one subject, one camera move, and one clear lighting idea.",
+      expandLabel: "Preview unavailable",
+      downloadLabel: "Source unavailable",
+    },
+    setup_required: {
+      badge: "Engine setup",
+      stage: "Engine handshake required",
+      note: "Vision needs a quick engine sync before this prompt can run cleanly.",
+      deliveryTitle: "Engine handshake required",
+      deliveryNote: "Use Prepare engine once, then rerun the prompt.",
+      expandLabel: "Preview unavailable",
+      downloadLabel: "Source unavailable",
+    },
+  };
+  return states[status] || states.generating;
+};
+
 const stopVisionFocusGuard = () => {
   if (visionFocusGuardHandle) {
     window.clearInterval(visionFocusGuardHandle);
@@ -381,6 +480,10 @@ const setGenerationState = (open) => {
   generationModal?.classList.toggle("is-open", open);
   generationModal?.setAttribute("aria-hidden", open ? "false" : "true");
 
+  if (open && generationReady) {
+    generationReady.hidden = false;
+  }
+
   if (!open) {
     if (generationVideo) {
       generationVideo.pause();
@@ -394,6 +497,9 @@ const setGenerationState = (open) => {
     }
     currentGenerationOutput = null;
     stopVisionFocusGuard();
+    if (generationReady) {
+      generationReady.hidden = true;
+    }
     if (generationPollHandle) {
       window.clearTimeout(generationPollHandle);
       generationPollHandle = null;
@@ -420,31 +526,50 @@ const setGenerationStage = (status, message = "") => {
   });
 };
 
-const resetGenerationDelivery = (outputType, prompt = "") => {
+const resetGenerationDelivery = (outputType, prompt = "", status = "queued") => {
   const normalizedType = outputType === "image" ? "image" : "video";
+  const ui = generationUiCopy(status, normalizedType);
   currentGenerationOutput = null;
-
-  if (generationReady) {
-    generationReady.hidden = true;
-  }
 
   if (generationDownload) {
     generationDownload.removeAttribute("href");
     generationDownload.removeAttribute("download");
-    generationDownload.textContent = normalizedType === "image" ? "Download image" : "Download video";
+    generationDownload.textContent = ui.downloadLabel;
     generationDownload.setAttribute("aria-disabled", "true");
   }
 
   if (generationExpand) {
-    generationExpand.textContent = normalizedType === "image" ? "Open image" : "Open video";
+    generationExpand.textContent = ui.expandLabel;
     generationExpand.setAttribute("aria-disabled", "true");
   }
 
   if (generationPreview) {
+    generationPreview.classList.add("is-loading");
+    generationPreview.classList.remove("is-ready");
+    generationPreview.dataset.state = status;
     generationPreview.setAttribute(
       "aria-label",
-      normalizedType === "image" ? "Generated image preview unavailable" : "Generated video preview unavailable",
+      normalizedType === "image" ? "Generated image preview loading" : "Generated video preview loading",
     );
+  }
+  if (generationPreviewPlaceholder) {
+    generationPreviewPlaceholder.hidden = false;
+  }
+  if (generationPreviewStage) {
+    generationPreviewStage.textContent = ui.stage;
+  }
+  if (generationPreviewNote) {
+    generationPreviewNote.textContent = ui.note;
+  }
+  if (generationDeliveryTitle) {
+    generationDeliveryTitle.textContent = ui.deliveryTitle;
+  }
+  if (generationDeliveryNote) {
+    generationDeliveryNote.textContent = ui.deliveryNote;
+  }
+  const previewBadge = generationPreview?.querySelector(".generation-preview-badge");
+  if (previewBadge) {
+    previewBadge.textContent = ui.badge;
   }
 
   if (generationImage) {
@@ -464,6 +589,7 @@ const resetGenerationDelivery = (outputType, prompt = "") => {
 const presentGenerationJob = (job) => {
   const status = (job.status || "queued").toLowerCase();
   const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
+  const ui = generationUiCopy(status, outputType);
 
   if (["ready", "failed", "setup_required"].includes(status)) {
     stopVisionFocusGuard();
@@ -488,17 +614,13 @@ const presentGenerationJob = (job) => {
   }
   setGenerationStage(status, job.message || job.error || "");
 
-  const isReady = status === "ready" && job.output_url;
-  if (generationReady) {
-    generationReady.hidden = !isReady;
-  }
-
   if (generationPrepare) {
     generationPrepare.hidden = !["setup_required", "operator_required"].includes(status);
   }
 
+  const isReady = status === "ready" && job.output_url;
   if (!isReady) {
-    resetGenerationDelivery(outputType, job.prompt || "");
+    resetGenerationDelivery(outputType, job.prompt || "", status);
     return;
   }
 
@@ -522,14 +644,30 @@ const presentGenerationJob = (job) => {
       }),
     );
     generationDownload.removeAttribute("aria-disabled");
-    generationDownload.textContent = outputType === "image" ? "Download image" : "Download video";
+    generationDownload.textContent = ui.downloadLabel;
   }
   if (generationExpand) {
     generationExpand.removeAttribute("aria-disabled");
-    generationExpand.textContent = outputType === "image" ? "Open image" : "Open video";
+    generationExpand.textContent = ui.expandLabel;
   }
   if (generationPreview) {
+    generationPreview.classList.remove("is-loading");
+    generationPreview.classList.add("is-ready");
+    generationPreview.dataset.state = status;
     generationPreview.setAttribute("aria-label", outputType === "image" ? "Open generated image" : "Open generated video");
+  }
+  if (generationPreviewPlaceholder) {
+    generationPreviewPlaceholder.hidden = true;
+  }
+  if (generationDeliveryTitle) {
+    generationDeliveryTitle.textContent = ui.deliveryTitle;
+  }
+  if (generationDeliveryNote) {
+    generationDeliveryNote.textContent = ui.deliveryNote;
+  }
+  const previewBadge = generationPreview?.querySelector(".generation-preview-badge");
+  if (previewBadge) {
+    previewBadge.textContent = ui.badge;
   }
 
   if (outputType === "image") {

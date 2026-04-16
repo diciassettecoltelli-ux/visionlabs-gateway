@@ -31,7 +31,7 @@
       href="https://fonts.googleapis.com/css2?family=Onest:wght@200;300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./style.css?v=10" />
+    <link rel="stylesheet" href="./style.css?v=13" />
   </head>
   <body>
     <div class="vision-shell">
@@ -575,13 +575,24 @@
             <button class="generation-preview" id="generation-preview" type="button" aria-label="Open generated video">
               <video id="generation-video" muted loop playsinline preload="metadata"></video>
               <img id="generation-image" alt="" hidden />
+              <div class="generation-preview-placeholder" id="generation-preview-placeholder" aria-hidden="true">
+                <div class="generation-preview-loader" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <div class="generation-preview-copy">
+                  <strong id="generation-preview-stage">Queued inside Vision</strong>
+                  <span id="generation-preview-note">Vision is shaping your prompt into a cinematic render with stronger realism, lighting, and motion.</span>
+                </div>
+              </div>
               <span class="generation-preview-badge">Tap to expand</span>
             </button>
             <div class="generation-delivery">
               <div class="generation-delivery-copy">
                 <div class="generation-delivery-kicker">Delivery</div>
-                <strong>Created inside Vision</strong>
-                <span>Preview it in miniature, open it full-size, or download the original output.</span>
+                <strong id="generation-delivery-title">Created inside Vision</strong>
+                <span id="generation-delivery-note">Preview it in miniature, open it full-size, or download the original output.</span>
               </div>
               <div class="generation-actions">
                 <button class="generation-expand" id="generation-expand" type="button">Open video</button>
@@ -594,7 +605,7 @@
       </div>
     </div>
 
-    <script src="./vision-config.js?v=12"></script>
-    <script src="./app.js?v=12"></script>
+    <script src="./vision-config.js?v=13"></script>
+    <script src="./app.js?v=13"></script>
   </body>
   </html>
