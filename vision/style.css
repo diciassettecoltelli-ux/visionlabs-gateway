@@ -3668,8 +3668,8 @@ body.search-open .search-cluster {
 
 .generation-ready-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(17rem, 18.5rem);
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(16.75rem, 18rem);
+  gap: 1.2rem;
   align-items: stretch;
 }
 
@@ -5204,7 +5204,7 @@ body.is-studio-route .atom-guide {
   display: grid;
   gap: 0.48rem;
   align-self: end;
-  max-width: 17.2rem;
+  max-width: 15.8rem;
   padding-top: 0;
 }
 
@@ -5242,8 +5242,8 @@ body.is-studio-route .atom-guide {
 }
 
 .generation-preview.is-loading .generation-preview-badge {
-  left: auto;
-  right: 1rem;
+  left: 1rem;
+  right: auto;
   top: 1rem;
   bottom: auto;
   background: rgba(9, 14, 26, 0.78);
