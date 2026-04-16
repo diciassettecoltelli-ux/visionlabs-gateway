@@ -92,7 +92,7 @@ def _default_generation_provider() -> str:
 
 def _normalize_quality(value: str | None) -> str:
     if not value:
-        return _default_generation_quality()
+        return "auto"
     normalized = value.strip().lower()
     return normalized if normalized in {"auto", "fast", "studio", "director"} else _default_generation_quality()
 
@@ -123,12 +123,175 @@ def _seedance_resolution_for_quality(quality: str) -> str:
 
 def _seedance_candidates_for_quality(quality: str, job_id: str) -> list[str]:
     if quality == "auto":
-        return ["studio", "director", "fast"]
+        return ["director", "studio", "fast"]
     return {
         "fast": ["fast", "studio", "director"],
-        "studio": ["studio", "director", "fast"],
-        "director": ["director", "studio", "fast"],
+        "studio": ["studio", "director"],
+        "director": ["director"],
     }.get(quality, ["studio", "director", "fast"])
+
+
+def _effective_job_quality(mode: str, quality: str) -> str:
+    if mode != "video":
+        return quality
+    if quality == "auto":
+        return "director"
+    return quality
+
+
+def _prompt_route_profile(prompt: str) -> str:
+    lowered = " ".join((prompt or "").lower().split())
+    human_cues = {
+        "woman",
+        "man",
+        "girl",
+        "boy",
+        "person",
+        "people",
+        "portrait",
+        "face",
+        "skin",
+        "eyes",
+        "fashion",
+        "editorial",
+        "dress",
+        "model",
+        "character",
+        "couple",
+        "beauty",
+        "close-up",
+        "close up",
+    }
+    environment_cues = {
+        "house",
+        "villa",
+        "interior",
+        "room",
+        "architecture",
+        "building",
+        "landscape",
+        "forest",
+        "mountain",
+        "desert",
+        "ocean",
+        "beach",
+        "city",
+        "street",
+        "bar",
+        "hotel",
+        "restaurant",
+        "cocktail",
+        "product",
+        "perfume",
+        "bottle",
+        "jewelry",
+    }
+    motion_cues = {
+        "walking",
+        "running",
+        "driving",
+        "tracking",
+        "camera drift",
+        "dolly",
+        "orbit",
+        "pan",
+        "tilt",
+        "handheld",
+        "slow motion",
+        "wind",
+        "waves",
+        "rain",
+        "action",
+        "car",
+        "vehicle",
+        "motorcycle",
+    }
+    luxury_cues = {
+        "luxury",
+        "premium",
+        "cinematic",
+        "ultra-realistic",
+        "ultra realistic",
+        "feature-film",
+        "feature film",
+        "photoreal",
+        "photo-real",
+        "editorial",
+    }
+
+    has_human = any(cue in lowered for cue in human_cues)
+    has_environment = any(cue in lowered for cue in environment_cues)
+    has_motion = any(cue in lowered for cue in motion_cues)
+    has_luxury = any(cue in lowered for cue in luxury_cues)
+
+    if has_human and (has_luxury or has_motion):
+        return "human_premium"
+    if has_human:
+        return "human"
+    if has_environment and has_motion:
+        return "motion_environment"
+    if has_environment or has_luxury:
+        return "environment"
+    return "general"
+
+
+def _provider_priority_for_prompt(prompt: str, quality: str) -> list[str]:
+    profile = _prompt_route_profile(prompt)
+    if quality == "fast":
+        if profile.startswith("human"):
+            return ["google", "kling", "seedance"]
+        return ["google", "seedance", "kling"]
+    if profile.startswith("human"):
+        return ["google", "kling", "seedance"]
+    if profile == "motion_environment":
+        return ["google", "seedance", "kling"]
+    if profile == "environment":
+        return ["google", "seedance", "kling"]
+    return ["google", "seedance", "kling"]
+
+
+def _quality_candidates_for_prompt(quality: str) -> list[str]:
+    if quality == "auto":
+        return ["director", "studio", "fast"]
+    return {
+        "fast": ["fast", "studio", "director"],
+        "studio": ["studio", "director"],
+        "director": ["director"],
+    }.get(quality, ["director", "studio", "fast"])
+
+
+def _auto_enhance_job_prompt(prompt: str, mode: str) -> dict[str, Any]:
+    cleaned = prompt.strip()
+    try:
+        result = improve_vision_prompt(prompt=cleaned, mode=mode)
+        improved_prompt = str(result.get("improved_prompt") or "").strip()
+        if improved_prompt:
+            return {
+                "prompt": improved_prompt,
+                "source_prompt": cleaned,
+                "prompt_summary": str(result.get("summary") or "").strip() or None,
+                "prompt_provider": str(result.get("provider") or "vision_local"),
+                "prompt_model": str(result.get("model") or "") or None,
+                "prompt_enhanced": improved_prompt != cleaned,
+            }
+    except Exception as exc:
+        return {
+            "prompt": cleaned,
+            "source_prompt": cleaned,
+            "prompt_summary": None,
+            "prompt_provider": None,
+            "prompt_model": None,
+            "prompt_enhanced": False,
+            "prompt_enhancement_error": str(exc),
+        }
+    return {
+        "prompt": cleaned,
+        "source_prompt": cleaned,
+        "prompt_summary": None,
+        "prompt_provider": None,
+        "prompt_model": None,
+        "prompt_enhanced": False,
+    }
 
 
 def _google_video_model_for_quality(quality: str) -> str | None:
@@ -145,18 +308,18 @@ def _google_fallback_models_for_quality(quality: str) -> str:
         "fast": os.environ.get("GOOGLE_VEO_FAST_FALLBACK_MODELS", "").strip(),
         "studio": os.environ.get(
             "GOOGLE_VEO_STANDARD_FALLBACK_MODELS",
-            os.environ.get("GOOGLE_VEO_FAST_MODEL", "veo-3.1-fast-generate-preview"),
-        ).strip(),
-        "director": os.environ.get(
-            "GOOGLE_VEO_PREMIUM_FALLBACK_MODELS",
             ",".join(
                 value
                 for value in [
-                    os.environ.get("GOOGLE_VEO_STANDARD_MODEL", "veo-3.1-fast-generate-preview").strip(),
+                    os.environ.get("GOOGLE_VEO_PREMIUM_MODEL", "veo-3.1-generate-preview").strip(),
                     os.environ.get("GOOGLE_VEO_FAST_MODEL", "veo-3.1-fast-generate-preview").strip(),
                 ]
                 if value
             ),
+        ).strip(),
+        "director": os.environ.get(
+            "GOOGLE_VEO_PREMIUM_FALLBACK_MODELS",
+            os.environ.get("GOOGLE_VEO_STANDARD_MODEL", "veo-3.1-fast-generate-preview").strip(),
         ).strip(),
     }
     return fallback_map.get(quality, "").strip()
@@ -553,70 +716,78 @@ def _access_from_request(request: Request) -> dict[str, Any] | None:
 
 
 
-def _select_generation_route(quality: str, job_id: str) -> dict[str, str]:
+def _candidate_generation_routes(prompt: str, quality: str, job_id: str) -> list[dict[str, str]]:
     seedance_state = seedance_status()
     google_state = _google_status()
     kling_state = kling_session_bridge_status()
     default_provider = _default_generation_provider()
-    requested_quality = "studio" if quality == "auto" else quality
-    seedance_candidates = _seedance_candidates_for_quality(quality, job_id)
+    quality_candidates = _quality_candidates_for_prompt(quality)
+    allowed_providers = {
+        "auto": {"google", "seedance", "kling"},
+        "google": {"google"},
+        "seedance": {"seedance"},
+        "kling": {"kling"},
+    }.get(default_provider, {"google", "seedance", "kling"})
+    routes: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
 
-    if default_provider == "google" and google_state["video"].get("ready"):
-        model_name = _google_video_model_for_quality(requested_quality)
-        if model_name:
-            return {
-                "provider": "google_veo",
-                "quality": requested_quality,
-                "model": model_name,
-                "fallback_models": _google_fallback_models_for_quality(requested_quality),
-                "aspect_ratio": "16:9",
-            }
-
-    if default_provider in {"auto", "seedance"} and seedance_state.get("ready"):
-        for candidate in seedance_candidates:
-            if candidate == "director" and google_state["video"].get("ready"):
-                google_model = _google_video_model_for_quality(candidate)
-                if google_model:
-                    return {
+    for candidate_quality in quality_candidates:
+        for provider_name in _provider_priority_for_prompt(prompt, candidate_quality):
+            if provider_name not in allowed_providers:
+                continue
+            if provider_name == "google" and google_state["video"].get("ready"):
+                model_name = _google_video_model_for_quality(candidate_quality)
+                if model_name:
+                    route = {
                         "provider": "google_veo",
-                        "quality": candidate,
-                        "model": google_model,
-                        "fallback_models": _google_fallback_models_for_quality(candidate),
+                        "quality": candidate_quality,
+                        "model": model_name,
+                        "fallback_models": _google_fallback_models_for_quality(candidate_quality),
                         "aspect_ratio": "16:9",
                     }
-            model_name = _seedance_model_for_quality(candidate)
-            if model_name:
-                return {
-                    "provider": "byteplus_seedance",
-                    "quality": candidate,
-                    "model": model_name,
-                    "resolution": _seedance_resolution_for_quality(candidate),
+                    route_key = (route["provider"], route["quality"], route["model"])
+                    if route_key not in seen:
+                        seen.add(route_key)
+                        routes.append(route)
+            if provider_name == "seedance" and seedance_state.get("ready"):
+                model_name = _seedance_model_for_quality(candidate_quality)
+                if model_name:
+                    route = {
+                        "provider": "byteplus_seedance",
+                        "quality": candidate_quality,
+                        "model": model_name,
+                        "resolution": _seedance_resolution_for_quality(candidate_quality),
+                    }
+                    route_key = (route["provider"], route["quality"], route["model"])
+                    if route_key not in seen:
+                        seen.add(route_key)
+                        routes.append(route)
+            if provider_name == "kling" and kling_state.get("ready"):
+                route = {
+                    "provider": "kling_web_session_bridge",
+                    "quality": candidate_quality,
+                    "model": os.environ.get("WORLDSIM_KLING_MODEL", "kling-2.6-pro"),
+                    "resolution": "1080p",
                 }
+                route_key = (route["provider"], route["quality"], route["model"])
+                if route_key not in seen:
+                    seen.add(route_key)
+                    routes.append(route)
 
-    if default_provider in {"auto", "google"} and google_state["video"].get("ready"):
-        model_name = _google_video_model_for_quality(requested_quality)
-        if model_name:
-            return {
-                "provider": "google_veo",
-                "quality": requested_quality,
-                "model": model_name,
-                "fallback_models": _google_fallback_models_for_quality(requested_quality),
-                "aspect_ratio": "16:9",
-            }
-
-    if default_provider in {"auto", "kling"} and kling_state.get("ready"):
-        return {
-            "provider": "kling_web_session_bridge",
-            "quality": requested_quality,
-            "model": os.environ.get("WORLDSIM_KLING_MODEL", "kling-2.6-pro"),
-            "resolution": "1080p",
-        }
+    if routes:
+        return routes
 
     if default_provider == "seedance":
         raise RuntimeError("Seedance is not ready yet for this Vision deployment.")
     if default_provider == "google":
         raise RuntimeError("Google Veo is not ready yet for this Vision deployment.")
+    if default_provider == "kling":
+        raise RuntimeError("Kling is not ready yet for this Vision deployment.")
     raise SessionBridgeNotReadyError("No ready generation provider is available for Vision right now.")
+
+
+def _select_generation_route(prompt: str, quality: str, job_id: str) -> dict[str, str]:
+    return _candidate_generation_routes(prompt, quality, job_id)[0]
 
 
 APP = FastAPI(title="Vision Gateway", version="0.2.0")
@@ -887,43 +1058,77 @@ def _process_job(job_id: str) -> None:
             )
             return
 
-        route = _select_generation_route(str(job.get("quality") or "auto"), job_id)
-        JOBS.update(
-            job_id,
-            provider=route["provider"],
-            quality=route["quality"],
-            status="preparing",
-            message="Shaping the cinematic direction inside Vision.",
-        )
-        if route["provider"] == "byteplus_seedance":
-            JOBS.update(job_id, status="generating", message="Building your cinematic render inside Vision.")
-            output_video = generate_seedance_video(
-                prompt=job["prompt"],
-                output_dir=output_dir,
-                model=route["model"],
-                duration=5,
-                aspect_ratio="16:9",
-                resolution=route["resolution"],
+        routes = _candidate_generation_routes(str(job.get("prompt") or ""), str(job.get("quality") or "auto"), job_id)
+        attempt_log: list[dict[str, Any]] = []
+        output_video = None
+        last_error: Exception | None = None
+        for index, route in enumerate(routes, start=1):
+            JOBS.update(
+                job_id,
+                provider=route["provider"],
+                quality=route["quality"],
+                route_attempts=attempt_log,
+                status="preparing",
+                message="Shaping the cinematic direction inside Vision.",
             )
-        elif route["provider"] == "google_veo":
-            JOBS.update(job_id, status="generating", message="Building your cinematic render inside Vision.")
-            output_video = generate_google_veo_video(
-                prompt=job["prompt"],
-                output_dir=output_dir,
-                model=route["model"],
-                duration=5,
-                aspect_ratio=route["aspect_ratio"],
-                fallback_models=route.get("fallback_models", ""),
-            )
-        else:
-            lane_state = kling_session_bridge_status()
-            if not lane_state.get("ready"):
-                prepare_kling_session_bridge()
-            JOBS.update(job_id, status="generating", message="Building your cinematic render inside Vision.")
-            output_video = generate_kling_session_bridge(
-                prompt=job["prompt"],
-                output_dir=output_dir,
-            )
+            try:
+                JOBS.update(job_id, status="generating", message="Building your cinematic render inside Vision.")
+                if route["provider"] == "byteplus_seedance":
+                    output_video = generate_seedance_video(
+                        prompt=job["prompt"],
+                        output_dir=output_dir,
+                        model=route["model"],
+                        duration=5,
+                        aspect_ratio="16:9",
+                        resolution=route["resolution"],
+                    )
+                elif route["provider"] == "google_veo":
+                    output_video = generate_google_veo_video(
+                        prompt=job["prompt"],
+                        output_dir=output_dir,
+                        model=route["model"],
+                        duration=5,
+                        aspect_ratio=route["aspect_ratio"],
+                        fallback_models=route.get("fallback_models", ""),
+                    )
+                else:
+                    lane_state = kling_session_bridge_status()
+                    if not lane_state.get("ready"):
+                        prepare_kling_session_bridge()
+                    output_video = generate_kling_session_bridge(
+                        prompt=job["prompt"],
+                        output_dir=output_dir,
+                    )
+                attempt_log.append(
+                    {
+                        "attempt": index,
+                        "provider": route["provider"],
+                        "quality": route["quality"],
+                        "model": route.get("model"),
+                        "status": "success",
+                    }
+                )
+                JOBS.update(job_id, route_attempts=attempt_log)
+                break
+            except (RuntimeError, SessionBridgeNotReadyError) as exc:
+                last_error = exc
+                attempt_log.append(
+                    {
+                        "attempt": index,
+                        "provider": route["provider"],
+                        "quality": route["quality"],
+                        "model": route.get("model"),
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+                JOBS.update(job_id, route_attempts=attempt_log)
+                continue
+
+        if output_video is None:
+            if last_error is not None:
+                raise last_error
+            raise RuntimeError("Vision could not open a premium render lane for this prompt.")
         JOBS.update(job_id, status="downloading", message="Finishing and importing your result into Vision.")
         JOBS.update(
             job_id,
@@ -932,6 +1137,7 @@ def _process_job(job_id: str) -> None:
             output_path=str(output_video),
             output_url=_public_output_url(job_id, output_video.name),
             output_type="video",
+            route_attempts=attempt_log,
             error=None,
         )
     except SessionBridgeNotReadyError as exc:
@@ -1127,6 +1333,8 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
 @APP.post("/api/jobs")
 def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
     mode = _normalize_mode(payload.mode)
+    prompt_bundle = _auto_enhance_job_prompt(payload.prompt.strip(), mode)
+    requested_quality = _effective_job_quality(mode, _normalize_quality(payload.quality))
     access = _access_from_request(request)
     summary = _access_summary(access)
     if not summary["has_access"]:
@@ -1159,11 +1367,20 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
         charged_mode = mode
 
     job = JOBS.create(
-        payload.prompt.strip(),
-        _normalize_quality(payload.quality),
+        str(prompt_bundle["prompt"]),
+        requested_quality,
         mode=mode,
         charged_access_id=charged_access_id,
         charged_mode=charged_mode,
+    )
+    job = JOBS.update(
+        job["id"],
+        source_prompt=prompt_bundle.get("source_prompt"),
+        prompt_summary=prompt_bundle.get("prompt_summary"),
+        prompt_provider=prompt_bundle.get("prompt_provider"),
+        prompt_model=prompt_bundle.get("prompt_model"),
+        prompt_enhanced=bool(prompt_bundle.get("prompt_enhanced")),
+        prompt_enhancement_error=prompt_bundle.get("prompt_enhancement_error"),
     )
     QUEUE.put(job["id"])
     return job

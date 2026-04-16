@@ -14,7 +14,7 @@ def _resolve_api_key() -> str:
 
 
 def _default_model() -> str:
-    return os.getenv("GOOGLE_PROMPT_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    return os.getenv("GOOGLE_PROMPT_MODEL", "gemini-2.5-pro").strip() or "gemini-2.5-pro"
 
 
 def _iter_parts(response: Any) -> list[Any]:
@@ -184,6 +184,96 @@ def _dedupe_intro(prompt: str) -> str:
     return cleaned
 
 
+def _prompt_profile(prompt: str) -> str:
+    lowered = prompt.lower()
+    human_cues = {
+        "woman",
+        "man",
+        "girl",
+        "boy",
+        "person",
+        "portrait",
+        "face",
+        "skin",
+        "fashion",
+        "editorial",
+        "dress",
+        "model",
+        "beauty",
+        "character",
+    }
+    architecture_cues = {
+        "house",
+        "villa",
+        "interior",
+        "room",
+        "building",
+        "architecture",
+        "hotel",
+        "bar",
+        "restaurant",
+        "desert house",
+        "modern house",
+        "apartment",
+    }
+    product_cues = {
+        "perfume",
+        "bottle",
+        "jewelry",
+        "watch",
+        "product",
+        "shoe",
+        "bag",
+    }
+    environment_cues = {
+        "landscape",
+        "forest",
+        "mountain",
+        "ocean",
+        "sea",
+        "beach",
+        "city",
+        "street",
+        "rain",
+        "storm",
+        "sunset",
+        "sunrise",
+    }
+    motion_cues = {
+        "walking",
+        "running",
+        "driving",
+        "camera",
+        "tracking",
+        "orbit",
+        "pan",
+        "tilt",
+        "drift",
+        "handheld",
+        "wind",
+        "waves",
+        "rain",
+        "moving",
+        "motion",
+    }
+
+    has_human = any(cue in lowered for cue in human_cues)
+    has_architecture = any(cue in lowered for cue in architecture_cues)
+    has_product = any(cue in lowered for cue in product_cues)
+    has_environment = any(cue in lowered for cue in environment_cues)
+    has_motion = any(cue in lowered for cue in motion_cues)
+
+    if has_human:
+        return "human_video" if has_motion else "human"
+    if has_product:
+        return "product"
+    if has_architecture:
+        return "architecture_video" if has_motion else "architecture"
+    if has_environment:
+        return "environment_video" if has_motion else "environment"
+    return "general_video" if has_motion else "general"
+
+
 def _local_prompt(prompt: str, mode: str) -> dict[str, str | None]:
     normalized = "image" if mode == "image" else "video"
     cleaned = _normalize_subject(_dedupe_intro(prompt))
@@ -196,17 +286,50 @@ def _local_prompt(prompt: str, mode: str) -> dict[str, str | None]:
             "provider": "vision_local",
             "model": None,
         }
+    profile = _prompt_profile(cleaned)
     if normalized == "image":
-        improved = _trim_prompt(
-            f"Ultra-realistic still frame of {cleaned}, refined lighting, realistic material detail, premium atmosphere, "
-            "strong composition, clean visual hierarchy, elegant realism, no text, no watermark."
-        )
+        if profile == "human":
+            improved = _trim_prompt(
+                f"Ultra-realistic editorial portrait of {cleaned}, natural skin texture, realistic facial anatomy, soft directional light, "
+                "subtle imperfections, premium fashion realism, clean composition, no text, no watermark."
+            )
+        elif profile == "architecture":
+            improved = _trim_prompt(
+                f"Ultra-realistic architectural still of {cleaned}, refined natural light, realistic materials, restrained luxury atmosphere, "
+                "clean composition, premium realism, no text, no watermark."
+            )
+        elif profile == "product":
+            improved = _trim_prompt(
+                f"Ultra-realistic luxury product still of {cleaned}, sculpted lighting, realistic reflections, premium material detail, "
+                "clean background hierarchy, commercial realism, no text, no watermark."
+            )
+        else:
+            improved = _trim_prompt(
+                f"Ultra-realistic still frame of {cleaned}, refined lighting, realistic material detail, premium atmosphere, "
+                "strong composition, clean visual hierarchy, elegant realism, no text, no watermark."
+            )
         summary = "Enhanced by Vision for a stronger premium still."
     else:
-        improved = _trim_prompt(
-            f"Ultra-realistic cinematic scene of {cleaned}, natural motion, controlled camera movement, refined lighting, "
-            "realistic textures, premium atmosphere, clean composition, feature-film realism, no text, no watermark."
-        )
+        if profile in {"human", "human_video"}:
+            improved = _trim_prompt(
+                f"Ultra-realistic cinematic portrait sequence of {cleaned}, realistic skin and anatomy, restrained camera movement, "
+                "soft directional light, premium editorial realism, natural motion, feature-film finish, no text, no watermark."
+            )
+        elif profile in {"architecture", "architecture_video"}:
+            improved = _trim_prompt(
+                f"Ultra-realistic cinematic architectural shot of {cleaned}, slow controlled camera drift, realistic material detail, "
+                "golden-hour or soft directional light, premium realism, clean visual hierarchy, no text, no watermark."
+            )
+        elif profile == "product":
+            improved = _trim_prompt(
+                f"Ultra-realistic cinematic commercial shot of {cleaned}, slow premium camera motion, refined highlights, realistic materials, "
+                "luxury atmosphere, polished realism, no text, no watermark."
+            )
+        else:
+            improved = _trim_prompt(
+                f"Ultra-realistic cinematic scene of {cleaned}, natural motion, controlled camera movement, refined lighting, "
+                "realistic textures, premium atmosphere, clean composition, feature-film realism, no text, no watermark."
+            )
         summary = "Enhanced by Vision for stronger cinematic realism."
     return {
         "improved_prompt": improved,
@@ -264,9 +387,14 @@ Rules:
 - Improve realism, atmosphere, lighting, framing, material detail, and visual tone.
 - If mode is video, add natural motion and restrained camera direction.
 - If mode is image, optimize for a powerful still frame.
+- For people, prefer realistic skin texture, believable anatomy, and premium editorial realism.
+- For architecture and interiors, prefer refined natural light, realistic materials, and controlled camera movement.
+- For landscapes and environments, prefer one strong time-of-day cue, atmospheric depth, and grounded realism.
 - If the prompt already sounds premium, only tighten it lightly instead of rewriting the opening phrase.
 - Never repeat the same cinematic intro twice.
 - Remove stacked or duplicated phrases such as "shot of shot of", "cinematic cinematic", or repeated realism modifiers.
+- Avoid generic filler like "strong visual direction" unless it adds something concrete.
+- Prefer one clear cinematic idea over a pile of vague adjectives.
 - Never mention provider names, model names, aspect ratios, resolutions, credits, or pricing.
 - Do not use markdown.
 - Return strict JSON with keys: improved_prompt, summary.
