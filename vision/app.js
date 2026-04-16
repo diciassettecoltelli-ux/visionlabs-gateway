@@ -1,5 +1,6 @@
 const body = document.body;
 const atomTrigger = document.querySelector(".atom-trigger");
+const atomGuideText = document.querySelector("#atom-guide-text");
 const searchCluster = document.querySelector(".search-cluster");
 const searchForm = document.querySelector("#vision-search-form");
 const promptInput = document.querySelector("#vision-prompt");
@@ -16,6 +17,7 @@ const galleryLightboxTitle = document.querySelector("#gallery-lightbox-title");
 const galleryLightboxCaption = document.querySelector("#gallery-lightbox-caption");
 const galleryLightboxClose = document.querySelector(".gallery-lightbox-close");
 const subscribeTriggers = document.querySelectorAll("[data-subscribe-trigger]");
+const studioTriggers = document.querySelectorAll("[data-enter-studio]");
 const subscribeModal = document.querySelector("#subscribe-modal");
 const subscribeClose = document.querySelector(".subscribe-close");
 const subscribeForm = document.querySelector("#subscribe-form");
@@ -45,6 +47,8 @@ const generationPrepare = document.querySelector("#generation-prepare");
 const configuredApiBase = typeof window.VISION_API_BASE === "string" ? window.VISION_API_BASE.trim() : "";
 const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 const VISION_API_BASE = configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "");
+const VISION_STUDIO_PATH = "/studio/";
+const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
 const VISION_ACCESS_STORAGE_KEY = "vision_access_token";
 const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
 
@@ -167,6 +171,10 @@ const visionFetch = (path, options = {}) => {
     ...options,
     headers,
   });
+};
+
+const enterStudio = () => {
+  window.location.assign(VISION_STUDIO_PATH);
 };
 
 const stripUrlParams = (...params) => {
@@ -902,14 +910,28 @@ setGenerationState(false);
 setMode("video");
 renderAccessState(defaultAccess, defaultPack);
 
+if (atomGuideText) {
+  atomGuideText.textContent = isStudioRoute ? "Vision Studio" : "Enter Vision Studio";
+}
+
 atomTrigger?.addEventListener("click", () => {
-  const nextState = !body.classList.contains("search-open");
-  setSearchState(nextState);
+  if (!isStudioRoute) {
+    enterStudio();
+    return;
+  }
+  setSearchState(true);
 });
 
 modeButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setMode(button.dataset.generationMode);
+  });
+});
+
+studioTriggers.forEach((trigger) => {
+  trigger.addEventListener("click", (event) => {
+    event.preventDefault();
+    enterStudio();
   });
 });
 
@@ -1046,11 +1068,15 @@ document.addEventListener("keydown", (event) => {
 });
 
 const initializeVision = async () => {
+  body.classList.toggle("is-studio-route", isStudioRoute);
   setMode(selectedMode);
   resetPromptHelper();
   const unlockedAdmin = await unlockAdminIfNeeded();
   const confirmedCheckout = await confirmCheckoutIfNeeded();
   await loadAccessState();
+  if (isStudioRoute) {
+    setSearchState(true);
+  }
   if (unlockedAdmin || confirmedCheckout) {
     await maybeResumePendingPrompt();
   }

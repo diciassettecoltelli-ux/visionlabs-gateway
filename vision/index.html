@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vision</title>
+    <base href="/" />
     <meta
       name="description"
       content="Vision is a cinematic creation interface for turning prompts into premium visual worlds, images, and moving scenes."
@@ -18,8 +19,8 @@
     <meta property="og:url" content="https://visionstudiolab.com/" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Vision" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=2" />
-    <link rel="shortcut icon" href="./favicon.svg?v=2" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=3" />
+    <link rel="shortcut icon" href="./favicon.svg?v=3" />
     <meta
       name="twitter:description"
       content="A more cinematic way to search, shape, and create."
@@ -30,7 +31,7 @@
       href="https://fonts.googleapis.com/css2?family=Onest:wght@200;300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./style.css?v=7" />
+    <link rel="stylesheet" href="./style.css?v=8" />
   </head>
   <body>
     <div class="vision-shell">
@@ -62,13 +63,13 @@
         </a>
 
         <nav class="topnav" aria-label="Primary">
-          <a href="#studio">Studio</a>
+          <a href="/studio/">Studio</a>
           <a href="#gallery">Gallery</a>
           <a href="#contact">Contact</a>
           <a href="#about">About us</a>
         </nav>
 
-        <a class="topbar-cta" href="#pricing" data-subscribe-trigger>Unlock Vision</a>
+        <a class="topbar-cta" href="/studio/" data-enter-studio>Enter Vision Studio</a>
       </header>
 
       <main class="hero">
@@ -89,7 +90,7 @@
           </button>
           <div class="atom-guide" aria-hidden="true">
             <span class="atom-guide-line"></span>
-            <span class="atom-guide-text">Tap to begin</span>
+            <span class="atom-guide-text" id="atom-guide-text">Enter Vision Studio</span>
           </div>
         </div>
         <div class="search-cluster" id="vision-search-panel" aria-hidden="true">
@@ -440,13 +441,7 @@
                 <li>Automatic prompt enhancement included</li>
                 <li>One-time unlock, no subscription required</li>
               </ul>
-              <button
-                class="pricing-button"
-                type="button"
-                data-subscribe-trigger
-              >
-                Unlock my pack
-              </button>
+              <a class="pricing-button" href="/studio/" data-enter-studio>Enter Vision Studio</a>
             </article>
           </div>
 
@@ -599,7 +594,7 @@
       </div>
     </div>
 
-    <script src="./vision-config.js?v=8"></script>
-    <script src="./app.js?v=8"></script>
+    <script src="./vision-config.js?v=10"></script>
+    <script src="./app.js?v=10"></script>
   </body>
   </html>

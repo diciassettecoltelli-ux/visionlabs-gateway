@@ -2,9 +2,10 @@
 set -eu
 
 rm -rf public
-mkdir -p public
+mkdir -p public public/studio
 
 cp index.html public/index.html
+cp index.html public/studio/index.html
 cp style.css public/style.css
 cp app.js public/app.js
 cp vision-config.js public/vision-config.js

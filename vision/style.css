@@ -4525,6 +4525,15 @@ body {
   z-index: 2;
 }
 
+body.is-studio-route .hero {
+  min-height: 100vh;
+}
+
+body.is-studio-route .atom-guide {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .gallery-stack {
   display: grid;
   gap: 1.6rem;

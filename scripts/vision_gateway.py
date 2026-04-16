@@ -6,6 +6,7 @@ import hmac
 import json
 import os
 import queue
+import secrets
 import smtplib
 import ssl
 import threading
@@ -234,6 +235,33 @@ def _access_secret() -> str:
     return os.environ.get("VISION_ACCESS_SECRET", "vision-dev-access-secret").strip()
 
 
+def _user_cookie_name() -> str:
+    return os.environ.get("VISION_USER_COOKIE_NAME", "vision_user").strip() or "vision_user"
+
+
+def _user_secret() -> str:
+    configured = os.environ.get("VISION_USER_SECRET", "").strip()
+    return configured or _access_secret()
+
+
+def _signup_discount_percent() -> int:
+    try:
+        return max(0, min(90, int(os.environ.get("VISION_SIGNUP_DISCOUNT_PERCENT", "20"))))
+    except ValueError:
+        return 20
+
+
+def _auth_code_ttl_minutes() -> int:
+    try:
+        return max(5, min(60, int(os.environ.get("VISION_AUTH_CODE_TTL_MINUTES", "15"))))
+    except ValueError:
+        return 15
+
+
+def _normalize_email(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
 def _notification_log_path() -> Path:
     return RUNTIME_ROOT / "purchase_notifications.jsonl"
 
@@ -427,8 +455,8 @@ def _create_stripe_checkout_session(*, request: Request, email: str | None) -> d
     frontend_base = _frontend_base_url(request)
     payload: dict[str, Any] = {
         "mode": "payment",
-        "success_url": f"{frontend_base}/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
-        "cancel_url": f"{frontend_base}/?checkout=cancel",
+        "success_url": f"{frontend_base}/studio/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": f"{frontend_base}/studio/?checkout=cancel",
         "allow_promotion_codes": "true",
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",
@@ -1156,6 +1184,16 @@ if (VISION_ROOT / "assets").exists():
 if (VISION_ROOT / "index.html").exists():
     @APP.get("/", include_in_schema=False)
     def frontend_index() -> FileResponse:
+        return FileResponse(VISION_ROOT / "index.html")
+
+
+    @APP.get("/studio", include_in_schema=False)
+    def frontend_studio() -> FileResponse:
+        return FileResponse(VISION_ROOT / "index.html")
+
+
+    @APP.get("/studio/", include_in_schema=False)
+    def frontend_studio_trailing() -> FileResponse:
         return FileResponse(VISION_ROOT / "index.html")
 
 
