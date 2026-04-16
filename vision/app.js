@@ -43,6 +43,8 @@ const generationPreview = document.querySelector("#generation-preview");
 const generationExpand = document.querySelector("#generation-expand");
 const generationDownload = document.querySelector("#generation-download");
 const generationPrepare = document.querySelector("#generation-prepare");
+const topNav = document.querySelector(".topnav");
+const topbarCta = document.querySelector(".topbar-cta");
 
 const configuredApiBase = typeof window.VISION_API_BASE === "string" ? window.VISION_API_BASE.trim() : "";
 const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -69,8 +71,8 @@ const defaultAccess = {
 };
 
 const promptHelperDefaults = {
-  video: "From one raw idea to a sharper cinematic result. Vision strengthens mood, realism, framing, and visual tone before generation begins.",
-  image: "From one raw idea to a stronger still image. Vision sharpens atmosphere, composition, texture, and still-frame impact before generation begins.",
+  video: "Describe the subject first. Vision sharpens lighting, motion, framing, and realism before generation begins.",
+  image: "Describe the image first. Vision sharpens atmosphere, texture, framing, and still-frame impact before generation begins.",
 };
 
 const visionApiUrl = (path) => `${VISION_API_BASE}${path}`;
@@ -206,6 +208,39 @@ const formatPackPrice = (pack) => {
 
 const formatPackLine = (pack) =>
   `${formatPackPrice(pack)} · one-time unlock · ${pack.video_credits} videos + ${pack.image_credits} images`;
+
+const slugifyPrompt = (prompt) =>
+  String(prompt || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .split("-")
+    .filter(Boolean)
+    .slice(0, 6)
+    .join("-");
+
+const inferDownloadExtension = (url, outputType) => {
+  const fallback = outputType === "image" ? "png" : "mp4";
+  if (!url) {
+    return fallback;
+  }
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const match = parsed.pathname.match(/\.([a-z0-9]+)$/i);
+    return match?.[1]?.toLowerCase() || fallback;
+  } catch (error) {
+    const match = String(url).match(/\.([a-z0-9]+)(?:\?|#|$)/i);
+    return match?.[1]?.toLowerCase() || fallback;
+  }
+};
+
+const buildDownloadFilename = ({ prompt, outputType, jobId, url }) => {
+  const base = slugifyPrompt(prompt) || (outputType === "image" ? "visual" : "render");
+  const shortId = String(jobId || "").slice(0, 8);
+  const extension = inferDownloadExtension(url, outputType);
+  const suffix = shortId ? `-${shortId}` : "";
+  return `vision-${outputType}-${base}${suffix}.${extension}`;
+};
 
 let selectedMode = "video";
 let activeGenerationJobId = null;
@@ -477,7 +512,15 @@ const presentGenerationJob = (job) => {
 
   if (generationDownload) {
     generationDownload.href = resolvedOutputUrl;
-    generationDownload.setAttribute("download", "");
+    generationDownload.setAttribute(
+      "download",
+      buildDownloadFilename({
+        prompt: job.prompt || "",
+        outputType,
+        jobId: job.id,
+        url: resolvedOutputUrl,
+      }),
+    );
     generationDownload.removeAttribute("aria-disabled");
     generationDownload.textContent = outputType === "image" ? "Download image" : "Download video";
   }
@@ -598,6 +641,16 @@ const renderAccessState = (access, pack) => {
     }
     trigger.textContent = accessState.access_id ? "Buy another pack" : "Unlock Vision";
   });
+
+  if (isStudioRoute && topbarCta) {
+    if (accessState.admin) {
+      topbarCta.textContent = "Studio unlocked";
+    } else if (accessState.access_id) {
+      topbarCta.textContent = `${accessState.video_remaining ?? 0} video · ${accessState.image_remaining ?? 0} images`;
+    } else {
+      topbarCta.textContent = "Vision Pack required";
+    }
+  }
 };
 
 const setSubscribeLoading = (loading, label = "Unlock my pack") => {
@@ -1071,6 +1124,15 @@ const initializeVision = async () => {
   body.classList.toggle("is-studio-route", isStudioRoute);
   setMode(selectedMode);
   resetPromptHelper();
+  if (isStudioRoute) {
+    topNav?.setAttribute("aria-hidden", "true");
+    if (topbarCta) {
+      topbarCta.textContent = "Vision Studio";
+      topbarCta.removeAttribute("data-enter-studio");
+      topbarCta.setAttribute("href", "/studio/");
+      topbarCta.setAttribute("aria-current", "page");
+    }
+  }
   const unlockedAdmin = await unlockAdminIfNeeded();
   const confirmedCheckout = await confirmCheckoutIfNeeded();
   await loadAccessState();

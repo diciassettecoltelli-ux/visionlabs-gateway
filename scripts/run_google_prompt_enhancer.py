@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 
@@ -60,14 +61,115 @@ def _looks_already_enhanced(prompt: str, mode: str) -> bool:
         "ultra realistic cinematic shot of",
         "ultra-realistic cinematic still of",
         "ultra realistic cinematic still of",
+        "ultra-realistic still frame of",
+        "ultra realistic still frame of",
+        "cinematic scene of",
+        "cinematic still of",
     ]
     if any(lowered.startswith(prefix) for prefix in prefixes):
         return True
-    if mode == "video" and "feature-film realism" in lowered:
+    cinematic_cues = [
+        "premium atmosphere",
+        "premium lighting",
+        "refined lighting",
+        "realistic textures",
+        "realistic material detail",
+        "clean composition",
+        "clean visual hierarchy",
+        "natural motion",
+        "controlled camera movement",
+        "no text",
+        "no watermark",
+    ]
+    score = sum(1 for cue in cinematic_cues if cue in lowered)
+    if mode == "video" and ("feature-film realism" in lowered or score >= 4):
         return True
-    if mode == "image" and "clean visual hierarchy" in lowered:
+    if mode == "image" and ("clean visual hierarchy" in lowered or score >= 4):
         return True
     return False
+
+
+def _collapse_duplicate_tokens(text: str) -> str:
+    cleaned = text
+    duplicate_patterns = [
+        (r"(?i)\bshot of shot of\b", "shot of"),
+        (r"(?i)\bstill of still of\b", "still of"),
+        (r"(?i)\bimage of image of\b", "image of"),
+        (r"(?i)\bcinematic cinematic\b", "cinematic"),
+        (r"(?i)\brealistic realistic\b", "realistic"),
+        (r"(?i)\bultra-realistic ultra-realistic\b", "ultra-realistic"),
+        (r"(?i)\bultra realistic ultra realistic\b", "ultra realistic"),
+        (r"(?i)\bof of\b", "of"),
+    ]
+    for pattern, replacement in duplicate_patterns:
+        while re.search(pattern, cleaned):
+            cleaned = re.sub(pattern, replacement, cleaned)
+    return cleaned
+
+
+def _strip_leading_style(prompt: str) -> str:
+    cleaned = prompt.strip()
+    prefixes = [
+        r"(?i)^ultra[- ]realistic cinematic shot of\s+",
+        r"(?i)^ultra[- ]realistic cinematic still of\s+",
+        r"(?i)^ultra[- ]realistic still frame of\s+",
+        r"(?i)^cinematic shot of\s+",
+        r"(?i)^cinematic still of\s+",
+        r"(?i)^still frame of\s+",
+        r"(?i)^shot of\s+",
+        r"(?i)^image of\s+",
+        r"(?i)^still of\s+",
+    ]
+    changed = True
+    while changed:
+        changed = False
+        for pattern in prefixes:
+            stripped = re.sub(pattern, "", cleaned).strip(" ,.-")
+            if stripped != cleaned:
+                cleaned = stripped
+                changed = True
+    return cleaned
+
+
+def _normalize_subject(prompt: str) -> str:
+    cleaned = " ".join(prompt.strip().split())
+    cleaned = _collapse_duplicate_tokens(cleaned)
+    cleaned = _strip_leading_style(cleaned)
+    style_segments = [
+        "strong visual direction",
+        "natural motion",
+        "controlled camera movement",
+        "premium lighting",
+        "refined lighting",
+        "rich atmosphere",
+        "premium atmosphere",
+        "feature-film realism",
+        "clean composition",
+        "clean visual hierarchy",
+        "realistic textures",
+        "realistic material detail",
+        "detailed textures",
+        "elegant realism",
+    ]
+    parts = [part.strip(" ,.-") for part in cleaned.split(",")]
+    kept_parts = [part for part in parts if part and not any(cue in part.lower() for cue in style_segments)]
+    if kept_parts:
+        cleaned = ", ".join(kept_parts)
+    cleaned = re.sub(r"(?i)\bultra[- ]?realistic\b", "", cleaned)
+    cleaned = re.sub(r"(?i)\bcinematic\b", "", cleaned)
+    cleaned = re.sub(r"(?i)\brealistic\b", "", cleaned)
+    cleaned = re.sub(r"(?i)\b(no text,\s*)?no watermark\.?$", "", cleaned).strip(" ,.-")
+    cleaned = re.sub(r"\s*,\s*", ", ", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    cleaned = _collapse_duplicate_tokens(cleaned)
+    return cleaned.strip(" ,.-")
+
+
+def _trim_prompt(text: str, limit: int = 420) -> str:
+    if len(text) <= limit:
+        return text
+    trimmed = text[: limit - 3].rsplit(" ", 1)[0].rstrip(",.;:- ")
+    return f"{trimmed}..."
 
 
 def _dedupe_intro(prompt: str) -> str:
@@ -84,7 +186,9 @@ def _dedupe_intro(prompt: str) -> str:
 
 def _local_prompt(prompt: str, mode: str) -> dict[str, str | None]:
     normalized = "image" if mode == "image" else "video"
-    cleaned = _dedupe_intro(prompt)
+    cleaned = _normalize_subject(_dedupe_intro(prompt))
+    if not cleaned:
+        cleaned = "a cinematic subject"
     if _looks_already_enhanced(cleaned, normalized):
         return {
             "improved_prompt": cleaned,
@@ -93,17 +197,17 @@ def _local_prompt(prompt: str, mode: str) -> dict[str, str | None]:
             "model": None,
         }
     if normalized == "image":
-        improved = (
-            f"Ultra-realistic cinematic still of {cleaned}, premium lighting, refined composition, detailed textures, "
-            "natural atmosphere, clean visual hierarchy, elegant realism, no text, no watermark."
+        improved = _trim_prompt(
+            f"Ultra-realistic still frame of {cleaned}, refined lighting, realistic material detail, premium atmosphere, "
+            "strong composition, clean visual hierarchy, elegant realism, no text, no watermark."
         )
-        summary = "Enhanced by Vision for a sharper still image result."
+        summary = "Enhanced by Vision for a stronger premium still."
     else:
-        improved = (
-            f"Ultra-realistic cinematic shot of {cleaned}, strong visual direction, natural motion, premium lighting, "
-            "rich atmosphere, realistic textures, clean composition, feature-film realism, no text, no watermark."
+        improved = _trim_prompt(
+            f"Ultra-realistic cinematic scene of {cleaned}, natural motion, controlled camera movement, refined lighting, "
+            "realistic textures, premium atmosphere, clean composition, feature-film realism, no text, no watermark."
         )
-        summary = "Enhanced by Vision for stronger cinematic motion and realism."
+        summary = "Enhanced by Vision for stronger cinematic realism."
     return {
         "improved_prompt": improved,
         "summary": summary,
@@ -126,7 +230,7 @@ def status() -> dict[str, Any]:
 
 def improve_prompt(*, prompt: str, mode: str = "video", model: str | None = None) -> dict[str, str | None]:
     normalized_mode = "image" if mode == "image" else "video"
-    cleaned_prompt = _dedupe_intro(prompt)
+    cleaned_prompt = _normalize_subject(_dedupe_intro(prompt))
     if not cleaned_prompt:
         raise RuntimeError("Prompt enhancement needs a prompt first.")
     if _looks_already_enhanced(cleaned_prompt, normalized_mode):
@@ -162,6 +266,7 @@ Rules:
 - If mode is image, optimize for a powerful still frame.
 - If the prompt already sounds premium, only tighten it lightly instead of rewriting the opening phrase.
 - Never repeat the same cinematic intro twice.
+- Remove stacked or duplicated phrases such as "shot of shot of", "cinematic cinematic", or repeated realism modifiers.
 - Never mention provider names, model names, aspect ratios, resolutions, credits, or pricing.
 - Do not use markdown.
 - Return strict JSON with keys: improved_prompt, summary.
