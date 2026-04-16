@@ -1110,7 +1110,7 @@ def _process_job(job_id: str) -> None:
                 )
                 JOBS.update(job_id, route_attempts=attempt_log)
                 break
-            except (RuntimeError, SessionBridgeNotReadyError) as exc:
+            except Exception as exc:
                 last_error = exc
                 attempt_log.append(
                     {
