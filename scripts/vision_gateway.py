@@ -304,11 +304,13 @@ def _google_video_model_for_quality(quality: str) -> str | None:
 
 
 def _google_resolution_for_quality(quality: str) -> str:
-    return {
-        "fast": "720p",
-        "studio": "720p",
-        "director": "1080p",
-    }.get(quality, "720p")
+    env_map = {
+        "fast": os.environ.get("GOOGLE_VEO_FAST_RESOLUTION", "720p").strip().lower(),
+        "studio": os.environ.get("GOOGLE_VEO_STANDARD_RESOLUTION", "720p").strip().lower(),
+        "director": os.environ.get("GOOGLE_VEO_PREMIUM_RESOLUTION", "4k").strip().lower(),
+    }
+    requested = env_map.get(quality) or "720p"
+    return requested if requested in {"720p", "1080p", "4k"} else "720p"
 
 
 def _google_duration_for_quality(quality: str) -> int:
