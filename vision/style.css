@@ -3668,8 +3668,8 @@ body.search-open .search-cluster {
 
 .generation-ready-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(16.75rem, 18rem);
-  gap: 1.2rem;
+  grid-template-columns: minmax(0, 0.96fr) minmax(15.75rem, 16.75rem);
+  gap: 1.35rem;
   align-items: stretch;
 }
 
@@ -3677,6 +3677,8 @@ body.search-open .search-cluster {
   position: relative;
   display: block;
   min-height: 15.8rem;
+  isolation: isolate;
+  z-index: 1;
   overflow: hidden;
   padding: 0;
   border: 1px solid rgba(215, 233, 255, 0.08);
@@ -3734,6 +3736,10 @@ body.search-open .search-cluster {
 }
 
 .generation-delivery {
+  position: relative;
+  isolation: isolate;
+  z-index: 2;
+  overflow: hidden;
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 1rem;
@@ -5204,7 +5210,9 @@ body.is-studio-route .atom-guide {
   display: grid;
   gap: 0.48rem;
   align-self: end;
-  max-width: 15.8rem;
+  max-width: 14.6rem;
+  justify-self: start;
+  text-align: left;
   padding-top: 0;
 }
 
@@ -5266,6 +5274,7 @@ body.is-studio-route .atom-guide {
   display: grid;
   gap: 0.55rem;
   align-content: start;
+  padding-top: 0.2rem;
 }
 
 .generation-actions {
