@@ -54,9 +54,9 @@ const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
 
 const defaultPack = {
   name: "Vision Pack",
-  price_cents: 499,
+  price_cents: 199,
   currency: "eur",
-  video_credits: 3,
+  video_credits: 1,
   image_credits: 5,
 };
 

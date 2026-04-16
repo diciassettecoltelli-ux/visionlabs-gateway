@@ -192,9 +192,9 @@ def _now_iso() -> str:
 
 def _pack_price_cents() -> int:
     try:
-        return max(99, int(os.environ.get("VISION_PACK_PRICE_CENTS", "499")))
+        return max(99, int(os.environ.get("VISION_PACK_PRICE_CENTS", "199")))
     except ValueError:
-        return 499
+        return 199
 
 
 def _pack_currency() -> str:
@@ -204,9 +204,9 @@ def _pack_currency() -> str:
 
 def _pack_video_credits() -> int:
     try:
-        return max(1, int(os.environ.get("VISION_PACK_VIDEO_CREDITS", "3")))
+        return max(1, int(os.environ.get("VISION_PACK_VIDEO_CREDITS", "1")))
     except ValueError:
-        return 3
+        return 1
 
 
 def _pack_image_credits() -> int:
