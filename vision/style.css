@@ -3676,6 +3676,7 @@ body.search-open .search-cluster {
 .generation-preview {
   position: relative;
   display: block;
+  min-height: 15.8rem;
   overflow: hidden;
   padding: 0;
   border: 1px solid rgba(215, 233, 255, 0.08);
@@ -3734,7 +3735,9 @@ body.search-open .search-cluster {
 
 .generation-delivery {
   display: grid;
+  grid-template-rows: auto 1fr auto;
   gap: 1rem;
+  min-height: 15.8rem;
   padding: 1rem;
   border: 1px solid rgba(220, 232, 248, 0.08);
   border-radius: 1.2rem;
@@ -5145,9 +5148,10 @@ body.is-studio-route .atom-guide {
   position: absolute;
   inset: 0;
   display: grid;
-  align-content: space-between;
-  gap: 1rem;
-  padding: 1.15rem 1.15rem 1.35rem;
+  grid-template-rows: auto 1fr auto;
+  align-content: stretch;
+  gap: 0.9rem;
+  padding: 1.1rem 1.15rem 1.2rem;
   background:
     radial-gradient(circle at 50% 100%, rgba(111, 158, 238, 0.2), rgba(111, 158, 238, 0) 42%),
     linear-gradient(180deg, rgba(244, 249, 255, 0.045), rgba(7, 12, 24, 0.9));
@@ -5174,6 +5178,7 @@ body.is-studio-route .atom-guide {
   display: inline-flex;
   gap: 0.5rem;
   align-items: center;
+  justify-self: start;
 }
 
 .generation-preview-loader span {
@@ -5197,10 +5202,10 @@ body.is-studio-route .atom-guide {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 0.52rem;
+  gap: 0.48rem;
   align-self: end;
-  max-width: 18rem;
-  padding-top: 1.5rem;
+  max-width: 17.2rem;
+  padding-top: 0;
 }
 
 .generation-preview-copy strong {
@@ -5258,12 +5263,15 @@ body.is-studio-route .atom-guide {
 }
 
 .generation-delivery-copy {
+  display: grid;
+  gap: 0.55rem;
   align-content: start;
 }
 
 .generation-actions {
   display: grid;
   gap: 0.72rem;
+  align-self: end;
 }
 
 .generation-expand,
