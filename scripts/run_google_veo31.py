@@ -32,15 +32,33 @@ def _load_google_image(types_module: Any, image_path: Path) -> Any:
     )
 
 
-def _make_video_config(types_module: Any, *, duration_seconds: int, aspect_ratio: str) -> Any:
+def _make_video_config(types_module: Any, *, duration_seconds: int, aspect_ratio: str, resolution: str | None = None) -> Any:
     config_cls = getattr(types_module, "GenerateVideosConfig", None)
     if config_cls is not None:
-        return config_cls(duration_seconds=duration_seconds, aspect_ratio=aspect_ratio, number_of_videos=1)
-    return {"duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio, "number_of_videos": 1}
+        kwargs: dict[str, Any] = {
+            "duration_seconds": duration_seconds,
+            "aspect_ratio": aspect_ratio,
+            "number_of_videos": 1,
+        }
+        if resolution:
+            kwargs["resolution"] = resolution
+        return config_cls(**kwargs)
+    payload = {"duration_seconds": duration_seconds, "aspect_ratio": aspect_ratio, "number_of_videos": 1}
+    if resolution:
+        payload["resolution"] = resolution
+    return payload
 
 
-def _safe_duration_seconds(value: int) -> int:
-    return max(4, min(8, int(value)))
+def _safe_duration_seconds(value: int, *, resolution: str | None = None) -> int:
+    try:
+        requested = int(value)
+    except Exception:
+        requested = 6
+    legal = [4, 6, 8]
+    chosen = min(legal, key=lambda candidate: abs(candidate - requested))
+    if (resolution or "").strip().lower() == "1080p" and chosen < 8:
+        return 8
+    return chosen
 
 
 def _parse_fallback_models(raw: str | None) -> list[str]:
@@ -155,6 +173,7 @@ def generate_video(
     model: str | None = None,
     duration: int = 5,
     aspect_ratio: str = "16:9",
+    resolution: str | None = None,
     reference_image: str | Path | None = None,
     fallback_models: str | list[str] | None = None,
     timeout_seconds: int = 1800,
@@ -163,7 +182,7 @@ def generate_video(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_video_path = Path(output_video) if output_video else output_dir / "google_veo31.mp4"
-    safe_duration = _safe_duration_seconds(duration)
+    safe_duration = _safe_duration_seconds(duration, resolution=resolution)
     reference_path = Path(reference_image).expanduser().resolve() if reference_image else None
 
     try:
@@ -186,7 +205,12 @@ def generate_video(
     last_error: Exception | None = None
     for candidate in model_chain:
         chosen_model = candidate
-        config = _make_video_config(types, duration_seconds=safe_duration, aspect_ratio=aspect_ratio)
+        config = _make_video_config(
+            types,
+            duration_seconds=safe_duration,
+            aspect_ratio=aspect_ratio,
+            resolution=resolution,
+        )
         kwargs: dict[str, Any] = {
             "model": chosen_model,
             "prompt": prompt,
@@ -229,6 +253,7 @@ def generate_video(
         "prompt": prompt,
         "output_video": str(saved_video),
         "aspect_ratio": aspect_ratio,
+        "resolution": resolution,
         "duration": safe_duration,
         "reference_image": str(reference_path) if reference_path and reference_path.exists() else None,
         "attempt_log": attempt_log,

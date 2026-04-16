@@ -303,6 +303,22 @@ def _google_video_model_for_quality(quality: str) -> str | None:
     return env_map.get(quality) or None
 
 
+def _google_resolution_for_quality(quality: str) -> str:
+    return {
+        "fast": "720p",
+        "studio": "720p",
+        "director": "1080p",
+    }.get(quality, "720p")
+
+
+def _google_duration_for_quality(quality: str) -> int:
+    return {
+        "fast": 4,
+        "studio": 6,
+        "director": 8,
+    }.get(quality, 6)
+
+
 def _google_fallback_models_for_quality(quality: str) -> str:
     fallback_map = {
         "fast": os.environ.get("GOOGLE_VEO_FAST_FALLBACK_MODELS", "").strip(),
@@ -744,6 +760,8 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str) -> list
                         "model": model_name,
                         "fallback_models": _google_fallback_models_for_quality(candidate_quality),
                         "aspect_ratio": "16:9",
+                        "resolution": _google_resolution_for_quality(candidate_quality),
+                        "duration": _google_duration_for_quality(candidate_quality),
                     }
                     route_key = (route["provider"], route["quality"], route["model"])
                     if route_key not in seen:
@@ -1087,8 +1105,9 @@ def _process_job(job_id: str) -> None:
                         prompt=job["prompt"],
                         output_dir=output_dir,
                         model=route["model"],
-                        duration=5,
+                        duration=int(route.get("duration", 6)),
                         aspect_ratio=route["aspect_ratio"],
+                        resolution=route.get("resolution"),
                         fallback_models=route.get("fallback_models", ""),
                     )
                 else:
