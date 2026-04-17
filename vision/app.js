@@ -882,6 +882,8 @@ const renderAccessState = (access, pack, user) => {
       topbarCta.textContent = currentUser.email || "My account";
     } else if (accessState.admin) {
       topbarCta.textContent = "Studio unlocked";
+    } else if (accessState.access_id) {
+      topbarCta.textContent = `${accessState.video_remaining ?? 0} video · ${accessState.image_remaining ?? 0} images`;
     } else {
       topbarCta.textContent = "Log in";
     }
