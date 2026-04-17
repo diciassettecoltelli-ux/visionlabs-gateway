@@ -26,7 +26,7 @@ const subscribeSuccess = document.querySelector("#subscribe-success");
 const subscribeKicker = document.querySelector(".subscribe-kicker");
 const subscribeTitle = document.querySelector("#subscribe-title");
 const subscribeCopy = document.querySelector(".subscribe-copy");
-const subscribePlanLine = document.querySelector("#subscribe-plan-line");
+const subscribePackGrid = document.querySelector("#subscribe-pack-grid");
 const subscribeSubmit = document.querySelector(".subscribe-submit");
 const subscribeNote = document.querySelector("#subscribe-note");
 const authModal = document.querySelector("#auth-modal");
@@ -75,13 +75,52 @@ const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
 const VISION_ACCESS_STORAGE_KEY = "vision_access_token";
 const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
 
-const defaultPack = {
-  name: "Vision Pack",
-  price_cents: 199,
-  currency: "eur",
-  video_credits: 1,
-  image_credits: 5,
-};
+const defaultPacks = [
+  {
+    id: "start",
+    name: "Vision Start",
+    description: "Fast cinematic output for concepts, drops, and everyday releases.",
+    price_cents: 499,
+    currency: "eur",
+    video_credits: 1,
+    image_credits: 20,
+    video_label: "1 HD video",
+    duration_label: "Up to 4 seconds",
+    image_label: "20 premium images",
+    badge: "",
+    features: ["Prompt enhancement included", "No watermark", "Private downloads"],
+  },
+  {
+    id: "pro",
+    name: "Vision Pro",
+    description: "Premium visual pack for creators, campaigns, and stronger cinematic content.",
+    price_cents: 999,
+    currency: "eur",
+    video_credits: 2,
+    image_credits: 50,
+    video_label: "2 Full HD videos",
+    duration_label: "Up to 5 seconds each",
+    image_label: "50 premium images",
+    badge: "Most popular",
+    features: ["Enhanced prompt direction", "No watermark", "Private downloads"],
+  },
+  {
+    id: "director",
+    name: "Vision Director",
+    description: "Highest-end pack for hero launches, premium campaigns, and standout visual releases.",
+    price_cents: 2499,
+    currency: "eur",
+    video_credits: 5,
+    image_credits: 120,
+    video_label: "5 4K hero videos",
+    duration_label: "10–15 seconds",
+    image_label: "120 premium images",
+    badge: "",
+    features: ["Highest prompt enhancement", "Priority processing", "No watermark", "Private downloads"],
+  },
+];
+
+const defaultPack = { ...defaultPacks[0] };
 
 const defaultAccess = {
   has_access: false,
@@ -237,6 +276,25 @@ const formatPackPrice = (pack) => {
 const formatPackLine = (pack) =>
   `${formatPackPrice(pack)} · one-time unlock · ${pack.video_credits} videos + ${pack.image_credits} images`;
 
+const normalizePack = (pack = {}) => ({
+  ...defaultPack,
+  ...pack,
+  id: String(pack?.id || defaultPack.id || "start").toLowerCase(),
+  features: Array.isArray(pack?.features) && pack.features.length ? pack.features : defaultPack.features,
+});
+
+const normalizePackList = (packs) => {
+  if (!Array.isArray(packs) || !packs.length) {
+    return defaultPacks.map((pack) => normalizePack(pack));
+  }
+  return packs.map((pack) => normalizePack(pack));
+};
+
+const findPackById = (packId, packs = defaultPacks) => {
+  const normalizedId = String(packId || "").trim().toLowerCase();
+  return normalizePackList(packs).find((pack) => pack.id === normalizedId) || normalizePackList(packs)[0];
+};
+
 const slugifyPrompt = (prompt) =>
   String(prompt || "")
     .toLowerCase()
@@ -277,7 +335,9 @@ let visionFocusGuardHandle = null;
 let improvePromptInFlight = false;
 let accessState = { ...defaultAccess };
 let currentUser = { ...defaultUser };
-let currentPack = { ...defaultPack };
+let currentPacks = normalizePackList(defaultPacks);
+let selectedPackId = "pro";
+let currentPack = { ...findPackById(selectedPackId, currentPacks) };
 let currentGenerationOutput = null;
 let lastSubscribeTrigger = null;
 let authPendingEmail = "";
@@ -811,6 +871,57 @@ const setAuthLoading = (loading, label) => {
   }
 };
 
+const updateSubscribeSubmitLabel = () => {
+  if (!subscribeSubmit) {
+    return;
+  }
+  const packName = currentPack?.name ? currentPack.name.replace(/^Vision\s+/i, "") : "selected pack";
+  subscribeSubmit.textContent = `Unlock ${packName}`;
+};
+
+const renderSubscribePackOptions = () => {
+  if (!subscribePackGrid) {
+    return;
+  }
+  subscribePackGrid.innerHTML = "";
+  normalizePackList(currentPacks).forEach((pack) => {
+    const selected = pack.id === selectedPackId;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = `subscribe-pack-card${selected ? " is-selected" : ""}${pack.badge ? " has-badge" : ""}`;
+    card.dataset.packId = pack.id;
+    card.setAttribute("aria-pressed", selected ? "true" : "false");
+    const featureMarkup = (Array.isArray(pack.features) ? pack.features : [])
+      .slice(0, 4)
+      .map((feature) => `<li>${feature}</li>`)
+      .join("");
+    card.innerHTML = `
+      <div class="subscribe-pack-head">
+        <div>
+          <span class="subscribe-pack-name">${pack.name}</span>
+          <strong class="subscribe-pack-price">${formatPackPrice(pack)}</strong>
+        </div>
+        ${pack.badge ? `<span class="subscribe-pack-badge">${pack.badge}</span>` : ""}
+      </div>
+      <p class="subscribe-pack-description">${pack.description}</p>
+      <div class="subscribe-pack-specs">
+        <span>${pack.video_label}</span>
+        <span>${pack.duration_label}</span>
+        <span>${pack.image_label}</span>
+      </div>
+      <ul class="subscribe-pack-features">${featureMarkup}</ul>
+    `;
+    card.addEventListener("click", () => {
+      selectedPackId = pack.id;
+      currentPack = normalizePack(pack);
+      renderSubscribePackOptions();
+      updateSubscribeSubmitLabel();
+    });
+    subscribePackGrid.appendChild(card);
+  });
+  updateSubscribeSubmitLabel();
+};
+
 const renderAuthState = () => {
   const signedIn = !!currentUser.authenticated;
   if (authTitle) {
@@ -869,23 +980,22 @@ const renderAuthState = () => {
   }
 };
 
-const renderAccessState = (access, pack, user) => {
+const renderAccessState = (access, pack, user, packs) => {
   accessState = { ...defaultAccess, ...(access || {}) };
-  currentPack = { ...defaultPack, ...(pack || {}) };
+  currentPacks = normalizePackList(packs || currentPacks);
   currentUser = { ...defaultUser, ...(user || {}) };
-
-  if (subscribePlanLine) {
-    subscribePlanLine.hidden = false;
-    subscribePlanLine.textContent = formatPackLine(currentPack);
-  }
+  const fallbackPack = normalizePack(pack || {});
+  currentPack = findPackById(selectedPackId || fallbackPack.id, currentPacks);
+  selectedPackId = currentPack.id;
+  renderSubscribePackOptions();
 
   if (accessPill) {
     if (accessState.admin) {
       accessPill.textContent = "Vision engine unlocked";
     } else if (accessState.access_id) {
-      accessPill.textContent = `Vision Pack live · ${accessState.video_remaining ?? 0} videos · ${accessState.image_remaining ?? 0} images`;
+      accessPill.textContent = `Vision access live · ${accessState.video_remaining ?? 0} videos · ${accessState.image_remaining ?? 0} images`;
     } else {
-      accessPill.textContent = "Vision Pack required";
+      accessPill.textContent = "Vision access required";
     }
   }
 
@@ -915,10 +1025,10 @@ const renderAccessState = (access, pack, user) => {
   renderAuthState();
 };
 
-const setSubscribeLoading = (loading, label = "Unlock my pack") => {
+const setSubscribeLoading = (loading, label = null) => {
   if (subscribeSubmit) {
     subscribeSubmit.disabled = loading;
-    subscribeSubmit.textContent = loading ? label : "Unlock my pack";
+    subscribeSubmit.textContent = loading ? label || subscribeSubmit.textContent : `Unlock ${String(currentPack?.name || "selected pack").replace(/^Vision\s+/i, "")}`;
   }
   if (subscribeEmail) {
     subscribeEmail.disabled = loading;
@@ -931,11 +1041,11 @@ const setSubscribeContent = (context = {}) => {
   const pendingMode = context.mode === "image" ? "image" : "video";
   const title =
     reason === "insufficient_credits" || accessState.access_id
-      ? "Unlock another cinematic pack."
-      : "Turn one prompt into a cinematic pack.";
+      ? "Unlock another Vision pack."
+      : "Choose your Vision pack.";
   const copy = pendingPrompt
-    ? `Unlock ${currentPack.video_credits} cinematic videos, ${currentPack.image_credits} still images, and a stronger ${pendingMode} direction shaped by Vision. Your current idea resumes right after payment.`
-    : `Unlock ${currentPack.video_credits} cinematic videos, ${currentPack.image_credits} still images, and a prompt shaped by Vision into something sharper, richer, and more campaign-ready before generation begins.`;
+    ? `Choose the pack that fits this ${pendingMode} idea. Vision will resume your current prompt right after payment so you can keep creating without starting over.`
+    : "Pick the pack that fits your release. Every option unlocks cinematic creation inside Vision with private access, cleaner prompt direction, and watermark-free exports.";
   const note = "Secure checkout with Stripe. Vision resumes your prompt automatically after payment.";
 
   if (subscribeKicker) {
@@ -947,6 +1057,7 @@ const setSubscribeContent = (context = {}) => {
   if (subscribeCopy) {
     subscribeCopy.textContent = copy;
   }
+  renderSubscribePackOptions();
   if (subscribeNote) {
     subscribeNote.textContent = note;
   }
@@ -969,6 +1080,9 @@ const setSubscribeState = (open, context = {}) => {
   }
 
   lastSubscribeTrigger = context.trigger || null;
+  currentPacks = normalizePackList(context.packs || currentPacks);
+  selectedPackId = context.packId || selectedPackId || "pro";
+  currentPack = findPackById(selectedPackId, currentPacks);
   setSubscribeContent(context);
   window.setTimeout(() => subscribeEmail?.focus(), 220);
 };
@@ -980,9 +1094,9 @@ const loadAccessState = async () => {
       return;
     }
     const payload = await response.json();
-    renderAccessState(payload.access, payload.pack, payload.user);
+    renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
   } catch (error) {
-    renderAccessState(defaultAccess, currentPack, defaultUser);
+    renderAccessState(defaultAccess, currentPack, defaultUser, currentPacks);
   }
 };
 
@@ -1032,7 +1146,7 @@ const verifyAuthCode = async (email, code) => {
     if (payload?.access_token) {
       storeAccessToken(payload.access_token);
     }
-    renderAccessState(payload.access, payload.pack, payload.user);
+    renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
     authStep = "email";
     authPendingEmail = "";
     if (authCode) {
@@ -1064,7 +1178,7 @@ const logoutUser = async () => {
     if (authCode) {
       authCode.value = "";
     }
-    renderAccessState(payload.access, payload.pack, payload.user);
+    renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
     setAuthModalState(false);
   } catch (error) {
     if (authNote) {
@@ -1087,7 +1201,7 @@ const beginCheckout = async (email) => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, pack_id: selectedPackId }),
     });
     const payload = await parseJsonSafely(response);
     if (!response.ok || !payload?.url) {
@@ -1103,11 +1217,15 @@ const beginCheckout = async (email) => {
 };
 
 const handleCheckoutRequired = (detail, prompt, mode) => {
+  if (detail?.access || detail?.pack || detail?.packs) {
+    renderAccessState(detail?.access, detail?.pack, currentUser, detail?.packs);
+  }
   savePendingPrompt(prompt, mode);
   setSubscribeState(true, {
     reason: detail?.code || "payment_required",
     prompt,
     mode,
+    packs: detail?.packs,
   });
 };
 
@@ -1222,7 +1340,7 @@ const confirmCheckoutIfNeeded = async () => {
     if (payload?.access_token) {
       storeAccessToken(payload.access_token);
     }
-    renderAccessState(payload.access, payload.pack, payload.user);
+    renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
     stripUrlParams("checkout", "session_id");
     return true;
   } catch (error) {
@@ -1299,7 +1417,7 @@ const unlockAdminIfNeeded = async () => {
     if (payload?.access_token) {
       storeAccessToken(payload.access_token);
     }
-    renderAccessState(payload.access, payload.pack, payload.user);
+    renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
     stripUrlParams("vision_admin");
     return true;
   } catch (error) {
@@ -1312,7 +1430,7 @@ setSearchState(false);
 setSubscribeState(false);
 setGenerationState(false);
 setMode("video");
-renderAccessState(defaultAccess, defaultPack, defaultUser);
+renderAccessState(defaultAccess, defaultPack, defaultUser, defaultPacks);
 
 if (atomGuideText) {
   atomGuideText.textContent = isStudioRoute ? "Vision Studio" : "Enter Vision Studio";

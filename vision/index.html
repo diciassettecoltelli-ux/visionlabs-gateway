@@ -99,7 +99,7 @@
               <button class="mode-toggle is-active" type="button" data-generation-mode="video" aria-pressed="true">Video</button>
               <button class="mode-toggle" type="button" data-generation-mode="image" aria-pressed="false">Image</button>
             </div>
-            <div class="access-pill" id="vision-access-pill">Locked · Vision Pack required</div>
+            <div class="access-pill" id="vision-access-pill">Locked · Vision access required</div>
           </div>
           <form class="search-panel" id="vision-search-form" action="#" method="get">
             <div class="search-icon" aria-hidden="true">
@@ -420,26 +420,59 @@
           <div class="pricing-header">
             <div class="pricing-heading">
               <div class="pricing-kicker">Pricing</div>
-              <h2 class="pricing-title">Unlock your first cinematic drop.</h2>
+              <h2 class="pricing-title">Choose the pack that fits your release.</h2>
             </div>
             <p class="pricing-copy">
-              Vision takes a raw prompt, sharpens the direction, and turns it into a complete visual drop: 1 cinematic video, 5 still images, and a stronger creative trajectory in one unlock.
+              Every Vision pack unlocks watermark-free exports, stronger prompt direction, and private access to your credits from any device. Start fast, scale up, or go full Director mode.
             </p>
           </div>
 
-          <div class="pricing-grid pricing-grid--single">
-            <article class="pricing-card pricing-card--single">
+          <div class="pricing-grid">
+            <article class="pricing-card">
               <div class="pricing-card-top">
-                <div class="pricing-plan">Vision Pack</div>
-                <div class="pricing-price">€1.99 <span>/ one time</span></div>
+                <div class="pricing-plan">Vision Start</div>
+                <div class="pricing-price">€4.99 <span>/ one time</span></div>
               </div>
-              <div class="pricing-volume">1 video + 5 images</div>
-              <p class="pricing-meta">Built for covers, campaigns, launch visuals, moodboards, and fast cinematic concept direction inside Vision.</p>
+              <div class="pricing-volume">1 HD video · 20 premium images</div>
+              <p class="pricing-meta">Fast cinematic output for concepts, drops, and everyday releases.</p>
               <ul class="pricing-list">
-                <li>1 cinematic video shaped by Vision</li>
-                <li>5 still images for covers, moodboards, and launches</li>
-                <li>Automatic prompt enhancement included</li>
-                <li>One-time unlock, no subscription required</li>
+                <li>Up to 4 seconds</li>
+                <li>Prompt enhancement included</li>
+                <li>No watermark</li>
+                <li>Private downloads</li>
+              </ul>
+              <a class="pricing-button" href="/studio/" data-enter-studio>Enter Vision Studio</a>
+            </article>
+
+            <article class="pricing-card pricing-card--pro">
+              <div class="pricing-card-top">
+                <div class="pricing-badge">Most popular</div>
+                <div class="pricing-plan">Vision Pro</div>
+                <div class="pricing-price">€9.99 <span>/ one time</span></div>
+              </div>
+              <div class="pricing-volume">2 Full HD videos · 50 premium images</div>
+              <p class="pricing-meta">Premium visual pack for creators, campaigns, and stronger cinematic content.</p>
+              <ul class="pricing-list">
+                <li>Up to 5 seconds each</li>
+                <li>Enhanced prompt direction</li>
+                <li>No watermark</li>
+                <li>Private downloads</li>
+              </ul>
+              <a class="pricing-button" href="/studio/" data-enter-studio>Enter Vision Studio</a>
+            </article>
+
+            <article class="pricing-card">
+              <div class="pricing-card-top">
+                <div class="pricing-plan">Vision Director</div>
+                <div class="pricing-price">€24.99 <span>/ one time</span></div>
+              </div>
+              <div class="pricing-volume">5 4K hero videos · 120 premium images</div>
+              <p class="pricing-meta">Highest-end pack for hero launches, premium campaigns, and standout visual releases.</p>
+              <ul class="pricing-list">
+                <li>10–15 seconds</li>
+                <li>Highest prompt enhancement</li>
+                <li>Priority processing</li>
+                <li>No watermark</li>
               </ul>
               <a class="pricing-button" href="/studio/" data-enter-studio>Enter Vision Studio</a>
             </article>
@@ -527,13 +560,13 @@
         <button class="subscribe-close" type="button" aria-label="Close subscribe panel">Close</button>
         <div class="subscribe-intro">
           <div class="subscribe-kicker">Vision / Access</div>
-          <h3 id="subscribe-title">Turn one prompt into a cinematic pack.</h3>
-          <p class="subscribe-copy">Unlock 1 cinematic video, 5 still images, and a prompt shaped by Vision into something sharper, richer, and more campaign-ready before generation begins.</p>
-          <div class="subscribe-plan-line" id="subscribe-plan-line">€1.99 · one-time unlock · 1 video + 5 images</div>
+          <h3 id="subscribe-title">Choose your Vision pack.</h3>
+          <p class="subscribe-copy">Pick the pack that fits your release. Every option unlocks cinematic creation inside Vision with private access, cleaner prompt direction, and watermark-free exports.</p>
+          <div class="subscribe-pack-grid" id="subscribe-pack-grid" aria-live="polite"></div>
           <ul class="subscribe-highlights">
-            <li>Prompt enhancement guided by the Vision engine</li>
-            <li>Built for covers, concepts, drops, campaigns, and moodboards</li>
-            <li>One secure unlock inside Vision with no subscription</li>
+            <li>No watermark on every pack</li>
+            <li>Prompt enhancement included inside Vision</li>
+            <li>Private account access and downloads anytime</li>
           </ul>
         </div>
 
@@ -541,7 +574,7 @@
           <label class="subscribe-label" for="subscribe-email">Email</label>
           <div class="subscribe-field-row">
             <input class="subscribe-input" id="subscribe-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
-            <button class="subscribe-submit" type="submit">Unlock my pack</button>
+            <button class="subscribe-submit" type="submit">Unlock selected pack</button>
           </div>
           <p class="subscribe-note" id="subscribe-note">Secure checkout with Stripe. Vision resumes your prompt automatically after payment.</p>
         </form>

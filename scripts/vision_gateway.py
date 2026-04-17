@@ -381,41 +381,113 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _default_pack_catalog() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "start",
+            "name": "Vision Start",
+            "description": "Fast cinematic output for concepts, drops, and everyday releases.",
+            "price_cents": 499,
+            "currency": "eur",
+            "video_credits": 1,
+            "image_credits": 20,
+            "video_label": "1 HD video",
+            "duration_label": "Up to 4 seconds",
+            "image_label": "20 premium images",
+            "badge": "",
+            "features": [
+                "Prompt enhancement included",
+                "No watermark",
+                "Private downloads",
+            ],
+        },
+        {
+            "id": "pro",
+            "name": "Vision Pro",
+            "description": "Premium visual pack for creators, campaigns, and stronger cinematic content.",
+            "price_cents": 999,
+            "currency": "eur",
+            "video_credits": 2,
+            "image_credits": 50,
+            "video_label": "2 Full HD videos",
+            "duration_label": "Up to 5 seconds each",
+            "image_label": "50 premium images",
+            "badge": "Most popular",
+            "features": [
+                "Enhanced prompt direction",
+                "No watermark",
+                "Private downloads",
+            ],
+        },
+        {
+            "id": "director",
+            "name": "Vision Director",
+            "description": "Highest-end pack for hero launches, premium campaigns, and standout visual releases.",
+            "price_cents": 2499,
+            "currency": "eur",
+            "video_credits": 5,
+            "image_credits": 120,
+            "video_label": "5 4K hero videos",
+            "duration_label": "10–15 seconds",
+            "image_label": "120 premium images",
+            "badge": "",
+            "features": [
+                "Highest prompt enhancement",
+                "Priority processing",
+                "No watermark",
+                "Private downloads",
+            ],
+        },
+    ]
+
+
+def _format_pack_price_display(price_cents: int, currency: str) -> str:
+    amount = price_cents / 100
+    if currency.lower() == "eur":
+        return f"€{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"{amount:.2f} {currency.upper()}"
+
+
+def _packs_summary() -> list[dict[str, Any]]:
+    packs: list[dict[str, Any]] = []
+    for pack in _default_pack_catalog():
+        summary = copy.deepcopy(pack)
+        summary["price_display"] = _format_pack_price_display(int(summary["price_cents"]), str(summary["currency"]))
+        packs.append(summary)
+    return packs
+
+
+def _pack_by_id(pack_id: str | None) -> dict[str, Any]:
+    normalized = str(pack_id or "").strip().lower()
+    packs = _packs_summary()
+    for pack in packs:
+        if str(pack.get("id")) == normalized:
+            return pack
+    return packs[0]
+
+
 def _pack_price_cents() -> int:
-    try:
-        return max(99, int(os.environ.get("VISION_PACK_PRICE_CENTS", "199")))
-    except ValueError:
-        return 199
+    return int(_pack_summary().get("price_cents") or 499)
 
 
 def _pack_currency() -> str:
-    currency = os.environ.get("VISION_PACK_CURRENCY", "eur").strip().lower()
-    return currency or "eur"
+    return str(_pack_summary().get("currency") or "eur").strip().lower() or "eur"
 
 
 def _pack_video_credits() -> int:
-    try:
-        return max(1, int(os.environ.get("VISION_PACK_VIDEO_CREDITS", "1")))
-    except ValueError:
-        return 1
+    return max(int(_pack_summary().get("video_credits") or 1), 1)
 
 
 def _pack_image_credits() -> int:
-    try:
-        return max(0, int(os.environ.get("VISION_PACK_IMAGE_CREDITS", "5")))
-    except ValueError:
-        return 5
+    return max(int(_pack_summary().get("image_credits") or 20), 0)
 
 
 def _pack_name() -> str:
-    return os.environ.get("VISION_PACK_NAME", "Vision Pack").strip() or "Vision Pack"
+    return str(_pack_summary().get("name") or "Vision Start").strip() or "Vision Start"
 
 
 def _pack_description() -> str:
-    return os.environ.get(
-        "VISION_PACK_DESCRIPTION",
-        f"{_pack_video_credits()} videos + {_pack_image_credits()} images",
-    ).strip() or f"{_pack_video_credits()} videos + {_pack_image_credits()} images"
+    return str(_pack_summary().get("description") or f"{_pack_video_credits()} videos + {_pack_image_credits()} images").strip() or f"{_pack_video_credits()} videos + {_pack_image_credits()} images"
 
 
 def _access_cookie_name() -> str:
@@ -550,7 +622,7 @@ def _send_purchase_notification_email(record: dict[str, Any]) -> None:
     if not recipients:
         return
     body = [
-        "A new Vision Pack purchase has been confirmed.",
+        "A new Vision purchase has been confirmed.",
         "",
         f"Email: {record.get('email') or 'not provided'}",
         f"Pack: {record.get('pack_name')}",
@@ -562,21 +634,23 @@ def _send_purchase_notification_email(record: dict[str, Any]) -> None:
     ]
     _send_email(
         recipients=recipients,
-        subject=f"New Vision Pack purchase · {record.get('email') or 'unknown email'}",
+        subject=f"New Vision purchase · {record.get('email') or 'unknown email'}",
         body_lines=body,
     )
 
 
 def _notify_purchase_async(*, session: dict[str, Any], entry: dict[str, Any]) -> None:
+    metadata = session.get("metadata") or {}
+    session_pack = _pack_by_id(metadata.get("vision_pack_id"))
     record = {
         "session_id": session.get("id"),
         "email": entry.get("email"),
         "access_id": entry.get("id"),
-        "pack_name": _pack_name(),
-        "video_credits": _pack_video_credits(),
-        "image_credits": _pack_image_credits(),
-        "amount_total": (session.get("amount_total") or _pack_price_cents()) / 100,
-        "currency": session.get("currency") or _pack_currency(),
+        "pack_name": metadata.get("vision_pack_name") or session_pack.get("name"),
+        "video_credits": metadata.get("vision_pack_video_credits") or session_pack.get("video_credits"),
+        "image_credits": metadata.get("vision_pack_image_credits") or session_pack.get("image_credits"),
+        "amount_total": (session.get("amount_total") or int(session_pack.get("price_cents") or _pack_price_cents())) / 100,
+        "currency": session.get("currency") or session_pack.get("currency") or _pack_currency(),
         "confirmed_at": _now_iso(),
     }
 
@@ -726,8 +800,9 @@ def _stripe_request(method: str, path: str, data: dict[str, Any] | None = None) 
         raise RuntimeError(f"Stripe API error ({exc.code}): {body}") from exc
 
 
-def _create_stripe_checkout_session(*, request: Request, email: str | None) -> dict[str, Any]:
+def _create_stripe_checkout_session(*, request: Request, email: str | None, pack_id: str | None) -> dict[str, Any]:
     frontend_base = _frontend_base_url(request)
+    pack = _pack_by_id(pack_id)
     payload: dict[str, Any] = {
         "mode": "payment",
         "success_url": f"{frontend_base}/studio/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
@@ -735,13 +810,14 @@ def _create_stripe_checkout_session(*, request: Request, email: str | None) -> d
         "allow_promotion_codes": "true",
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",
-        "line_items[0][price_data][currency]": _pack_currency(),
-        "line_items[0][price_data][unit_amount]": str(_pack_price_cents()),
-        "line_items[0][price_data][product_data][name]": _pack_name(),
-        "line_items[0][price_data][product_data][description]": _pack_description(),
-        "metadata[vision_pack_name]": _pack_name(),
-        "metadata[vision_pack_video_credits]": str(_pack_video_credits()),
-        "metadata[vision_pack_image_credits]": str(_pack_image_credits()),
+        "line_items[0][price_data][currency]": str(pack.get("currency") or "eur"),
+        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 499),
+        "line_items[0][price_data][product_data][name]": str(pack.get("name") or "Vision Start"),
+        "line_items[0][price_data][product_data][description]": str(pack.get("description") or ""),
+        "metadata[vision_pack_id]": str(pack.get("id") or "start"),
+        "metadata[vision_pack_name]": str(pack.get("name") or "Vision Start"),
+        "metadata[vision_pack_video_credits]": str(pack.get("video_credits") or 1),
+        "metadata[vision_pack_image_credits]": str(pack.get("image_credits") or 20),
     }
     if email:
         payload["customer_email"] = email
@@ -771,14 +847,15 @@ def _list_stripe_checkout_sessions_by_email(email: str, *, limit: int = 100) -> 
 
 def _credits_from_session(session: dict[str, Any]) -> tuple[int, int]:
     metadata = session.get("metadata") or {}
+    session_pack = _pack_by_id(metadata.get("vision_pack_id"))
     try:
-        video_credits = int(metadata.get("vision_pack_video_credits") or _pack_video_credits())
+        video_credits = int(metadata.get("vision_pack_video_credits") or session_pack.get("video_credits") or _pack_video_credits())
     except (TypeError, ValueError):
-        video_credits = _pack_video_credits()
+        video_credits = int(session_pack.get("video_credits") or _pack_video_credits())
     try:
-        image_credits = int(metadata.get("vision_pack_image_credits") or _pack_image_credits())
+        image_credits = int(metadata.get("vision_pack_image_credits") or session_pack.get("image_credits") or _pack_image_credits())
     except (TypeError, ValueError):
-        image_credits = _pack_image_credits()
+        image_credits = int(session_pack.get("image_credits") or _pack_image_credits())
     return max(video_credits, 0), max(image_credits, 0)
 
 
@@ -826,18 +903,8 @@ def _access_summary(entry: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _pack_summary() -> dict[str, Any]:
-    price_cents = _pack_price_cents()
-    currency = _pack_currency()
-    return {
-        "name": _pack_name(),
-        "description": _pack_description(),
-        "price_cents": price_cents,
-        "price_display": f"{price_cents / 100:.2f} {currency}".replace(".", ",") if currency == "eur" else f"{price_cents / 100:.2f} {currency.upper()}",
-        "currency": currency,
-        "video_credits": _pack_video_credits(),
-        "image_credits": _pack_image_credits(),
-    }
+def _pack_summary(pack_id: str | None = None) -> dict[str, Any]:
+    return copy.deepcopy(_pack_by_id(pack_id))
 
 
 def _access_token_payload(entry: dict[str, Any]) -> dict[str, Any]:
@@ -1038,6 +1105,7 @@ class CreateJobRequest(BaseModel):
 
 class CreateCheckoutSessionRequest(BaseModel):
     email: str | None = Field(default=None, max_length=320)
+    pack_id: str | None = Field(default=None, max_length=32)
 
 
 class ConfirmCheckoutRequest(BaseModel):
@@ -1667,6 +1735,7 @@ def access_me(request: Request) -> dict[str, Any]:
         "user": _user_summary(user),
         "access": _access_summary(access),
         "pack": _pack_summary(),
+        "packs": _packs_summary(),
     }
 
 
@@ -1684,6 +1753,7 @@ def request_auth_code(payload: RequestAuthCodeRequest) -> dict[str, Any]:
         "ok": True,
         "email": normalized,
         "message": "A Vision access code is on its way.",
+        "packs": _packs_summary(),
     }
 
 
@@ -1730,6 +1800,7 @@ def verify_auth_code(payload: VerifyAuthCodeRequest, request: Request) -> JSONRe
             "user": _user_summary(user),
             "access": _access_summary(attached_entry),
             "pack": _pack_summary(),
+            "packs": _packs_summary(),
             "access_token": _access_token_for_entry(attached_entry) if attached_entry else None,
         }
     )
@@ -1747,6 +1818,7 @@ def logout(request: Request) -> JSONResponse:
             "user": _user_summary(None),
             "access": _access_summary(None),
             "pack": _pack_summary(),
+            "packs": _packs_summary(),
         }
     )
     _clear_user_cookie(response, request)
@@ -1783,6 +1855,7 @@ def admin_unlock(payload: AdminUnlockRequest, request: Request) -> JSONResponse:
             "ok": True,
             "access": _access_summary(entry),
             "pack": _pack_summary(),
+            "packs": _packs_summary(),
             "access_token": _access_token_for_entry(entry),
         }
     )
@@ -1794,8 +1867,9 @@ def admin_unlock(payload: AdminUnlockRequest, request: Request) -> JSONResponse:
 def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Request) -> dict[str, Any]:
     user = _user_from_request(request)
     resolved_email = (payload.email or "").strip() or (str(user.get("email") or "") if user else "")
+    selected_pack = _pack_summary(payload.pack_id)
     try:
-        session = _create_stripe_checkout_session(request=request, email=resolved_email or None)
+        session = _create_stripe_checkout_session(request=request, email=resolved_email or None, pack_id=str(selected_pack.get("id") or "start"))
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     checkout_url = session.get("url")
@@ -1804,7 +1878,8 @@ def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Requ
     return {
         "session_id": session.get("id"),
         "url": checkout_url,
-        "pack": _pack_summary(),
+        "pack": selected_pack,
+        "packs": _packs_summary(),
     }
 
 
@@ -1819,6 +1894,7 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
         raise HTTPException(status_code=409, detail="Payment is not completed yet for this Vision pack.")
 
     customer_details = session.get("customer_details") or {}
+    session_pack = _pack_summary((session.get("metadata") or {}).get("vision_pack_id"))
     email = customer_details.get("email") or session.get("customer_email")
     current_access = _access_from_request(request)
     current_user = _user_from_request(request)
@@ -1839,7 +1915,8 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
             "ok": True,
             "user": _user_summary(current_user),
             "access": _access_summary(entry),
-            "pack": _pack_summary(),
+            "pack": session_pack,
+            "packs": _packs_summary(),
             "access_token": _access_token_for_entry(entry),
         }
     )
@@ -1861,9 +1938,10 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
             status_code=402,
             detail={
                 "code": "payment_required",
-                "message": "Unlock Vision Pack to turn this idea into a cinematic result.",
+                "message": "Unlock a Vision pack to turn this idea into a cinematic result.",
                 "access": summary,
                 "pack": _pack_summary(),
+                "packs": _packs_summary(),
             },
         )
 
@@ -1877,9 +1955,10 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
                 status_code=402,
                 detail={
                     "code": "insufficient_credits",
-                    "message": f"Unlock another Vision Pack to keep creating more {mode}s inside Vision.",
+                    "message": f"Unlock another Vision pack to keep creating more {mode}s inside Vision.",
                     "access": summary,
                     "pack": _pack_summary(),
+                    "packs": _packs_summary(),
                 },
             )
         charged_access_id = str(access_id)
