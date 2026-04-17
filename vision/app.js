@@ -1311,6 +1311,9 @@ modeButtons.forEach((button) => {
 
 studioTriggers.forEach((trigger) => {
   trigger.addEventListener("click", (event) => {
+    if (isStudioRoute && trigger === topbarCta) {
+      return;
+    }
     event.preventDefault();
     enterStudio();
   });
@@ -1518,6 +1521,7 @@ const initializeVision = async () => {
     if (topbarCta) {
       topbarCta.textContent = "Log in";
       topbarCta.setAttribute("href", "/studio/");
+      topbarCta.removeAttribute("data-enter-studio");
       topbarCta.removeAttribute("aria-current");
     }
   }

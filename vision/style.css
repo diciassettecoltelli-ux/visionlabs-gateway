@@ -2657,7 +2657,7 @@ body.is-studio-route .topbar {
 }
 
 body.is-studio-route .topbar-cta {
-  pointer-events: none;
+  pointer-events: auto;
   opacity: 0.96;
 }
 
