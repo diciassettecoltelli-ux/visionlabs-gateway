@@ -595,16 +595,20 @@ def _send_auth_code_email(*, email: str, code: str) -> None:
     if not normalized:
         return
     body = [
-        "Your Vision sign-in code is ready.",
+        "Welcome to Vision.",
         "",
-        f"Code: {code}",
+        "Thank you for choosing Vision.",
+        "Use the access code below to enter your Vision Studio and return to your pack whenever you want.",
+        "",
+        f"Access code: {code}",
         "",
         f"This code expires in {_auth_code_ttl_minutes()} minutes.",
+        "It keeps your access secure and helps you recover your videos and images from any device.",
         "If you did not request this code, you can ignore this message.",
     ]
     _send_email(
         recipients=[normalized],
-        subject="Your Vision sign-in code",
+        subject="Your Vision access code",
         body_lines=body,
         sender=_notification_sender(),
     )
@@ -1603,11 +1607,11 @@ def request_auth_code(payload: RequestAuthCodeRequest) -> dict[str, Any]:
         code = USERS.issue_code(normalized)
         _send_auth_code_email(email=normalized, code=code)
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Vision could not send the sign-in code right now: {exc}") from exc
+        raise HTTPException(status_code=503, detail=f"Vision could not send the access code right now: {exc}") from exc
     return {
         "ok": True,
         "email": normalized,
-        "message": "A Vision sign-in code is on its way.",
+        "message": "A Vision access code is on its way.",
     }
 
 
@@ -1616,7 +1620,7 @@ def verify_auth_code(payload: VerifyAuthCodeRequest, request: Request) -> JSONRe
     normalized = _normalize_email(payload.email)
     user = USERS.verify_code(normalized, payload.code)
     if not user:
-        raise HTTPException(status_code=401, detail="That Vision sign-in code is invalid or expired.")
+        raise HTTPException(status_code=401, detail="That Vision access code is invalid or expired.")
 
     current_access = _access_from_request(request)
     attached_entry = None

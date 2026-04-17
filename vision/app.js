@@ -817,7 +817,7 @@ const renderAuthState = () => {
     authForm.hidden = signedIn;
   }
   if (authAccountEmail) {
-    authAccountEmail.textContent = currentUser.email || "Signed in";
+    authAccountEmail.textContent = currentUser.email || "Vision account";
   }
   if (authAccountCredits) {
     if (accessState.admin) {
@@ -833,10 +833,10 @@ const renderAuthState = () => {
     authReset.hidden = authStep !== "code";
   }
   if (authSubmit) {
-    authSubmit.textContent = authStep === "code" ? "Verify code" : "Send sign-in code";
+    authSubmit.textContent = authStep === "code" ? "Continue to Vision" : "Send access code";
   }
   if (authNote && !signedIn && authStep === "email") {
-    authNote.textContent = "We’ll send a one-time code so your pack follows you when you come back.";
+    authNote.textContent = "We’ll send a one-time access code so your pack follows you when you come back.";
   }
   if (authEmail && currentUser.email && !authEmail.value) {
     authEmail.value = currentUser.email;
@@ -885,7 +885,7 @@ const renderAccessState = (access, pack, user) => {
     } else if (accessState.access_id) {
       topbarCta.textContent = `${accessState.video_remaining ?? 0} video · ${accessState.image_remaining ?? 0} images`;
     } else {
-      topbarCta.textContent = "Log in";
+      topbarCta.textContent = "Access Vision";
     }
   }
 
@@ -976,16 +976,16 @@ const requestAuthCode = async (email) => {
     });
     const payload = await parseJsonSafely(response);
     if (!response.ok) {
-      throw new Error(payload?.detail || payload?.message || "Vision could not send a code right now.");
+      throw new Error(payload?.detail || payload?.message || "Vision could not send an access code right now.");
     }
     authStep = "code";
     if (authNote) {
-      authNote.textContent = `We sent a 6-digit Vision code to ${email}.`;
+      authNote.textContent = `We sent a 6-digit Vision access code to ${email}.`;
     }
     renderAuthState();
   } catch (error) {
     if (authNote) {
-      authNote.textContent = error instanceof Error ? error.message : "Vision could not send a code right now.";
+      authNote.textContent = error instanceof Error ? error.message : "Vision could not send an access code right now.";
     }
   } finally {
     setAuthLoading(false);
@@ -1004,7 +1004,7 @@ const verifyAuthCode = async (email, code) => {
     });
     const payload = await parseJsonSafely(response);
     if (!response.ok) {
-      throw new Error(payload?.detail || payload?.message || "That code did not work.");
+      throw new Error(payload?.detail || payload?.message || "That access code did not work.");
     }
     if (payload?.access_token) {
       storeAccessToken(payload.access_token);
@@ -1018,7 +1018,7 @@ const verifyAuthCode = async (email, code) => {
     setAuthModalState(false);
   } catch (error) {
     if (authNote) {
-      authNote.textContent = error instanceof Error ? error.message : "That code did not work.";
+      authNote.textContent = error instanceof Error ? error.message : "That access code did not work.";
     }
   } finally {
     setAuthLoading(false);
@@ -1437,7 +1437,7 @@ authReset?.addEventListener("click", () => {
     authCode.value = "";
   }
   if (authNote) {
-    authNote.textContent = "We’ll send a one-time code so your pack follows you when you come back.";
+    authNote.textContent = "We’ll send a one-time access code so your pack follows you when you come back.";
   }
   renderAuthState();
 });
@@ -1519,7 +1519,7 @@ const initializeVision = async () => {
   if (isStudioRoute) {
     topNav?.setAttribute("aria-hidden", "true");
     if (topbarCta) {
-      topbarCta.textContent = "Log in";
+      topbarCta.textContent = "Access Vision";
       topbarCta.setAttribute("href", "/studio/");
       topbarCta.removeAttribute("data-enter-studio");
       topbarCta.removeAttribute("aria-current");
