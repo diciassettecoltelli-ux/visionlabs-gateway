@@ -31,7 +31,7 @@
       href="https://fonts.googleapis.com/css2?family=Onest:wght@200;300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./style.css?v=17" />
+    <link rel="stylesheet" href="./style.css?v=18" />
   </head>
   <body>
     <div class="vision-shell">
@@ -94,6 +94,11 @@
           </div>
         </div>
         <div class="search-cluster" id="vision-search-panel" aria-hidden="true">
+          <div class="studio-compose-intro">
+            <div class="studio-compose-kicker">Vision / Compose</div>
+            <h2 class="studio-compose-title">Welcome to Vision Studio</h2>
+            <p class="studio-compose-copy">Write a prompt, choose image or video, and generate directly into your live output canvas.</p>
+          </div>
           <div class="search-tools">
             <div class="generation-mode-switch" role="tablist" aria-label="Generation mode">
               <button class="mode-toggle is-active" type="button" data-generation-mode="video" aria-pressed="true">Video</button>
@@ -125,46 +130,65 @@
           </div>
         </div>
         <section class="studio-dashboard" id="studio-dashboard" aria-label="Vision Studio dashboard">
-          <div class="studio-dashboard-grid">
-            <article class="studio-summary-card">
-              <div class="studio-summary-kicker">Vision / Studio</div>
-              <h2 class="studio-summary-title">Your prompt engine, credits, and latest creations.</h2>
-              <p class="studio-summary-copy">Write a prompt, generate inside Vision, and keep your recent outputs and remaining credits visible in one clean workspace.</p>
-              <div class="studio-credit-grid">
-                <div class="studio-credit-tile">
-                  <span class="studio-credit-label">Video credits left</span>
-                  <strong class="studio-credit-value" id="studio-video-credits">0</strong>
+          <article class="studio-output-shell">
+            <div class="studio-output-head">
+              <div>
+                <div class="studio-history-kicker">Studio / Output</div>
+                <h3 class="studio-output-title">Latest generation</h3>
+              </div>
+              <span class="studio-history-badge" id="studio-history-badge">Empty</span>
+            </div>
+
+            <button class="studio-output-stage is-empty" id="studio-output-stage" type="button" aria-label="Open latest Vision output">
+              <video id="studio-output-video" muted loop playsinline preload="metadata" hidden></video>
+              <img id="studio-output-image" alt="" hidden />
+              <div class="studio-output-placeholder" id="studio-output-placeholder">
+                <div class="studio-output-loader" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
                 </div>
-                <div class="studio-credit-tile">
-                  <span class="studio-credit-label">Image credits left</span>
-                  <strong class="studio-credit-value" id="studio-image-credits">0</strong>
+                <div class="studio-output-copy">
+                  <strong id="studio-output-stage-label">Your output will appear here.</strong>
+                  <span id="studio-output-stage-note">Generate an image or video and Vision will keep the newest result live in this canvas while it builds.</span>
                 </div>
               </div>
-              <div class="studio-summary-meta">
-                <span class="studio-summary-line" id="studio-pack-status">Unlock a Vision pack to begin creating.</span>
-                <span class="studio-summary-line" id="studio-history-count">0 creations saved</span>
+            </button>
+
+            <div class="studio-output-footer">
+              <div class="studio-output-meta-block">
+                <div class="studio-output-meta" id="studio-output-meta">No generation yet. Your latest prompt and result will live here.</div>
+                <div class="studio-summary-meta">
+                  <span class="studio-summary-line" id="studio-pack-status">Unlock a Vision pack to begin creating.</span>
+                  <span class="studio-summary-line" id="studio-history-count">0 creations saved</span>
+                </div>
               </div>
-              <div class="studio-summary-actions">
+              <div class="studio-output-actions">
                 <button class="studio-summary-button studio-summary-button--ghost" id="studio-account-button" type="button">View account</button>
                 <button class="studio-summary-button" id="studio-topup-button" type="button">Buy a Vision pack</button>
               </div>
-            </article>
+            </div>
 
-            <article class="studio-history-card-shell">
-              <div class="studio-history-head">
-                <div>
-                  <div class="studio-history-kicker">Studio / Recent</div>
-                  <h3 class="studio-history-title">What you generated</h3>
+            <div class="studio-recent-head">
+              <div class="studio-history-kicker">Studio / Recent</div>
+              <div class="studio-credit-grid studio-credit-grid--inline">
+                <div class="studio-credit-tile studio-credit-tile--compact">
+                  <span class="studio-credit-label">Video credits</span>
+                  <strong class="studio-credit-value" id="studio-video-credits">0</strong>
                 </div>
-                <span class="studio-history-badge" id="studio-history-badge">Empty</span>
+                <div class="studio-credit-tile studio-credit-tile--compact">
+                  <span class="studio-credit-label">Image credits</span>
+                  <strong class="studio-credit-value" id="studio-image-credits">0</strong>
+                </div>
               </div>
-              <div class="studio-history-grid" id="studio-history-grid"></div>
-              <div class="studio-history-empty" id="studio-history-empty">
-                <strong>Your latest outputs will appear here.</strong>
-                <span>Generate an image or video and Vision will keep the newest results ready to reopen from this Studio page.</span>
-              </div>
-            </article>
-          </div>
+            </div>
+
+            <div class="studio-history-grid studio-history-grid--strip" id="studio-history-grid"></div>
+            <div class="studio-history-empty" id="studio-history-empty">
+              <strong>Your latest outputs will appear here.</strong>
+              <span>Generate an image or video and Vision will keep the newest results ready to reopen from this Studio page.</span>
+            </div>
+          </article>
         </section>
       </main>
 
@@ -715,21 +739,18 @@
 
     <div class="studio-loader" id="studio-loader" aria-hidden="true">
       <div class="studio-loader-panel" role="status" aria-live="polite">
-        <div class="studio-loader-atom" aria-hidden="true">
-          <span class="studio-loader-core"></span>
-          <span class="studio-loader-orbit studio-loader-orbit--one"><span class="studio-loader-electron"></span></span>
-          <span class="studio-loader-orbit studio-loader-orbit--two"><span class="studio-loader-electron"></span></span>
-          <span class="studio-loader-orbit studio-loader-orbit--three"><span class="studio-loader-electron"></span></span>
-        </div>
         <div class="studio-loader-copy">
-          <div class="studio-loader-kicker">Vision / Studio</div>
+          <div class="studio-loader-kicker">Welcome to Vision</div>
           <strong class="studio-loader-title">Preparing Vision Studio</strong>
-          <span class="studio-loader-note">Aligning your prompt engine, credits, and latest creations.</span>
+          <span class="studio-loader-note">Loading your workspace, credits, and live creation canvas.</span>
+        </div>
+        <div class="studio-loader-progress">
+          <span class="studio-loader-progress-bar"></span>
         </div>
       </div>
     </div>
 
-    <script src="./vision-config.js?v=17"></script>
-    <script src="./app.js?v=17"></script>
+    <script src="./vision-config.js?v=18"></script>
+    <script src="./app.js?v=18"></script>
   </body>
   </html>

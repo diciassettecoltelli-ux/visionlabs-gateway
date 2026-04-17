@@ -77,6 +77,13 @@ const studioHistoryEmpty = document.querySelector("#studio-history-empty");
 const studioAccountButton = document.querySelector("#studio-account-button");
 const studioTopupButton = document.querySelector("#studio-topup-button");
 const studioLoader = document.querySelector("#studio-loader");
+const studioOutputStage = document.querySelector("#studio-output-stage");
+const studioOutputVideo = document.querySelector("#studio-output-video");
+const studioOutputImage = document.querySelector("#studio-output-image");
+const studioOutputPlaceholder = document.querySelector("#studio-output-placeholder");
+const studioOutputStageLabel = document.querySelector("#studio-output-stage-label");
+const studioOutputStageNote = document.querySelector("#studio-output-stage-note");
+const studioOutputMeta = document.querySelector("#studio-output-meta");
 
 const configuredApiBase = typeof window.VISION_API_BASE === "string" ? window.VISION_API_BASE.trim() : "";
 const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -266,7 +273,7 @@ const enterStudio = () => {
   setStudioLoaderState(true);
   window.setTimeout(() => {
     window.location.assign(VISION_STUDIO_PATH);
-  }, 1180);
+  }, 5000);
 };
 
 const stripUrlParams = (...params) => {
@@ -362,6 +369,7 @@ let currentPacks = normalizePackList(defaultPacks);
 let selectedPackId = "pro";
 let currentPack = { ...findPackById(selectedPackId, currentPacks) };
 let currentGenerationOutput = null;
+let currentStudioJob = null;
 let lastSubscribeTrigger = null;
 let authPendingEmail = "";
 let authStep = "email";
@@ -427,6 +435,134 @@ const saveStudioHistoryItem = (job, src) => {
   const items = readStudioHistory().filter((entry) => entry?.id !== item.id);
   items.unshift(item);
   writeStudioHistory(items.slice(0, 10));
+};
+
+const getLatestStudioHistoryItem = () => readStudioHistory()[0] || null;
+
+const resetStudioOutputMedia = () => {
+  if (studioOutputVideo) {
+    studioOutputVideo.pause();
+    studioOutputVideo.hidden = true;
+    studioOutputVideo.removeAttribute("src");
+    studioOutputVideo.load();
+  }
+  if (studioOutputImage) {
+    studioOutputImage.hidden = true;
+    studioOutputImage.removeAttribute("src");
+    studioOutputImage.alt = "";
+  }
+};
+
+const setStudioOutputState = ({
+  state = "empty",
+  type = "video",
+  src = "",
+  prompt = "",
+  label = "Your output will appear here.",
+  note = "Generate an image or video and Vision will keep the newest result live in this canvas while it builds.",
+  meta = "No generation yet. Your latest prompt and result will live here.",
+} = {}) => {
+  if (
+    !studioOutputStage ||
+    !studioOutputPlaceholder ||
+    !studioOutputStageLabel ||
+    !studioOutputStageNote ||
+    !studioOutputMeta
+  ) {
+    return;
+  }
+
+  const normalizedType = type === "image" ? "image" : "video";
+  studioOutputStage.dataset.state = state;
+  studioOutputStage.classList.toggle("is-empty", state === "empty");
+  studioOutputStage.classList.toggle("is-loading", state === "loading");
+  studioOutputStage.classList.toggle("is-ready", state === "ready");
+  studioOutputPlaceholder.hidden = state === "ready";
+  studioOutputStageLabel.textContent = label;
+  studioOutputStageNote.textContent = note;
+  studioOutputMeta.textContent = meta;
+
+  if (state !== "ready" || !src) {
+    resetStudioOutputMedia();
+    return;
+  }
+
+  if (normalizedType === "image") {
+    if (studioOutputImage) {
+      studioOutputImage.hidden = false;
+      studioOutputImage.src = src;
+      studioOutputImage.alt = prompt || "Vision image";
+    }
+    if (studioOutputVideo) {
+      studioOutputVideo.pause();
+      studioOutputVideo.hidden = true;
+      studioOutputVideo.removeAttribute("src");
+      studioOutputVideo.load();
+    }
+    return;
+  }
+
+  if (studioOutputVideo) {
+    studioOutputVideo.hidden = false;
+    if (studioOutputVideo.getAttribute("src") !== src) {
+      studioOutputVideo.src = src;
+      studioOutputVideo.load();
+    }
+    studioOutputVideo.play().catch(() => {});
+  }
+  if (studioOutputImage) {
+    studioOutputImage.hidden = true;
+    studioOutputImage.removeAttribute("src");
+    studioOutputImage.alt = "";
+  }
+};
+
+const updateStudioOutputFromJob = (job) => {
+  if (!studioDashboard || !job) {
+    return;
+  }
+  const status = String(job.status || "queued").toLowerCase();
+  const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
+  const ui = generationUiCopy(status, outputType);
+
+  if (status === "ready" && job.output_url) {
+    const resolvedOutputUrl = visionAssetUrl(job.output_url);
+    setStudioOutputState({
+      state: "ready",
+      type: outputType,
+      src: resolvedOutputUrl,
+      prompt: job.prompt || "",
+      label: outputType === "image" ? "Latest image ready." : "Latest video ready.",
+      note: job.prompt || "Generated inside Vision.",
+      meta: `${outputType === "image" ? "Image" : "Video"} ready · ${formatStudioTimestamp(
+        job.completed_at || job.updated_at || new Date().toISOString(),
+      )}`,
+    });
+    return;
+  }
+
+  if (["queued", "preparing", "generating", "operator_required", "downloading"].includes(status)) {
+    setStudioOutputState({
+      state: "loading",
+      type: outputType,
+      prompt: job.prompt || "",
+      label: ui.stage,
+      note: ui.note,
+      meta: `${ui.deliveryTitle} · ${job.prompt || "Working on your latest idea."}`,
+    });
+    return;
+  }
+
+  if (["failed", "setup_required"].includes(status)) {
+    setStudioOutputState({
+      state: "empty",
+      type: outputType,
+      prompt: job.prompt || "",
+      label: ui.stage,
+      note: ui.note,
+      meta: ui.deliveryNote,
+    });
+  }
 };
 
 const renderStudioHistory = () => {
@@ -498,6 +634,39 @@ const renderStudioDashboard = () => {
     studioTopupButton.textContent = hasPack ? "Buy another pack" : "Buy a Vision pack";
   }
   renderStudioHistory();
+
+  if (
+    currentStudioJob &&
+    ["queued", "preparing", "generating", "operator_required", "downloading"].includes(
+      String(currentStudioJob.status || "").toLowerCase(),
+    )
+  ) {
+    updateStudioOutputFromJob(currentStudioJob);
+    return;
+  }
+
+  const latestItem = getLatestStudioHistoryItem();
+  if (latestItem) {
+    setStudioOutputState({
+      state: "ready",
+      type: latestItem.type,
+      src: latestItem.src,
+      prompt: latestItem.prompt,
+      label: latestItem.type === "image" ? "Latest image ready." : "Latest video ready.",
+      note: latestItem.prompt || "Generated inside Vision.",
+      meta: `${latestItem.type === "image" ? "Image" : "Video"} · ${formatStudioTimestamp(latestItem.created_at)}`,
+    });
+    return;
+  }
+
+  setStudioOutputState({
+    state: "empty",
+    label: "Your output will appear here.",
+    note: "Generate an image or video and Vision will keep the newest result live in this canvas while it builds.",
+    meta: currentUser.authenticated
+      ? "No generation yet. Start with a prompt and Vision will build directly into this live canvas."
+      : "Access Vision, then generate directly into this live output canvas.",
+  });
 };
 
 const setStudioLoaderState = (open) => {
@@ -836,6 +1005,7 @@ const resetGenerationDelivery = (outputType, prompt = "", status = "queued") => 
 };
 
 const presentGenerationJob = (job) => {
+  currentStudioJob = job || null;
   const status = (job.status || "queued").toLowerCase();
   const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
   const ui = generationUiCopy(status, outputType);
@@ -869,6 +1039,7 @@ const presentGenerationJob = (job) => {
 
   const isReady = status === "ready" && job.output_url;
   if (!isReady) {
+    updateStudioOutputFromJob(job);
     resetGenerationDelivery(outputType, job.prompt || "", status);
     return;
   }
@@ -881,6 +1052,7 @@ const presentGenerationJob = (job) => {
     caption: job.prompt || "Generated inside Vision.",
   };
   saveStudioHistoryItem(job, resolvedOutputUrl);
+  currentStudioJob = null;
   renderStudioDashboard();
 
   if (generationDownload) {
@@ -976,6 +1148,13 @@ const pollGenerationJob = async () => {
       return;
     }
   } catch (error) {
+    currentStudioJob = null;
+    setStudioOutputState({
+      state: "empty",
+      label: "Vision could not finish this request.",
+      note: "Try again with a cleaner prompt or reopen the generation after the engine reconnects.",
+      meta: "The Studio could not reach the generation engine right now.",
+    });
     if (generationTitle) generationTitle.textContent = "Vision engine unavailable";
     if (generationCopy) generationCopy.textContent = "Vision could not reach the generation engine for this site right now.";
     stopGenerationPolling();
@@ -1413,7 +1592,11 @@ const queueGeneration = async (prompt, mode) => {
     searchSubmit.disabled = true;
   }
 
-  setGenerationState(true);
+  if (!isStudioRoute) {
+    setGenerationState(true);
+  } else {
+    setGenerationState(false);
+  }
   startVisionFocusGuard(30000);
   presentGenerationJob({
     status: "queued",
@@ -1434,6 +1617,8 @@ const queueGeneration = async (prompt, mode) => {
 
     if (response.status === 402) {
       setGenerationState(false);
+      currentStudioJob = null;
+      renderStudioDashboard();
       handleCheckoutRequired(payload?.detail, prompt, mode);
       return;
     }
@@ -1449,6 +1634,8 @@ const queueGeneration = async (prompt, mode) => {
     generationPollHandle = window.setTimeout(pollGenerationJob, 1200);
     await loadAccessState();
   } catch (error) {
+    currentStudioJob = null;
+    renderStudioDashboard();
     stopVisionFocusGuard();
     if (generationTitle) generationTitle.textContent = "Vision engine unavailable";
     if (generationState) generationState.textContent = "offline";
@@ -1802,6 +1989,22 @@ generationPreview?.addEventListener("click", () => {
 
 generationExpand?.addEventListener("click", () => {
   openGenerationLightbox();
+});
+
+studioOutputStage?.addEventListener("click", () => {
+  if (currentStudioJob) {
+    return;
+  }
+  const latestItem = getLatestStudioHistoryItem();
+  if (!latestItem) {
+    return;
+  }
+  setGalleryLightboxState(true, {
+    mediaType: latestItem.type,
+    src: latestItem.src,
+    title: latestItem.type === "image" ? "Latest Vision image" : "Latest Vision render",
+    caption: latestItem.prompt || "Generated inside Vision.",
+  });
 });
 
 document.addEventListener("keydown", (event) => {
