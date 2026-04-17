@@ -2030,6 +2030,11 @@ body.gallery-lightbox-open {
   justify-content: center;
 }
 
+.auth-submit--full {
+  width: 100%;
+  justify-content: center;
+}
+
 .auth-note {
   margin-top: 0.1rem;
   font-size: 0.92rem;

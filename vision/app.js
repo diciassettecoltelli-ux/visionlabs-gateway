@@ -31,6 +31,8 @@ const subscribeSubmit = document.querySelector(".subscribe-submit");
 const subscribeNote = document.querySelector("#subscribe-note");
 const authModal = document.querySelector("#auth-modal");
 const authClose = document.querySelector(".auth-close");
+const authTitle = document.querySelector("#auth-title");
+const authCopy = document.querySelector("#auth-copy");
 const authForm = document.querySelector("#auth-form");
 const authEmail = document.querySelector("#auth-email");
 const authCodeRow = document.querySelector("#auth-code-row");
@@ -41,6 +43,7 @@ const authNote = document.querySelector("#auth-note");
 const authAccount = document.querySelector("#auth-account");
 const authAccountEmail = document.querySelector("#auth-account-email");
 const authAccountCredits = document.querySelector("#auth-account-credits");
+const authBuyPack = document.querySelector("#auth-buy-pack");
 const authLogout = document.querySelector("#auth-logout");
 const generationModal = document.querySelector("#generation-modal");
 const generationClose = document.querySelector(".generation-close");
@@ -810,11 +813,21 @@ const setAuthLoading = (loading, label) => {
 
 const renderAuthState = () => {
   const signedIn = !!currentUser.authenticated;
+  if (authTitle) {
+    authTitle.textContent = signedIn ? "Your Vision account." : "Access your Vision pack.";
+  }
+  if (authCopy) {
+    authCopy.textContent = signedIn
+      ? "See your remaining credits, manage your current pack, or unlock a new one when you need more."
+      : "Enter your email and Vision will send you a one-time access code to return to your pack from any device.";
+  }
   if (authAccount) {
     authAccount.hidden = !signedIn;
+    authAccount.style.display = signedIn ? "grid" : "none";
   }
   if (authForm) {
     authForm.hidden = signedIn;
+    authForm.style.display = signedIn ? "none" : "grid";
   }
   if (authAccountEmail) {
     authAccountEmail.textContent = currentUser.email || "Vision account";
@@ -822,8 +835,18 @@ const renderAuthState = () => {
   if (authAccountCredits) {
     if (accessState.admin) {
       authAccountCredits.textContent = "Vision engine unlocked";
+    } else if (accessState.access_id) {
+      authAccountCredits.textContent = `${accessState.video_remaining ?? 0} videos · ${accessState.image_remaining ?? 0} images remaining`;
     } else {
-      authAccountCredits.textContent = `${accessState.video_remaining ?? 0} videos · ${accessState.image_remaining ?? 0} images`;
+      authAccountCredits.textContent = "No active pack yet.";
+    }
+  }
+  if (authBuyPack) {
+    if (accessState.admin) {
+      authBuyPack.hidden = true;
+    } else {
+      authBuyPack.hidden = false;
+      authBuyPack.textContent = accessState.access_id ? "Buy another pack" : "Buy a Vision pack";
     }
   }
   if (authCodeRow) {
@@ -1324,7 +1347,7 @@ topbarCta?.addEventListener("click", (event) => {
     return;
   }
   event.preventDefault();
-  authStep = currentUser.authenticated ? "email" : "email";
+  authStep = currentUser.authenticated ? "account" : "email";
   renderAuthState();
   setAuthModalState(true);
 });
@@ -1444,6 +1467,13 @@ authReset?.addEventListener("click", () => {
 
 authLogout?.addEventListener("click", async () => {
   await logoutUser();
+});
+
+authBuyPack?.addEventListener("click", () => {
+  setAuthModalState(false);
+  setSubscribeState(true, {
+    reason: accessState.access_id ? "insufficient_credits" : "unlock",
+  });
 });
 
 generationClose?.addEventListener("click", () => {
