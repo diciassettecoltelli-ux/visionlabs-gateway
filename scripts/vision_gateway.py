@@ -702,6 +702,7 @@ def _stripe_secret_key() -> str:
 
 
 def _stripe_request(method: str, path: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
+    method_name = method.upper()
     url = f"https://api.stripe.com{path}"
     encoded_data: bytes | None = None
     headers = {
@@ -709,9 +710,14 @@ def _stripe_request(method: str, path: str, data: dict[str, Any] | None = None) 
         + base64.b64encode(f"{_stripe_secret_key()}:".encode("utf-8")).decode("ascii"),
     }
     if data is not None:
-        encoded_data = urllib.parse.urlencode(_strip_none_values(data), doseq=True).encode("utf-8")
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
-    request = urllib.request.Request(url, data=encoded_data, headers=headers, method=method.upper())
+        encoded = urllib.parse.urlencode(_strip_none_values(data), doseq=True)
+        if method_name == "GET":
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}{encoded}"
+        else:
+            encoded_data = encoded.encode("utf-8")
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+    request = urllib.request.Request(url, data=encoded_data, headers=headers, method=method_name)
     try:
         with urllib.request.urlopen(request, timeout=45) as response:
             return json.loads(response.read().decode("utf-8"))
@@ -745,6 +751,58 @@ def _create_stripe_checkout_session(*, request: Request, email: str | None) -> d
 def _retrieve_stripe_checkout_session(session_id: str) -> dict[str, Any]:
     encoded_session_id = urllib.parse.quote(session_id, safe="")
     return _stripe_request("GET", f"/v1/checkout/sessions/{encoded_session_id}")
+
+
+def _list_stripe_checkout_sessions_by_email(email: str, *, limit: int = 100) -> list[dict[str, Any]]:
+    normalized = _normalize_email(email)
+    if not normalized:
+        return []
+    payload = {
+        "limit": str(max(1, min(limit, 100))),
+        "status": "complete",
+        "customer_details[email]": normalized,
+    }
+    response = _stripe_request("GET", "/v1/checkout/sessions", payload)
+    items = response.get("data")
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _credits_from_session(session: dict[str, Any]) -> tuple[int, int]:
+    metadata = session.get("metadata") or {}
+    try:
+        video_credits = int(metadata.get("vision_pack_video_credits") or _pack_video_credits())
+    except (TypeError, ValueError):
+        video_credits = _pack_video_credits()
+    try:
+        image_credits = int(metadata.get("vision_pack_image_credits") or _pack_image_credits())
+    except (TypeError, ValueError):
+        image_credits = _pack_image_credits()
+    return max(video_credits, 0), max(image_credits, 0)
+
+
+def _restore_access_for_email(*, email: str, current_access_id: str | None, current_user_id: str | None) -> dict[str, Any] | None:
+    sessions = _list_stripe_checkout_sessions_by_email(email)
+    restored_entry: dict[str, Any] | None = None
+    for session in sessions:
+        if session.get("status") != "complete" or session.get("payment_status") != "paid":
+            continue
+        session_id = str(session.get("id") or "").strip()
+        if not session_id:
+            continue
+        video_credits, image_credits = _credits_from_session(session)
+        if video_credits <= 0 and image_credits <= 0:
+            continue
+        restored_entry = ACCESS.apply_paid_session(
+            session_id=session_id,
+            email=email,
+            current_access_id=current_access_id,
+            current_user_id=current_user_id,
+            video_credits=video_credits,
+            image_credits=image_credits,
+        )
+    return restored_entry
 
 
 def _access_summary(entry: dict[str, Any] | None) -> dict[str, Any]:
@@ -1148,6 +1206,8 @@ class AccessStore:
         email: str | None,
         current_access_id: str | None,
         current_user_id: str | None,
+        video_credits: int | None = None,
+        image_credits: int | None = None,
     ) -> dict[str, Any]:
         with self.lock:
             existing_access_id = self.applied_sessions.get(session_id)
@@ -1187,8 +1247,8 @@ class AccessStore:
                 }
                 self.entries[access_id] = entry
 
-            entry["video_remaining"] = int(entry.get("video_remaining", 0)) + _pack_video_credits()
-            entry["image_remaining"] = int(entry.get("image_remaining", 0)) + _pack_image_credits()
+            entry["video_remaining"] = int(entry.get("video_remaining", 0)) + max(int(video_credits if video_credits is not None else _pack_video_credits()), 0)
+            entry["image_remaining"] = int(entry.get("image_remaining", 0)) + max(int(image_credits if image_credits is not None else _pack_image_credits()), 0)
             entry["updated_at"] = _now_iso()
             if email:
                 entry["email"] = _normalize_email(email)
@@ -1591,6 +1651,17 @@ def engine_prepare() -> JSONResponse:
 def access_me(request: Request) -> dict[str, Any]:
     user = _user_from_request(request)
     access = _access_from_request(request)
+    if user and not _access_summary(access)["has_access"]:
+        try:
+            restored = _restore_access_for_email(
+                email=str(user.get("email") or ""),
+                current_access_id=access.get("id") if access and not access.get("admin") else None,
+                current_user_id=str(user.get("id") or ""),
+            )
+        except Exception:
+            restored = None
+        if restored:
+            access = restored
     return {
         "user": _user_summary(user),
         "access": _access_summary(access),
@@ -1642,6 +1713,15 @@ def verify_auth_code(payload: VerifyAuthCodeRequest, request: Request) -> JSONRe
             )
     if attached_entry is None:
         attached_entry = ACCESS.find_by_user_id(str(user["id"]))
+    if attached_entry is None or not _access_summary(attached_entry)["has_access"]:
+        try:
+            attached_entry = _restore_access_for_email(
+                email=normalized,
+                current_access_id=current_access.get("id") if current_access and not current_access.get("admin") else None,
+                current_user_id=str(user["id"]),
+            )
+        except Exception:
+            attached_entry = None
 
     response = JSONResponse(
         {
@@ -1748,6 +1828,8 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
         email=email,
         current_access_id=current_access_id,
         current_user_id=str(current_user.get("id")) if current_user else None,
+        video_credits=_credits_from_session(session)[0],
+        image_credits=_credits_from_session(session)[1],
     )
     if ACCESS.claim_notification(normalized_session_id):
         _notify_purchase_async(session=session, entry=entry)
