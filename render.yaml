@@ -37,6 +37,24 @@ services:
         sync: false
       - key: VISION_KLING_IMAGE_SUBMIT_PAYLOAD_JSON
         sync: false
+      - key: VISION_KLING_IMAGE_FAST_RESOLUTION
+        value: 1k
+      - key: VISION_KLING_IMAGE_STANDARD_RESOLUTION
+        value: 2k
+      - key: VISION_KLING_IMAGE_PREMIUM_RESOLUTION
+        value: 4k
+      - key: VISION_KLING_IMAGE_FAST_SHOW_PRICE
+        value: "0"
+      - key: VISION_KLING_IMAGE_STANDARD_SHOW_PRICE
+        value: "0"
+      - key: VISION_KLING_IMAGE_PREMIUM_SHOW_PRICE
+        value: "200"
+      - key: VISION_KLING_IMAGE_FAST_UNLIMITED
+        value: "true"
+      - key: VISION_KLING_IMAGE_STANDARD_UNLIMITED
+        value: "true"
+      - key: VISION_KLING_IMAGE_PREMIUM_UNLIMITED
+        value: "false"
       - key: BYTEPLUS_API_KEY
         sync: false
       - key: BYTEPLUS_BASE_URL

@@ -136,7 +136,7 @@ def _seedance_candidates_for_quality(quality: str, job_id: str) -> list[str]:
 
 def _effective_job_quality(mode: str, quality: str) -> str:
     if mode != "video":
-        return quality
+        return "studio" if quality == "auto" else quality
     if quality == "auto":
         return "director"
     return quality
@@ -1449,6 +1449,7 @@ def _process_job(job_id: str) -> None:
                 output_image = generate_kling_image(
                     prompt=job["prompt"],
                     output_dir=output_dir,
+                    quality=str(job.get("quality") or "studio"),
                 )
             else:
                 output_image = generate_google_image(

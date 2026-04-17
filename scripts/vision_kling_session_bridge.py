@@ -89,11 +89,17 @@ class RuntimeSubmitPayload:
         if not isinstance(arguments, list):
             return False
         names = {str(item.get("name", "")) for item in arguments if isinstance(item, dict)}
-        return (
+        video_ready = (
             bool(payload_type)
             and "PASTE_" not in payload_type
             and {"kling_version", "model_mode", "prompt", "rich_prompt"} <= names
         )
+        image_ready = (
+            bool(payload_type)
+            and "PASTE_" not in payload_type
+            and {"kolors_version", "img_resolution", "imageCount", "prompt", "rich_prompt"} <= names
+        )
+        return video_ready or image_ready
 
 
 @dataclass
@@ -554,11 +560,19 @@ def status_image() -> dict[str, Any]:
         and bool(payload.get("web_contract", {}).get("signature_query_param"))
         and bool(payload.get("runtime_image_submit_payload_ready"))
     )
-    message = (
-        "Kling image bridge is ready with runtime cookies and image payload."
-        if image_ready
-        else "Kling image bridge still needs the real image submit payload."
-    )
+    missing: list[str] = []
+    if not payload.get("runtime_cookie_ready"):
+        missing.append("runtime cookie header")
+    if not payload.get("runtime_image_submit_payload_ready"):
+        missing.append("real image submit payload")
+    if image_ready:
+        message = "Kling image bridge is ready with runtime cookies and image payload."
+    else:
+        joined = " and ".join(missing) if missing else "runtime setup"
+        message = (
+            f"Kling image bridge still needs {joined}. "
+            "You can import a real browser request with scripts/import_kling_request.py."
+        )
     return {
         **payload,
         "ready": image_ready,
@@ -691,6 +705,64 @@ def _override_prompt_in_payload(template: dict[str, Any], prompt: str) -> dict[s
             if item.get("name") in {"prompt", "rich_prompt"}:
                 item["value"] = prompt
     return payload
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _set_argument_value(payload: dict[str, Any], name: str, value: Any, *, set_by_user: bool | None = None) -> None:
+    arguments = payload.get("arguments")
+    if not isinstance(arguments, list):
+        return
+    for item in arguments:
+        if not isinstance(item, dict):
+            continue
+        if item.get("name") == name:
+            item["value"] = value
+            if set_by_user is not None:
+                item["setByUser"] = set_by_user
+            return
+    new_item: dict[str, Any] = {"name": name, "value": value}
+    if set_by_user is not None:
+        new_item["setByUser"] = set_by_user
+    arguments.append(new_item)
+
+
+def _image_quality_settings(quality: str) -> dict[str, Any]:
+    normalized = quality if quality in {"fast", "studio", "director"} else "studio"
+    resolution = {
+        "fast": os.environ.get("VISION_KLING_IMAGE_FAST_RESOLUTION", "1k").strip().lower(),
+        "studio": os.environ.get("VISION_KLING_IMAGE_STANDARD_RESOLUTION", "2k").strip().lower(),
+        "director": os.environ.get("VISION_KLING_IMAGE_PREMIUM_RESOLUTION", "4k").strip().lower(),
+    }[normalized]
+    show_price = {
+        "fast": int(os.environ.get("VISION_KLING_IMAGE_FAST_SHOW_PRICE", "0").strip() or "0"),
+        "studio": int(os.environ.get("VISION_KLING_IMAGE_STANDARD_SHOW_PRICE", "0").strip() or "0"),
+        "director": int(os.environ.get("VISION_KLING_IMAGE_PREMIUM_SHOW_PRICE", "200").strip() or "200"),
+    }[normalized]
+    unlimited = {
+        "fast": _env_bool("VISION_KLING_IMAGE_FAST_UNLIMITED", True),
+        "studio": _env_bool("VISION_KLING_IMAGE_STANDARD_UNLIMITED", True),
+        "director": _env_bool("VISION_KLING_IMAGE_PREMIUM_UNLIMITED", False),
+    }[normalized]
+    return {
+        "resolution": resolution,
+        "show_price": show_price,
+        "unlimited": unlimited,
+    }
+
+
+def _override_image_quality(payload: dict[str, Any], quality: str) -> dict[str, Any]:
+    tuned = json.loads(json.dumps(payload))
+    settings = _image_quality_settings(quality)
+    _set_argument_value(tuned, "img_resolution", settings["resolution"], set_by_user=True)
+    _set_argument_value(tuned, "showPrice", settings["show_price"])
+    _set_argument_value(tuned, "__isUnLimited", settings["unlimited"])
+    return tuned
 
 
 def _extract_task_id(payload: dict[str, Any]) -> str | None:
@@ -840,7 +912,7 @@ def generate(*, prompt: str, output_dir: str | Path) -> Path:
     )
 
 
-def generate_image(*, prompt: str, output_dir: str | Path) -> Path:
+def generate_image(*, prompt: str, output_dir: str | Path, quality: str = "studio") -> Path:
     artifacts = _collect_artifacts()
     state = status_image()
     if not state["ready"] or not artifacts.runtime_image_submit_payload:
@@ -848,10 +920,13 @@ def generate_image(*, prompt: str, output_dir: str | Path) -> Path:
             "Kling image bridge is not ready yet. "
             f"Cookie ready={state['runtime_cookie_ready']} payload ready={state['runtime_image_submit_payload_ready']}."
         )
+    tuned_payload = RuntimeSubmitPayload(
+        payload=_override_image_quality(artifacts.runtime_image_submit_payload.payload, quality)
+    )
     return _generate_asset(
         prompt=prompt,
         output_dir=output_dir,
-        payload_template=artifacts.runtime_image_submit_payload,
+        payload_template=tuned_payload,
         output_filename="kling_image_bridge.png",
         metadata_filename="kling_image_bridge_metadata.json",
     )
