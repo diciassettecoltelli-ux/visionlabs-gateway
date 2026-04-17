@@ -35,6 +35,8 @@ services:
         sync: false
       - key: VISION_KLING_SUBMIT_PAYLOAD_JSON
         sync: false
+      - key: VISION_KLING_IMAGE_SUBMIT_PAYLOAD_JSON
+        sync: false
       - key: BYTEPLUS_API_KEY
         sync: false
       - key: BYTEPLUS_BASE_URL
@@ -84,6 +86,8 @@ services:
       - key: VISION_NOTIFY_SMTP_USE_STARTTLS
         value: true
       - key: VISION_ACCESS_SECRET
+        sync: false
+      - key: VISION_USER_SECRET
         sync: false
       - key: VISION_ADMIN_TOKEN
         sync: false

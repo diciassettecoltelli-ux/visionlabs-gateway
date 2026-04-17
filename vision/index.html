@@ -553,6 +553,37 @@
       </div>
     </div>
 
+    <div class="auth-modal" id="auth-modal" aria-hidden="true">
+      <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <button class="auth-close" type="button" aria-label="Close Vision account panel">Close</button>
+        <div class="auth-intro">
+          <div class="auth-kicker">Vision / Account</div>
+          <h3 id="auth-title">Sign in to keep your Vision pack.</h3>
+          <p class="auth-copy" id="auth-copy">Use your email to unlock your account, recover purchases, and return to your credits from any device.</p>
+        </div>
+
+        <form class="auth-form" id="auth-form">
+          <label class="auth-label" for="auth-email">Email</label>
+          <input class="auth-input" id="auth-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
+          <div class="auth-code-row" id="auth-code-row" hidden>
+            <label class="auth-label" for="auth-code">Code</label>
+            <input class="auth-input" id="auth-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" />
+          </div>
+          <div class="auth-actions">
+            <button class="auth-submit" id="auth-submit" type="submit">Send sign-in code</button>
+            <button class="auth-secondary" id="auth-reset" type="button" hidden>Use another email</button>
+          </div>
+          <p class="auth-note" id="auth-note">We’ll send a one-time code so your pack follows you when you come back.</p>
+        </form>
+
+        <div class="auth-account" id="auth-account" hidden>
+          <div class="auth-account-line" id="auth-account-email">Signed in</div>
+          <div class="auth-account-line" id="auth-account-credits">0 videos · 0 images</div>
+          <button class="auth-secondary auth-secondary--full" id="auth-logout" type="button">Log out</button>
+        </div>
+      </div>
+    </div>
+
     <div class="generation-modal" id="generation-modal" aria-hidden="true">
       <div class="generation-panel" role="dialog" aria-modal="true" aria-labelledby="generation-title">
         <button class="generation-close" type="button" aria-label="Close generation panel">Close</button>
@@ -605,7 +636,7 @@
       </div>
     </div>
 
-    <script src="./vision-config.js?v=14"></script>
-    <script src="./app.js?v=14"></script>
+    <script src="./vision-config.js?v=15"></script>
+    <script src="./app.js?v=15"></script>
   </body>
   </html>

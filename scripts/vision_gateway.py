@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import hashlib
 import hmac
 import json
@@ -37,7 +38,9 @@ from run_seedance_modelark import generate_video as generate_seedance_video
 from run_seedance_modelark import status as seedance_status
 from vision_kling_session_bridge import SessionBridgeNotReadyError
 from vision_kling_session_bridge import generate as generate_kling_session_bridge
+from vision_kling_session_bridge import generate_image as generate_kling_image
 from vision_kling_session_bridge import prepare as prepare_kling_session_bridge
+from vision_kling_session_bridge import status_image as kling_image_status
 from vision_kling_session_bridge import status as kling_session_bridge_status
 
 
@@ -356,6 +359,13 @@ def _google_status() -> dict[str, Any]:
 
 
 def _select_image_route() -> dict[str, str]:
+    kling_state = kling_image_status()
+    if kling_state.get("ready"):
+        return {
+            "provider": "kling_image",
+            "model": os.environ.get("VISION_KLING_IMAGE_MODEL", "kling-image-web"),
+            "fallback_models": "",
+        }
     google_state = _google_status()
     image_state = google_state["image"]
     if image_state.get("ready"):
@@ -443,6 +453,34 @@ def _normalize_email(value: str | None) -> str:
     return (value or "").strip().lower()
 
 
+def _hash_auth_code(email: str, code: str) -> str:
+    normalized = _normalize_email(email)
+    return hashlib.sha256(f"{normalized}:{code}:{_user_secret()}".encode("utf-8")).hexdigest()
+
+
+def _sign_user_token(payload: dict[str, Any]) -> str:
+    serialized = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    body = base64.urlsafe_b64encode(serialized).rstrip(b"=").decode("ascii")
+    signature = hmac.new(_user_secret().encode("utf-8"), body.encode("ascii"), hashlib.sha256).hexdigest()
+    return f"{body}.{signature}"
+
+
+def _verify_user_token(token: str | None) -> dict[str, Any] | None:
+    if not token or "." not in token:
+        return None
+    body, signature = token.rsplit(".", 1)
+    expected = hmac.new(_user_secret().encode("utf-8"), body.encode("ascii"), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        return None
+    padding = "=" * (-len(body) % 4)
+    try:
+        raw = base64.urlsafe_b64decode((body + padding).encode("ascii"))
+        payload = json.loads(raw.decode("utf-8"))
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def _notification_log_path() -> Path:
     return RUNTIME_ROOT / "purchase_notifications.jsonl"
 
@@ -462,19 +500,7 @@ def _notification_sender() -> str:
     return "vision@localhost"
 
 
-def _prompt_status() -> dict[str, Any]:
-    return google_prompt_status()
-
-
-def _write_purchase_notification(record: dict[str, Any]) -> None:
-    log_path = _notification_log_path()
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-
-
-def _send_purchase_notification_email(record: dict[str, Any]) -> None:
-    recipients = _notification_recipients()
+def _send_email(*, recipients: list[str], subject: str, body_lines: list[str], sender: str | None = None) -> None:
     host = os.environ.get("VISION_NOTIFY_SMTP_HOST", "").strip()
     if not recipients or not host:
         return
@@ -486,21 +512,10 @@ def _send_purchase_notification_email(record: dict[str, Any]) -> None:
     use_starttls = os.environ.get("VISION_NOTIFY_SMTP_USE_STARTTLS", "true").strip().lower() in {"1", "true", "yes", "on"}
 
     message = EmailMessage()
-    message["Subject"] = f"New Vision Pack purchase · {record.get('email') or 'unknown email'}"
-    message["From"] = _notification_sender()
+    message["Subject"] = subject
+    message["From"] = sender or _notification_sender()
     message["To"] = ", ".join(recipients)
-    body = [
-        "A new Vision Pack purchase has been confirmed.",
-        "",
-        f"Email: {record.get('email') or 'not provided'}",
-        f"Pack: {record.get('pack_name')}",
-        f"Credits: {record.get('video_credits')} videos + {record.get('image_credits')} images",
-        f"Amount: {record.get('amount_total')} {str(record.get('currency') or '').upper()}",
-        f"Access ID: {record.get('access_id')}",
-        f"Checkout session: {record.get('session_id')}",
-        f"Purchased at: {record.get('confirmed_at')}",
-    ]
-    message.set_content("\n".join(body))
+    message.set_content("\n".join(body_lines))
 
     if use_ssl:
         context = ssl.create_default_context()
@@ -517,6 +532,39 @@ def _send_purchase_notification_email(record: dict[str, Any]) -> None:
         if username and password:
             server.login(username, password)
         server.send_message(message)
+
+
+def _prompt_status() -> dict[str, Any]:
+    return google_prompt_status()
+
+
+def _write_purchase_notification(record: dict[str, Any]) -> None:
+    log_path = _notification_log_path()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _send_purchase_notification_email(record: dict[str, Any]) -> None:
+    recipients = _notification_recipients()
+    if not recipients:
+        return
+    body = [
+        "A new Vision Pack purchase has been confirmed.",
+        "",
+        f"Email: {record.get('email') or 'not provided'}",
+        f"Pack: {record.get('pack_name')}",
+        f"Credits: {record.get('video_credits')} videos + {record.get('image_credits')} images",
+        f"Amount: {record.get('amount_total')} {str(record.get('currency') or '').upper()}",
+        f"Access ID: {record.get('access_id')}",
+        f"Checkout session: {record.get('session_id')}",
+        f"Purchased at: {record.get('confirmed_at')}",
+    ]
+    _send_email(
+        recipients=recipients,
+        subject=f"New Vision Pack purchase · {record.get('email') or 'unknown email'}",
+        body_lines=body,
+    )
 
 
 def _notify_purchase_async(*, session: dict[str, Any], entry: dict[str, Any]) -> None:
@@ -540,6 +588,26 @@ def _notify_purchase_async(*, session: dict[str, Any], entry: dict[str, Any]) ->
             print(f"[vision] purchase notification failed: {exc}")
 
     threading.Thread(target=_worker, daemon=True).start()
+
+
+def _send_auth_code_email(*, email: str, code: str) -> None:
+    normalized = _normalize_email(email)
+    if not normalized:
+        return
+    body = [
+        "Your Vision sign-in code is ready.",
+        "",
+        f"Code: {code}",
+        "",
+        f"This code expires in {_auth_code_ttl_minutes()} minutes.",
+        "If you did not request this code, you can ignore this message.",
+    ]
+    _send_email(
+        recipients=[normalized],
+        subject="Your Vision sign-in code",
+        body_lines=body,
+        sender=_notification_sender(),
+    )
 
 
 def _sign_access_token(payload: dict[str, Any]) -> str:
@@ -600,6 +668,22 @@ def _set_access_cookie(response: Response, request: Request, payload: dict[str, 
         value=_sign_access_token(payload),
         **_cookie_settings(request),
     )
+
+
+def _set_user_cookie(response: Response, request: Request, payload: dict[str, Any]) -> None:
+    response.set_cookie(
+        key=_user_cookie_name(),
+        value=_sign_user_token(payload),
+        **_cookie_settings(request),
+    )
+
+
+def _clear_user_cookie(response: Response, request: Request) -> None:
+    response.delete_cookie(key=_user_cookie_name(), path="/", samesite=_cookie_settings(request)["samesite"])
+
+
+def _clear_access_cookie(response: Response, request: Request) -> None:
+    response.delete_cookie(key=_access_cookie_name(), path="/", samesite=_cookie_settings(request)["samesite"])
 
 
 def _strip_none_values(payload: dict[str, Any]) -> dict[str, Any]:
@@ -704,6 +788,41 @@ def _access_token_for_entry(entry: dict[str, Any]) -> str:
     return _sign_access_token(_access_token_payload(entry))
 
 
+def _user_summary(user: dict[str, Any] | None) -> dict[str, Any]:
+    if not user:
+        return {
+            "authenticated": False,
+            "user_id": None,
+            "email": None,
+            "signup_discount_percent": _signup_discount_percent(),
+        }
+    return {
+        "authenticated": True,
+        "user_id": user.get("id"),
+        "email": user.get("email"),
+        "signup_discount_percent": _signup_discount_percent(),
+    }
+
+
+def _request_user_token(request: Request) -> str | None:
+    header_token = request.headers.get("x-vision-user", "").strip()
+    if header_token:
+        return header_token
+    cookie_token = request.cookies.get(_user_cookie_name())
+    return cookie_token or None
+
+
+def _user_from_request(request: Request) -> dict[str, Any] | None:
+    token = _request_user_token(request)
+    payload = _verify_user_token(token)
+    if not payload:
+        return None
+    user_id = str(payload.get("user_id") or "")
+    if not user_id:
+        return None
+    return USERS.get(user_id)
+
+
 def _request_access_token(request: Request) -> str | None:
     authorization = request.headers.get("authorization", "").strip()
     if authorization.lower().startswith("bearer "):
@@ -718,19 +837,35 @@ def _request_access_token(request: Request) -> str | None:
 def _access_from_request(request: Request) -> dict[str, Any] | None:
     token = _request_access_token(request)
     payload = _verify_access_token(token)
-    if not payload:
+    if payload:
+        if payload.get("admin"):
+            return {
+                "id": "admin",
+                "admin": True,
+                "video_remaining": None,
+                "image_remaining": None,
+            }
+        access_id = str(payload.get("access_id") or "")
+        if access_id:
+            entry = ACCESS.get(access_id)
+            if entry:
+                return entry
+
+    user = _user_from_request(request)
+    if not user:
         return None
-    if payload.get("admin"):
-        return {
-            "id": "admin",
-            "admin": True,
-            "video_remaining": None,
-            "image_remaining": None,
-        }
-    access_id = str(payload.get("access_id") or "")
-    if not access_id:
-        return None
-    return ACCESS.get(access_id)
+    user_entry = ACCESS.find_by_user_id(str(user.get("id")))
+    if user_entry:
+        return user_entry
+    email_entry = ACCESS.find_by_email(user.get("email"))
+    if email_entry:
+        attached = ACCESS.attach_user(
+            email_entry["id"],
+            user_id=str(user.get("id")),
+            email=str(user.get("email") or ""),
+        )
+        return attached or email_entry
+    return None
 
 
 
@@ -825,6 +960,7 @@ JOBS_FILE = RUNTIME_ROOT / "jobs.json"
 ACCESS_FILE = RUNTIME_ROOT / "access.json"
 OUTPUT_ROOT = VISION_ROOT / "generated"
 DISABLE_FILE = RUNTIME_ROOT / "gateway.disabled"
+USERS_FILE = RUNTIME_ROOT / "users.json"
 
 for path in (RUNTIME_ROOT, OUTPUT_ROOT):
     path.mkdir(parents=True, exist_ok=True)
@@ -853,6 +989,15 @@ class AdminUnlockRequest(BaseModel):
 class ImprovePromptRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=1500)
     mode: str | None = Field(default="video", min_length=5, max_length=16)
+
+
+class RequestAuthCodeRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class VerifyAuthCodeRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    code: str = Field(min_length=4, max_length=12)
 
 
 class JobsStore:
@@ -961,7 +1106,45 @@ class AccessStore:
         entry = self.get(access_id)
         return _access_summary(entry)
 
-    def apply_paid_session(self, *, session_id: str, email: str | None, current_access_id: str | None) -> dict[str, Any]:
+    def find_by_email(self, email: str | None) -> dict[str, Any] | None:
+        normalized = _normalize_email(email)
+        if not normalized:
+            return None
+        with self.lock:
+            for entry in self.entries.values():
+                if _normalize_email(entry.get("email")) == normalized:
+                    return dict(entry)
+        return None
+
+    def find_by_user_id(self, user_id: str | None) -> dict[str, Any] | None:
+        if not user_id:
+            return None
+        with self.lock:
+            for entry in self.entries.values():
+                if str(entry.get("user_id") or "") == str(user_id):
+                    return dict(entry)
+        return None
+
+    def attach_user(self, access_id: str, *, user_id: str, email: str | None) -> dict[str, Any] | None:
+        with self.lock:
+            entry = self.entries.get(access_id)
+            if not entry:
+                return None
+            entry["user_id"] = user_id
+            if email:
+                entry["email"] = _normalize_email(email)
+            entry["updated_at"] = _now_iso()
+            self.save()
+            return dict(entry)
+
+    def apply_paid_session(
+        self,
+        *,
+        session_id: str,
+        email: str | None,
+        current_access_id: str | None,
+        current_user_id: str | None,
+    ) -> dict[str, Any]:
         with self.lock:
             existing_access_id = self.applied_sessions.get(session_id)
             if existing_access_id and existing_access_id in self.entries:
@@ -969,12 +1152,29 @@ class AccessStore:
 
             if current_access_id and current_access_id in self.entries and not self.entries[current_access_id].get("admin"):
                 entry = self.entries[current_access_id]
+            elif current_user_id:
+                entry = next(
+                    (candidate for candidate in self.entries.values() if str(candidate.get("user_id") or "") == str(current_user_id)),
+                    None,
+                )
+                if entry is None and email:
+                    entry = next(
+                        (candidate for candidate in self.entries.values() if _normalize_email(candidate.get("email")) == _normalize_email(email)),
+                        None,
+                    )
             else:
+                entry = next(
+                    (candidate for candidate in self.entries.values() if _normalize_email(candidate.get("email")) == _normalize_email(email)),
+                    None,
+                ) if email else None
+
+            if entry is None:
                 access_id = uuid.uuid4().hex[:16]
                 entry = {
                     "id": access_id,
                     "admin": False,
-                    "email": email,
+                    "email": _normalize_email(email) if email else None,
+                    "user_id": current_user_id,
                     "video_remaining": 0,
                     "image_remaining": 0,
                     "created_at": _now_iso(),
@@ -986,8 +1186,10 @@ class AccessStore:
             entry["video_remaining"] = int(entry.get("video_remaining", 0)) + _pack_video_credits()
             entry["image_remaining"] = int(entry.get("image_remaining", 0)) + _pack_image_credits()
             entry["updated_at"] = _now_iso()
-            if email and not entry.get("email"):
-                entry["email"] = email
+            if email:
+                entry["email"] = _normalize_email(email)
+            if current_user_id:
+                entry["user_id"] = current_user_id
             sessions = entry.setdefault("stripe_sessions", [])
             if session_id not in sessions:
                 sessions.append(session_id)
@@ -1029,8 +1231,126 @@ class AccessStore:
             return True
 
 
+class UserStore:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.lock = threading.Lock()
+        self.users: dict[str, dict[str, Any]] = {}
+        self.pending_codes: dict[str, dict[str, Any]] = {}
+        self.load()
+
+    def load(self) -> None:
+        if not self.path.exists():
+            return
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            return
+        self.users = raw.get("users", {}) if isinstance(raw.get("users"), dict) else {}
+        self.pending_codes = raw.get("pending_codes", {}) if isinstance(raw.get("pending_codes"), dict) else {}
+
+    def save(self) -> None:
+        payload = {
+            "users": self.users,
+            "pending_codes": self.pending_codes,
+        }
+        self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    def get(self, user_id: str | None) -> dict[str, Any] | None:
+        if not user_id:
+            return None
+        with self.lock:
+            user = self.users.get(str(user_id))
+            return dict(user) if user else None
+
+    def find_by_email(self, email: str | None) -> dict[str, Any] | None:
+        normalized = _normalize_email(email)
+        if not normalized:
+            return None
+        with self.lock:
+            for user in self.users.values():
+                if _normalize_email(user.get("email")) == normalized:
+                    return dict(user)
+        return None
+
+    def create_or_get(self, email: str) -> dict[str, Any]:
+        normalized = _normalize_email(email)
+        if not normalized:
+            raise ValueError("A valid email is required.")
+        with self.lock:
+            existing = next(
+                (user for user in self.users.values() if _normalize_email(user.get("email")) == normalized),
+                None,
+            )
+            if existing:
+                existing["last_login_at"] = _now_iso()
+                self.save()
+                return dict(existing)
+            user_id = uuid.uuid4().hex[:16]
+            user = {
+                "id": user_id,
+                "email": normalized,
+                "created_at": _now_iso(),
+                "last_login_at": _now_iso(),
+            }
+            self.users[user_id] = user
+            self.save()
+            return dict(user)
+
+    def issue_code(self, email: str) -> str:
+        normalized = _normalize_email(email)
+        if not normalized:
+            raise ValueError("A valid email is required.")
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        expires_at = datetime.now(timezone.utc).timestamp() + (_auth_code_ttl_minutes() * 60)
+        with self.lock:
+            self.pending_codes[normalized] = {
+                "email": normalized,
+                "code_hash": _hash_auth_code(normalized, code),
+                "expires_at": expires_at,
+                "issued_at": _now_iso(),
+            }
+            self.save()
+        return code
+
+    def verify_code(self, email: str, code: str) -> dict[str, Any] | None:
+        normalized = _normalize_email(email)
+        submitted = (code or "").strip()
+        if not normalized or not submitted:
+            return None
+        with self.lock:
+            record = self.pending_codes.get(normalized)
+            if not record:
+                return None
+            if float(record.get("expires_at") or 0) < datetime.now(timezone.utc).timestamp():
+                self.pending_codes.pop(normalized, None)
+                self.save()
+                return None
+            if record.get("code_hash") != _hash_auth_code(normalized, submitted):
+                return None
+            self.pending_codes.pop(normalized, None)
+            existing = next(
+                (user for user in self.users.values() if _normalize_email(user.get("email")) == normalized),
+                None,
+            )
+            if existing:
+                existing["last_login_at"] = _now_iso()
+                self.save()
+                return dict(existing)
+            user_id = uuid.uuid4().hex[:16]
+            user = {
+                "id": user_id,
+                "email": normalized,
+                "created_at": _now_iso(),
+                "last_login_at": _now_iso(),
+            }
+            self.users[user_id] = user
+            self.save()
+            return dict(user)
+
+
 JOBS = JobsStore(JOBS_FILE)
 ACCESS = AccessStore(ACCESS_FILE)
+USERS = UserStore(USERS_FILE)
 QUEUE: queue.Queue[str] = queue.Queue()
 
 
@@ -1061,12 +1381,18 @@ def _process_job(job_id: str) -> None:
                 message="Shaping the still image inside Vision.",
             )
             JOBS.update(job_id, status="generating", message="Building the still frame inside Vision.")
-            output_image = generate_google_image(
-                prompt=job["prompt"],
-                output_dir=output_dir,
-                model=route["model"],
-                fallback_models=route.get("fallback_models", ""),
-            )
+            if route["provider"] == "kling_image":
+                output_image = generate_kling_image(
+                    prompt=job["prompt"],
+                    output_dir=output_dir,
+                )
+            else:
+                output_image = generate_google_image(
+                    prompt=job["prompt"],
+                    output_dir=output_dir,
+                    model=route["model"],
+                    fallback_models=route.get("fallback_models", ""),
+                )
             JOBS.update(
                 job_id,
                 status="ready",
@@ -1240,6 +1566,7 @@ def health() -> dict[str, str]:
 def engine_status() -> dict[str, Any]:
     return {
         "kling_session_bridge": kling_session_bridge_status(),
+        "kling_image_bridge": kling_image_status(),
         "seedance": seedance_status(),
         "google": _google_status(),
         "default_provider": _default_generation_provider(),
@@ -1258,11 +1585,88 @@ def engine_prepare() -> JSONResponse:
 
 @APP.get("/api/access/me")
 def access_me(request: Request) -> dict[str, Any]:
+    user = _user_from_request(request)
     access = _access_from_request(request)
     return {
+        "user": _user_summary(user),
         "access": _access_summary(access),
         "pack": _pack_summary(),
     }
+
+
+@APP.post("/api/auth/request-code")
+def request_auth_code(payload: RequestAuthCodeRequest) -> dict[str, Any]:
+    normalized = _normalize_email(payload.email)
+    if "@" not in normalized:
+        raise HTTPException(status_code=400, detail="Enter a valid email address.")
+    try:
+        code = USERS.issue_code(normalized)
+        _send_auth_code_email(email=normalized, code=code)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Vision could not send the sign-in code right now: {exc}") from exc
+    return {
+        "ok": True,
+        "email": normalized,
+        "message": "A Vision sign-in code is on its way.",
+    }
+
+
+@APP.post("/api/auth/verify-code")
+def verify_auth_code(payload: VerifyAuthCodeRequest, request: Request) -> JSONResponse:
+    normalized = _normalize_email(payload.email)
+    user = USERS.verify_code(normalized, payload.code)
+    if not user:
+        raise HTTPException(status_code=401, detail="That Vision sign-in code is invalid or expired.")
+
+    current_access = _access_from_request(request)
+    attached_entry = None
+    if current_access and not current_access.get("admin"):
+        current_email = _normalize_email(current_access.get("email"))
+        if not current_email or current_email == normalized:
+            attached_entry = ACCESS.attach_user(
+                str(current_access["id"]),
+                user_id=str(user["id"]),
+                email=normalized,
+            )
+    if attached_entry is None:
+        email_entry = ACCESS.find_by_email(normalized)
+        if email_entry:
+            attached_entry = ACCESS.attach_user(
+                str(email_entry["id"]),
+                user_id=str(user["id"]),
+                email=normalized,
+            )
+    if attached_entry is None:
+        attached_entry = ACCESS.find_by_user_id(str(user["id"]))
+
+    response = JSONResponse(
+        {
+            "ok": True,
+            "user": _user_summary(user),
+            "access": _access_summary(attached_entry),
+            "pack": _pack_summary(),
+            "access_token": _access_token_for_entry(attached_entry) if attached_entry else None,
+        }
+    )
+    _set_user_cookie(response, request, {"user_id": user["id"]})
+    if attached_entry:
+        _set_access_cookie(response, request, _access_token_payload(attached_entry))
+    return response
+
+
+@APP.post("/api/auth/logout")
+def logout(request: Request) -> JSONResponse:
+    response = JSONResponse(
+        {
+            "ok": True,
+            "user": _user_summary(None),
+            "access": _access_summary(None),
+            "pack": _pack_summary(),
+        }
+    )
+    _clear_user_cookie(response, request)
+    _clear_access_cookie(response, request)
+    return response
 
 
 @APP.post("/api/prompt/improve")
@@ -1303,8 +1707,10 @@ def admin_unlock(payload: AdminUnlockRequest, request: Request) -> JSONResponse:
 
 @APP.post("/api/checkout/session")
 def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Request) -> dict[str, Any]:
+    user = _user_from_request(request)
+    resolved_email = (payload.email or "").strip() or (str(user.get("email") or "") if user else "")
     try:
-        session = _create_stripe_checkout_session(request=request, email=(payload.email or "").strip() or None)
+        session = _create_stripe_checkout_session(request=request, email=resolved_email or None)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     checkout_url = session.get("url")
@@ -1330,24 +1736,29 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
     customer_details = session.get("customer_details") or {}
     email = customer_details.get("email") or session.get("customer_email")
     current_access = _access_from_request(request)
+    current_user = _user_from_request(request)
     current_access_id = current_access.get("id") if current_access and not current_access.get("admin") else None
     normalized_session_id = payload.session_id.strip()
     entry = ACCESS.apply_paid_session(
         session_id=normalized_session_id,
         email=email,
         current_access_id=current_access_id,
+        current_user_id=str(current_user.get("id")) if current_user else None,
     )
     if ACCESS.claim_notification(normalized_session_id):
         _notify_purchase_async(session=session, entry=entry)
     response = JSONResponse(
         {
             "ok": True,
+            "user": _user_summary(current_user),
             "access": _access_summary(entry),
             "pack": _pack_summary(),
             "access_token": _access_token_for_entry(entry),
         }
     )
     _set_access_cookie(response, request, _access_token_payload(entry))
+    if current_user:
+        _set_user_cookie(response, request, {"user_id": current_user["id"]})
     return response
 
 

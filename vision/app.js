@@ -29,6 +29,19 @@ const subscribeCopy = document.querySelector(".subscribe-copy");
 const subscribePlanLine = document.querySelector("#subscribe-plan-line");
 const subscribeSubmit = document.querySelector(".subscribe-submit");
 const subscribeNote = document.querySelector("#subscribe-note");
+const authModal = document.querySelector("#auth-modal");
+const authClose = document.querySelector(".auth-close");
+const authForm = document.querySelector("#auth-form");
+const authEmail = document.querySelector("#auth-email");
+const authCodeRow = document.querySelector("#auth-code-row");
+const authCode = document.querySelector("#auth-code");
+const authSubmit = document.querySelector("#auth-submit");
+const authReset = document.querySelector("#auth-reset");
+const authNote = document.querySelector("#auth-note");
+const authAccount = document.querySelector("#auth-account");
+const authAccountEmail = document.querySelector("#auth-account-email");
+const authAccountCredits = document.querySelector("#auth-account-credits");
+const authLogout = document.querySelector("#auth-logout");
 const generationModal = document.querySelector("#generation-modal");
 const generationClose = document.querySelector(".generation-close");
 const generationTitle = document.querySelector("#generation-title");
@@ -73,6 +86,13 @@ const defaultAccess = {
   video_remaining: 0,
   image_remaining: 0,
   access_id: null,
+};
+
+const defaultUser = {
+  authenticated: false,
+  user_id: null,
+  email: null,
+  signup_discount_percent: 20,
 };
 
 const promptHelperDefaults = {
@@ -253,9 +273,12 @@ let generationPollHandle = null;
 let visionFocusGuardHandle = null;
 let improvePromptInFlight = false;
 let accessState = { ...defaultAccess };
+let currentUser = { ...defaultUser };
 let currentPack = { ...defaultPack };
 let currentGenerationOutput = null;
 let lastSubscribeTrigger = null;
+let authPendingEmail = "";
+let authStep = "email";
 
 const generationUiCopy = (status, outputType = "video") => {
   const isImage = outputType === "image";
@@ -750,9 +773,83 @@ const setMode = (mode) => {
   }
 };
 
-const renderAccessState = (access, pack) => {
+const setAuthModalState = (open) => {
+  body.classList.toggle("auth-open", open);
+  authModal?.classList.toggle("is-open", open);
+  authModal?.setAttribute("aria-hidden", open ? "false" : "true");
+  if (!open) {
+    return;
+  }
+  window.setTimeout(() => {
+    if (currentUser.authenticated) {
+      authLogout?.focus();
+      return;
+    }
+    if (authStep === "code") {
+      authCode?.focus();
+      return;
+    }
+    authEmail?.focus();
+  }, 180);
+};
+
+const setAuthLoading = (loading, label) => {
+  if (authSubmit) {
+    authSubmit.disabled = loading;
+    if (label) {
+      authSubmit.textContent = label;
+    }
+  }
+  if (authEmail) {
+    authEmail.disabled = loading || currentUser.authenticated;
+  }
+  if (authCode) {
+    authCode.disabled = loading || currentUser.authenticated;
+  }
+};
+
+const renderAuthState = () => {
+  const signedIn = !!currentUser.authenticated;
+  if (authAccount) {
+    authAccount.hidden = !signedIn;
+  }
+  if (authForm) {
+    authForm.hidden = signedIn;
+  }
+  if (authAccountEmail) {
+    authAccountEmail.textContent = currentUser.email || "Signed in";
+  }
+  if (authAccountCredits) {
+    if (accessState.admin) {
+      authAccountCredits.textContent = "Vision engine unlocked";
+    } else {
+      authAccountCredits.textContent = `${accessState.video_remaining ?? 0} videos · ${accessState.image_remaining ?? 0} images`;
+    }
+  }
+  if (authCodeRow) {
+    authCodeRow.hidden = authStep !== "code";
+  }
+  if (authReset) {
+    authReset.hidden = authStep !== "code";
+  }
+  if (authSubmit) {
+    authSubmit.textContent = authStep === "code" ? "Verify code" : "Send sign-in code";
+  }
+  if (authNote && !signedIn && authStep === "email") {
+    authNote.textContent = "We’ll send a one-time code so your pack follows you when you come back.";
+  }
+  if (authEmail && currentUser.email && !authEmail.value) {
+    authEmail.value = currentUser.email;
+  }
+  if (subscribeEmail && currentUser.email && !subscribeEmail.value) {
+    subscribeEmail.value = currentUser.email;
+  }
+};
+
+const renderAccessState = (access, pack, user) => {
   accessState = { ...defaultAccess, ...(access || {}) };
   currentPack = { ...defaultPack, ...(pack || {}) };
+  currentUser = { ...defaultUser, ...(user || {}) };
 
   if (subscribePlanLine) {
     subscribePlanLine.hidden = false;
@@ -781,14 +878,16 @@ const renderAccessState = (access, pack) => {
   });
 
   if (isStudioRoute && topbarCta) {
-    if (accessState.admin) {
+    if (currentUser.authenticated) {
+      topbarCta.textContent = currentUser.email || "My account";
+    } else if (accessState.admin) {
       topbarCta.textContent = "Studio unlocked";
-    } else if (accessState.access_id) {
-      topbarCta.textContent = `${accessState.video_remaining ?? 0} video · ${accessState.image_remaining ?? 0} images`;
     } else {
-      topbarCta.textContent = "Vision Pack required";
+      topbarCta.textContent = "Log in";
     }
   }
+
+  renderAuthState();
 };
 
 const setSubscribeLoading = (loading, label = "Unlock my pack") => {
@@ -856,9 +955,98 @@ const loadAccessState = async () => {
       return;
     }
     const payload = await response.json();
-    renderAccessState(payload.access, payload.pack);
+    renderAccessState(payload.access, payload.pack, payload.user);
   } catch (error) {
-    renderAccessState(defaultAccess, currentPack);
+    renderAccessState(defaultAccess, currentPack, defaultUser);
+  }
+};
+
+const requestAuthCode = async (email) => {
+  authPendingEmail = email;
+  setAuthLoading(true, "Sending code...");
+  try {
+    const response = await visionFetch("/api/auth/request-code", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+    const payload = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(payload?.detail || payload?.message || "Vision could not send a code right now.");
+    }
+    authStep = "code";
+    if (authNote) {
+      authNote.textContent = `We sent a 6-digit Vision code to ${email}.`;
+    }
+    renderAuthState();
+  } catch (error) {
+    if (authNote) {
+      authNote.textContent = error instanceof Error ? error.message : "Vision could not send a code right now.";
+    }
+  } finally {
+    setAuthLoading(false);
+  }
+};
+
+const verifyAuthCode = async (email, code) => {
+  setAuthLoading(true, "Verifying...");
+  try {
+    const response = await visionFetch("/api/auth/verify-code", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, code }),
+    });
+    const payload = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(payload?.detail || payload?.message || "That code did not work.");
+    }
+    if (payload?.access_token) {
+      storeAccessToken(payload.access_token);
+    }
+    renderAccessState(payload.access, payload.pack, payload.user);
+    authStep = "email";
+    authPendingEmail = "";
+    if (authCode) {
+      authCode.value = "";
+    }
+    setAuthModalState(false);
+  } catch (error) {
+    if (authNote) {
+      authNote.textContent = error instanceof Error ? error.message : "That code did not work.";
+    }
+  } finally {
+    setAuthLoading(false);
+  }
+};
+
+const logoutUser = async () => {
+  setAuthLoading(true, "Logging out...");
+  try {
+    const response = await visionFetch("/api/auth/logout", {
+      method: "POST",
+    });
+    const payload = await parseJsonSafely(response);
+    if (!response.ok) {
+      throw new Error(payload?.detail || payload?.message || "Vision could not log you out.");
+    }
+    storeAccessToken("");
+    authStep = "email";
+    authPendingEmail = "";
+    if (authCode) {
+      authCode.value = "";
+    }
+    renderAccessState(payload.access, payload.pack, payload.user);
+    setAuthModalState(false);
+  } catch (error) {
+    if (authNote) {
+      authNote.textContent = error instanceof Error ? error.message : "Vision could not log you out.";
+    }
+  } finally {
+    setAuthLoading(false);
   }
 };
 
@@ -1009,7 +1197,7 @@ const confirmCheckoutIfNeeded = async () => {
     if (payload?.access_token) {
       storeAccessToken(payload.access_token);
     }
-    renderAccessState(payload.access, payload.pack);
+    renderAccessState(payload.access, payload.pack, payload.user);
     stripUrlParams("checkout", "session_id");
     return true;
   } catch (error) {
@@ -1086,7 +1274,7 @@ const unlockAdminIfNeeded = async () => {
     if (payload?.access_token) {
       storeAccessToken(payload.access_token);
     }
-    renderAccessState(payload.access, payload.pack);
+    renderAccessState(payload.access, payload.pack, payload.user);
     stripUrlParams("vision_admin");
     return true;
   } catch (error) {
@@ -1099,7 +1287,7 @@ setSearchState(false);
 setSubscribeState(false);
 setGenerationState(false);
 setMode("video");
-renderAccessState(defaultAccess, defaultPack);
+renderAccessState(defaultAccess, defaultPack, defaultUser);
 
 if (atomGuideText) {
   atomGuideText.textContent = isStudioRoute ? "Vision Studio" : "Enter Vision Studio";
@@ -1124,6 +1312,16 @@ studioTriggers.forEach((trigger) => {
     event.preventDefault();
     enterStudio();
   });
+});
+
+topbarCta?.addEventListener("click", (event) => {
+  if (!isStudioRoute) {
+    return;
+  }
+  event.preventDefault();
+  authStep = currentUser.authenticated ? "email" : "email";
+  renderAuthState();
+  setAuthModalState(true);
 });
 
 subscribeTriggers.forEach((trigger) => {
@@ -1182,9 +1380,19 @@ subscribeClose?.addEventListener("click", () => {
   setSubscribeState(false);
 });
 
+authClose?.addEventListener("click", () => {
+  setAuthModalState(false);
+});
+
 subscribeModal?.addEventListener("click", (event) => {
   if (event.target === subscribeModal) {
     setSubscribeState(false);
+  }
+});
+
+authModal?.addEventListener("click", (event) => {
+  if (event.target === authModal) {
+    setAuthModalState(false);
   }
 });
 
@@ -1196,6 +1404,41 @@ subscribeForm?.addEventListener("submit", async (event) => {
     return;
   }
   await beginCheckout(email);
+});
+
+authForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const email = authStep === "code" ? authPendingEmail : authEmail?.value?.trim();
+  if (!email) {
+    authEmail?.focus();
+    return;
+  }
+  if (authStep === "code") {
+    const code = authCode?.value?.trim();
+    if (!code) {
+      authCode?.focus();
+      return;
+    }
+    await verifyAuthCode(email, code);
+    return;
+  }
+  await requestAuthCode(email);
+});
+
+authReset?.addEventListener("click", () => {
+  authStep = "email";
+  authPendingEmail = "";
+  if (authCode) {
+    authCode.value = "";
+  }
+  if (authNote) {
+    authNote.textContent = "We’ll send a one-time code so your pack follows you when you come back.";
+  }
+  renderAuthState();
+});
+
+authLogout?.addEventListener("click", async () => {
+  await logoutUser();
 });
 
 generationClose?.addEventListener("click", () => {
@@ -1246,6 +1489,12 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (event.key === "Escape" && body.classList.contains("auth-open")) {
+    setAuthModalState(false);
+    topbarCta?.focus();
+    return;
+  }
+
   if (event.key === "Escape" && body.classList.contains("generation-open")) {
     setGenerationState(false);
     promptInput?.focus();
@@ -1265,10 +1514,9 @@ const initializeVision = async () => {
   if (isStudioRoute) {
     topNav?.setAttribute("aria-hidden", "true");
     if (topbarCta) {
-      topbarCta.textContent = "Vision Studio";
-      topbarCta.removeAttribute("data-enter-studio");
+      topbarCta.textContent = "Log in";
       topbarCta.setAttribute("href", "/studio/");
-      topbarCta.setAttribute("aria-current", "page");
+      topbarCta.removeAttribute("aria-current");
     }
   }
   const unlockedAdmin = await unlockAdminIfNeeded();

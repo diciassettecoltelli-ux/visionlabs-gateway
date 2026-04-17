@@ -35,6 +35,7 @@ COOKIE_HEADER_FILE = RUNTIME_ROOT / "kling_cookie_header.txt"
 COOKIE_HEADER_EXAMPLE_FILE = RUNTIME_ROOT / "kling_cookie_header.example.txt"
 REQUEST_HEADERS_FILE = RUNTIME_ROOT / "kling_request_headers.json"
 SUBMIT_PAYLOAD_FILE = RUNTIME_ROOT / "kling_submit_payload.sample.json"
+IMAGE_SUBMIT_PAYLOAD_FILE = RUNTIME_ROOT / "kling_image_submit_payload.sample.json"
 FORMATTER_BUNDLE_URL = (
     "https://s15-kling.klingai.com/kos/s101/nlav112918/kling-web/assets/js/formatter-zn7YLI44.js"
 )
@@ -105,6 +106,7 @@ class BridgeArtifacts:
     runtime_cookie_header: RuntimeCookieHeader | None
     runtime_request_headers: RuntimeRequestHeaders | None
     runtime_submit_payload: RuntimeSubmitPayload | None
+    runtime_image_submit_payload: RuntimeSubmitPayload | None
 
     @property
     def has_cookie_auth(self) -> bool:
@@ -181,6 +183,26 @@ def _load_runtime_submit_payload() -> RuntimeSubmitPayload | None:
     return RuntimeSubmitPayload(payload=payload)
 
 
+def _load_runtime_image_submit_payload() -> RuntimeSubmitPayload | None:
+    env_value = os.environ.get("VISION_KLING_IMAGE_SUBMIT_PAYLOAD_JSON", "").strip()
+    if env_value:
+        try:
+            payload = json.loads(env_value)
+        except json.JSONDecodeError:
+            return None
+        if isinstance(payload, dict):
+            return RuntimeSubmitPayload(payload=payload)
+    if not IMAGE_SUBMIT_PAYLOAD_FILE.exists():
+        return None
+    try:
+        payload = json.loads(IMAGE_SUBMIT_PAYLOAD_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return RuntimeSubmitPayload(payload=payload)
+
+
 def _ensure_cookie_header_example() -> None:
     COOKIE_HEADER_EXAMPLE_FILE.parent.mkdir(parents=True, exist_ok=True)
     if not COOKIE_HEADER_EXAMPLE_FILE.exists():
@@ -226,6 +248,25 @@ def _ensure_cookie_header_example() -> None:
                     "inputs": [],
                     "arguments": [
                         {"name": "kling_version", "value": "3.0-omni"},
+                        {"name": "model_mode", "value": "pro"},
+                        {"name": "prompt", "value": "PASTE_PROMPT"},
+                        {"name": "rich_prompt", "value": "PASTE_PROMPT"},
+                    ],
+                    "callbackPayloads": [],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+    if not IMAGE_SUBMIT_PAYLOAD_FILE.exists():
+        IMAGE_SUBMIT_PAYLOAD_FILE.write_text(
+            json.dumps(
+                {
+                    "type": "PASTE_REAL_KLING_IMAGE_TYPE",
+                    "inputs": [],
+                    "arguments": [
+                        {"name": "kling_version", "value": "PASTE_REAL_VERSION"},
                         {"name": "model_mode", "value": "pro"},
                         {"name": "prompt", "value": "PASTE_PROMPT"},
                         {"name": "rich_prompt", "value": "PASTE_PROMPT"},
@@ -347,6 +388,7 @@ def _collect_artifacts() -> BridgeArtifacts:
             runtime_cookie_header=_load_runtime_cookie_header(),
             runtime_request_headers=_load_runtime_request_headers(),
             runtime_submit_payload=_load_runtime_submit_payload(),
+            runtime_image_submit_payload=_load_runtime_image_submit_payload(),
         )
     return BridgeArtifacts(
         profile_dir=profile_dir,
@@ -357,6 +399,7 @@ def _collect_artifacts() -> BridgeArtifacts:
         runtime_cookie_header=_load_runtime_cookie_header(),
         runtime_request_headers=_load_runtime_request_headers(),
         runtime_submit_payload=_load_runtime_submit_payload(),
+        runtime_image_submit_payload=_load_runtime_image_submit_payload(),
     )
 
 
@@ -453,6 +496,9 @@ def _status_payload(artifacts: BridgeArtifacts) -> dict[str, Any]:
     runtime_submit_payload_ready = bool(
         artifacts.runtime_submit_payload and artifacts.runtime_submit_payload.is_complete
     )
+    runtime_image_submit_payload_ready = bool(
+        artifacts.runtime_image_submit_payload and artifacts.runtime_image_submit_payload.is_complete
+    )
     ready = (
         runtime_cookie_ready
         and bool(artifacts.web_contract.get("signature_query_param"))
@@ -488,6 +534,8 @@ def _status_payload(artifacts: BridgeArtifacts) -> dict[str, Any]:
         "runtime_request_header_names": sorted(artifacts.runtime_request_headers.headers.keys()) if artifacts.runtime_request_headers else [],
         "runtime_submit_payload_file": str(SUBMIT_PAYLOAD_FILE),
         "runtime_submit_payload_ready": runtime_submit_payload_ready,
+        "runtime_image_submit_payload_file": str(IMAGE_SUBMIT_PAYLOAD_FILE),
+        "runtime_image_submit_payload_ready": runtime_image_submit_payload_ready,
     }
     STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATUS_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -496,6 +544,27 @@ def _status_payload(artifacts: BridgeArtifacts) -> dict[str, Any]:
 
 def status() -> dict[str, Any]:
     return _status_payload(_collect_artifacts())
+
+
+def status_image() -> dict[str, Any]:
+    artifacts = _collect_artifacts()
+    payload = _status_payload(artifacts)
+    image_ready = (
+        bool(payload.get("runtime_cookie_ready"))
+        and bool(payload.get("web_contract", {}).get("signature_query_param"))
+        and bool(payload.get("runtime_image_submit_payload_ready"))
+    )
+    message = (
+        "Kling image bridge is ready with runtime cookies and image payload."
+        if image_ready
+        else "Kling image bridge still needs the real image submit payload."
+    )
+    return {
+        **payload,
+        "ready": image_ready,
+        "message": message,
+        "mode": "kling_web_image_bridge",
+    }
 
 
 def prepare() -> dict[str, Any]:
@@ -685,18 +754,25 @@ def _extract_download_url(payload: dict[str, Any]) -> str | None:
     return value
 
 
-def generate(*, prompt: str, output_dir: str | Path) -> Path:
+def _generate_asset(
+    *,
+    prompt: str,
+    output_dir: str | Path,
+    payload_template: RuntimeSubmitPayload,
+    output_filename: str,
+    metadata_filename: str,
+) -> Path:
     artifacts = _collect_artifacts()
     state = _status_payload(artifacts)
-    if not state["ready"]:
+    if not (state["runtime_cookie_ready"] and state["web_contract"].get("signature_query_param")):
         raise SessionBridgeNotReadyError(
             "Kling session bridge is not ready yet. "
-            f"Cookie ready={state['runtime_cookie_ready']} payload ready={state['runtime_submit_payload_ready']}."
+            f"Cookie ready={state['runtime_cookie_ready']}."
         )
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    request_body = _override_prompt_in_payload(artifacts.runtime_submit_payload.payload, prompt)
+    request_body = _override_prompt_in_payload(payload_template.payload, prompt)
     signed = sign_submit_payload(request_body=request_body, query={})
     sig4_value = signed.get("signature") or signed.get("__NS_hxfalcon") or signed.get("signResult")
     caver = signed.get("caver") or _first_found(signed.get("payload", {}), ("caver",)) or "2"
@@ -729,22 +805,56 @@ def generate(*, prompt: str, output_dir: str | Path) -> Path:
     if not download_url:
         raise RuntimeError(f"Kling web task completed but no download URL was present: {status_payload}")
 
-    output_video = output_dir / "kling_session_bridge.mp4"
-    saved_video = _download(download_url, output_video, headers=status_headers)
+    saved_asset = _download(download_url, output_dir / output_filename, headers=status_headers)
     metadata = {
         "provider": "kling_web_session_bridge",
         "prompt": prompt,
-        "output_video": str(saved_video),
+        "output_asset": str(saved_asset),
         "task_id": task_id,
         "submit_response": created,
         "status_payload": status_payload,
         "signed_submit": signed,
     }
-    (output_dir / "kling_session_bridge_metadata.json").write_text(
+    (output_dir / metadata_filename).write_text(
         json.dumps(metadata, indent=2) + "\n",
         encoding="utf-8",
     )
-    return saved_video
+    return saved_asset
+
+
+def generate(*, prompt: str, output_dir: str | Path) -> Path:
+    artifacts = _collect_artifacts()
+    state = _status_payload(artifacts)
+    if not state["ready"]:
+        raise SessionBridgeNotReadyError(
+            "Kling session bridge is not ready yet. "
+            f"Cookie ready={state['runtime_cookie_ready']} payload ready={state['runtime_submit_payload_ready']}."
+        )
+
+    return _generate_asset(
+        prompt=prompt,
+        output_dir=output_dir,
+        payload_template=artifacts.runtime_submit_payload,
+        output_filename="kling_session_bridge.mp4",
+        metadata_filename="kling_session_bridge_metadata.json",
+    )
+
+
+def generate_image(*, prompt: str, output_dir: str | Path) -> Path:
+    artifacts = _collect_artifacts()
+    state = status_image()
+    if not state["ready"] or not artifacts.runtime_image_submit_payload:
+        raise SessionBridgeNotReadyError(
+            "Kling image bridge is not ready yet. "
+            f"Cookie ready={state['runtime_cookie_ready']} payload ready={state['runtime_image_submit_payload_ready']}."
+        )
+    return _generate_asset(
+        prompt=prompt,
+        output_dir=output_dir,
+        payload_template=artifacts.runtime_image_submit_payload,
+        output_filename="kling_image_bridge.png",
+        metadata_filename="kling_image_bridge_metadata.json",
+    )
 
 
 def main() -> None:
