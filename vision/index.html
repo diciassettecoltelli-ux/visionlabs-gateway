@@ -90,7 +90,7 @@
           </button>
           <div class="atom-guide" aria-hidden="true">
             <span class="atom-guide-line"></span>
-            <span class="atom-guide-text" id="atom-guide-text">Enter Vision Studio</span>
+            <span class="atom-guide-text" id="atom-guide-text">Tap to begin</span>
           </div>
         </div>
         <div class="search-cluster" id="vision-search-panel" aria-hidden="true">
@@ -124,6 +124,48 @@
             <button class="action-pill" id="improve-prompt-button" type="button">Improve Prompt</button>
           </div>
         </div>
+        <section class="studio-dashboard" id="studio-dashboard" aria-label="Vision Studio dashboard">
+          <div class="studio-dashboard-grid">
+            <article class="studio-summary-card">
+              <div class="studio-summary-kicker">Vision / Studio</div>
+              <h2 class="studio-summary-title">Your prompt engine, credits, and latest creations.</h2>
+              <p class="studio-summary-copy">Write a prompt, generate inside Vision, and keep your recent outputs and remaining credits visible in one clean workspace.</p>
+              <div class="studio-credit-grid">
+                <div class="studio-credit-tile">
+                  <span class="studio-credit-label">Video credits left</span>
+                  <strong class="studio-credit-value" id="studio-video-credits">0</strong>
+                </div>
+                <div class="studio-credit-tile">
+                  <span class="studio-credit-label">Image credits left</span>
+                  <strong class="studio-credit-value" id="studio-image-credits">0</strong>
+                </div>
+              </div>
+              <div class="studio-summary-meta">
+                <span class="studio-summary-line" id="studio-pack-status">Unlock a Vision pack to begin creating.</span>
+                <span class="studio-summary-line" id="studio-history-count">0 creations saved</span>
+              </div>
+              <div class="studio-summary-actions">
+                <button class="studio-summary-button studio-summary-button--ghost" id="studio-account-button" type="button">View account</button>
+                <button class="studio-summary-button" id="studio-topup-button" type="button">Buy a Vision pack</button>
+              </div>
+            </article>
+
+            <article class="studio-history-card-shell">
+              <div class="studio-history-head">
+                <div>
+                  <div class="studio-history-kicker">Studio / Recent</div>
+                  <h3 class="studio-history-title">What you generated</h3>
+                </div>
+                <span class="studio-history-badge" id="studio-history-badge">Empty</span>
+              </div>
+              <div class="studio-history-grid" id="studio-history-grid"></div>
+              <div class="studio-history-empty" id="studio-history-empty">
+                <strong>Your latest outputs will appear here.</strong>
+                <span>Generate an image or video and Vision will keep the newest results ready to reopen from this Studio page.</span>
+              </div>
+            </article>
+          </div>
+        </section>
       </main>
 
       <section class="gallery-section" id="gallery">
@@ -668,6 +710,22 @@
           </div>
         </div>
         <button class="generation-prepare" id="generation-prepare" type="button" hidden>Prepare engine</button>
+      </div>
+    </div>
+
+    <div class="studio-loader" id="studio-loader" aria-hidden="true">
+      <div class="studio-loader-panel" role="status" aria-live="polite">
+        <div class="studio-loader-atom" aria-hidden="true">
+          <span class="studio-loader-core"></span>
+          <span class="studio-loader-orbit studio-loader-orbit--one"><span class="studio-loader-electron"></span></span>
+          <span class="studio-loader-orbit studio-loader-orbit--two"><span class="studio-loader-electron"></span></span>
+          <span class="studio-loader-orbit studio-loader-orbit--three"><span class="studio-loader-electron"></span></span>
+        </div>
+        <div class="studio-loader-copy">
+          <div class="studio-loader-kicker">Vision / Studio</div>
+          <strong class="studio-loader-title">Preparing Vision Studio</strong>
+          <span class="studio-loader-note">Aligning your prompt engine, credits, and latest creations.</span>
+        </div>
       </div>
     </div>
 

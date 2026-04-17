@@ -66,6 +66,17 @@ const generationDeliveryTitle = document.querySelector("#generation-delivery-tit
 const generationDeliveryNote = document.querySelector("#generation-delivery-note");
 const topNav = document.querySelector(".topnav");
 const topbarCta = document.querySelector(".topbar-cta");
+const studioDashboard = document.querySelector("#studio-dashboard");
+const studioVideoCredits = document.querySelector("#studio-video-credits");
+const studioImageCredits = document.querySelector("#studio-image-credits");
+const studioPackStatus = document.querySelector("#studio-pack-status");
+const studioHistoryCount = document.querySelector("#studio-history-count");
+const studioHistoryBadge = document.querySelector("#studio-history-badge");
+const studioHistoryGrid = document.querySelector("#studio-history-grid");
+const studioHistoryEmpty = document.querySelector("#studio-history-empty");
+const studioAccountButton = document.querySelector("#studio-account-button");
+const studioTopupButton = document.querySelector("#studio-topup-button");
+const studioLoader = document.querySelector("#studio-loader");
 
 const configuredApiBase = typeof window.VISION_API_BASE === "string" ? window.VISION_API_BASE.trim() : "";
 const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location.hostname);
@@ -74,6 +85,7 @@ const VISION_STUDIO_PATH = "/studio/";
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
 const VISION_ACCESS_STORAGE_KEY = "vision_access_token";
 const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
+const VISION_HISTORY_STORAGE_KEY = "vision_generation_history_v1";
 
 const defaultPacks = [
   {
@@ -243,7 +255,18 @@ const visionFetch = (path, options = {}) => {
 };
 
 const enterStudio = () => {
-  window.location.assign(VISION_STUDIO_PATH);
+  if (isStudioRoute) {
+    setSearchState(true);
+    return;
+  }
+  if (studioTransitionInFlight) {
+    return;
+  }
+  studioTransitionInFlight = true;
+  setStudioLoaderState(true);
+  window.setTimeout(() => {
+    window.location.assign(VISION_STUDIO_PATH);
+  }, 1180);
 };
 
 const stripUrlParams = (...params) => {
@@ -342,6 +365,146 @@ let currentGenerationOutput = null;
 let lastSubscribeTrigger = null;
 let authPendingEmail = "";
 let authStep = "email";
+let studioTransitionInFlight = false;
+
+const getStudioHistoryStorageKey = () => {
+  const identity = String(currentUser?.email || "guest")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9@._-]+/g, "-");
+  return `${VISION_HISTORY_STORAGE_KEY}:${identity || "guest"}`;
+};
+
+const readStudioHistory = () => {
+  try {
+    const raw = window.localStorage.getItem(getStudioHistoryStorageKey());
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+};
+
+const writeStudioHistory = (items) => {
+  try {
+    window.localStorage.setItem(getStudioHistoryStorageKey(), JSON.stringify(items));
+  } catch (error) {
+    // Ignore storage failures.
+  }
+};
+
+const formatStudioTimestamp = (value) => {
+  if (!value) {
+    return "Just now";
+  }
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+  } catch (error) {
+    return "Just now";
+  }
+};
+
+const saveStudioHistoryItem = (job, src) => {
+  if (!job?.id || !src) {
+    return;
+  }
+  const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
+  const item = {
+    id: String(job.id),
+    type: outputType,
+    src,
+    prompt: String(job.prompt || "").trim(),
+    created_at: job.completed_at || job.updated_at || new Date().toISOString(),
+  };
+  const items = readStudioHistory().filter((entry) => entry?.id !== item.id);
+  items.unshift(item);
+  writeStudioHistory(items.slice(0, 10));
+};
+
+const renderStudioHistory = () => {
+  if (!studioHistoryGrid || !studioHistoryEmpty || !studioHistoryCount || !studioHistoryBadge) {
+    return;
+  }
+  const items = readStudioHistory();
+  studioHistoryGrid.innerHTML = "";
+  studioHistoryCount.textContent = `${items.length} creation${items.length === 1 ? "" : "s"} saved`;
+  studioHistoryBadge.textContent = items.length ? `${items.length} saved` : "Empty";
+  studioHistoryEmpty.hidden = items.length > 0;
+
+  items.forEach((item) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "studio-history-item";
+    const mediaMarkup =
+      item.type === "image"
+        ? `<img src="${item.src}" alt="${item.prompt || "Vision image"}" loading="lazy" />`
+        : `<video src="${item.src}" muted loop playsinline preload="metadata"></video>`;
+    card.innerHTML = `
+      <span class="studio-history-media">${mediaMarkup}</span>
+      <span class="studio-history-copy">
+        <span class="studio-history-meta">${item.type === "image" ? "Image" : "Video"} · ${formatStudioTimestamp(item.created_at)}</span>
+        <strong>${item.prompt || "Untitled Vision creation"}</strong>
+      </span>
+    `;
+    card.addEventListener("click", () => {
+      setGalleryLightboxState(true, {
+        mediaType: item.type,
+        src: item.src,
+        title: item.type === "image" ? "Latest Vision image" : "Latest Vision render",
+        caption: item.prompt || "Generated inside Vision.",
+      });
+    });
+    studioHistoryGrid.appendChild(card);
+    if (item.type !== "image") {
+      const video = card.querySelector("video");
+      video?.play?.().catch(() => {});
+    }
+  });
+};
+
+const renderStudioDashboard = () => {
+  if (!studioDashboard) {
+    return;
+  }
+  const adminMode = !!accessState.admin;
+  const hasPack = !!accessState.access_id || adminMode;
+  if (studioVideoCredits) {
+    studioVideoCredits.textContent = adminMode ? "∞" : String(accessState.video_remaining ?? 0);
+  }
+  if (studioImageCredits) {
+    studioImageCredits.textContent = adminMode ? "∞" : String(accessState.image_remaining ?? 0);
+  }
+  if (studioPackStatus) {
+    if (adminMode) {
+      studioPackStatus.textContent = "Admin access is active. Vision engine is fully unlocked on this device.";
+    } else if (hasPack) {
+      studioPackStatus.textContent = `${accessState.video_remaining ?? 0} video credits and ${accessState.image_remaining ?? 0} image credits are ready to use.`;
+    } else if (currentUser.authenticated) {
+      studioPackStatus.textContent = "No active pack yet. Unlock one and your credits will appear here instantly.";
+    } else {
+      studioPackStatus.textContent = "Access Vision or unlock a pack to keep your credits and creations in one place.";
+    }
+  }
+  if (studioTopupButton) {
+    studioTopupButton.hidden = adminMode;
+    studioTopupButton.textContent = hasPack ? "Buy another pack" : "Buy a Vision pack";
+  }
+  renderStudioHistory();
+};
+
+const setStudioLoaderState = (open) => {
+  body.classList.toggle("studio-loader-open", open);
+  studioLoader?.classList.toggle("is-open", open);
+  studioLoader?.setAttribute("aria-hidden", open ? "false" : "true");
+};
 
 const generationUiCopy = (status, outputType = "video") => {
   const isImage = outputType === "image";
@@ -717,6 +880,8 @@ const presentGenerationJob = (job) => {
     title: outputType === "image" ? "Latest Vision image" : "Latest Vision render",
     caption: job.prompt || "Generated inside Vision.",
   };
+  saveStudioHistoryItem(job, resolvedOutputUrl);
+  renderStudioDashboard();
 
   if (generationDownload) {
     generationDownload.href = resolvedOutputUrl;
@@ -1023,6 +1188,7 @@ const renderAccessState = (access, pack, user, packs) => {
   }
 
   renderAuthState();
+  renderStudioDashboard();
 };
 
 const setSubscribeLoading = (loading, label = null) => {
@@ -1433,15 +1599,11 @@ setMode("video");
 renderAccessState(defaultAccess, defaultPack, defaultUser, defaultPacks);
 
 if (atomGuideText) {
-  atomGuideText.textContent = isStudioRoute ? "Vision Studio" : "Enter Vision Studio";
+  atomGuideText.textContent = isStudioRoute ? "Vision Studio" : "Tap to begin";
 }
 
 atomTrigger?.addEventListener("click", () => {
-  if (!isStudioRoute) {
-    enterStudio();
-    return;
-  }
-  setSearchState(true);
+  enterStudio();
 });
 
 modeButtons.forEach((button) => {
@@ -1594,6 +1756,18 @@ authBuyPack?.addEventListener("click", () => {
   });
 });
 
+studioAccountButton?.addEventListener("click", () => {
+  authStep = currentUser.authenticated ? "account" : "email";
+  renderAuthState();
+  setAuthModalState(true);
+});
+
+studioTopupButton?.addEventListener("click", () => {
+  setSubscribeState(true, {
+    reason: accessState.access_id ? "insufficient_credits" : "unlock",
+  });
+});
+
 generationClose?.addEventListener("click", () => {
   setGenerationState(false);
 });
@@ -1679,6 +1853,7 @@ const initializeVision = async () => {
   if (isStudioRoute) {
     setSearchState(true);
   }
+  renderStudioDashboard();
   if (unlockedAdmin || confirmedCheckout) {
     await maybeResumePendingPrompt();
   }
