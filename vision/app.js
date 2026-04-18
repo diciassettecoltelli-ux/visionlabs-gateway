@@ -545,7 +545,7 @@ const updateStudioOutputFromJob = (job) => {
   const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
   const ui = generationUiCopy(status, outputType);
 
-  if (status === "ready" && job.output_url) {
+  if (job.output_url) {
     const resolvedOutputUrl = visionAssetUrl(job.output_url);
     setStudioOutputState({
       state: "ready",
@@ -567,7 +567,7 @@ const updateStudioOutputFromJob = (job) => {
       type: outputType,
       prompt: job.prompt || "",
       label: ui.stage,
-      note: ui.note,
+      note: ui.eta || ui.note,
       meta: `${ui.deliveryTitle} · ${job.prompt || "Working on your latest idea."}`,
     });
     return;
@@ -701,10 +701,11 @@ const generationUiCopy = (status, outputType = "video") => {
   const states = {
     queued: {
       badge: "Queued in Vision",
-      stage: `Queued ${isImage ? "for image build" : "inside Vision"}`,
+      stage: isImage ? "Generating image..." : "Generating video...",
       note: isImage
         ? "Your prompt entered the still-image lane. Vision is shaping atmosphere, texture, and framing."
         : "Your prompt entered the cinematic lane. Vision is mapping subject, movement, and visual tone.",
+      eta: "Usually under 1 min",
       deliveryTitle: "Queued in Vision",
       deliveryNote: isImage
         ? "Vision is preparing a sharper still with cleaner light, texture, and composition."
@@ -714,10 +715,11 @@ const generationUiCopy = (status, outputType = "video") => {
     },
     preparing: {
       badge: "Shaping direction",
-      stage: "Shaping the scene",
+      stage: "Preparing the scene...",
       note: isImage
         ? "Balancing light, atmosphere, texture response, and still-frame hierarchy."
         : "Balancing realism, light direction, subject continuity, and camera language.",
+      eta: "Usually 1–2 min",
       deliveryTitle: "Preparing inside Vision",
       deliveryNote: isImage
         ? "Vision is tightening composition before the final image render begins."
@@ -727,10 +729,11 @@ const generationUiCopy = (status, outputType = "video") => {
     },
     generating: {
       badge: isImage ? "Rendering image" : "Rendering motion",
-      stage: isImage ? "Building the still" : "Building the motion pass",
+      stage: isImage ? "Generating image..." : "Generating video...",
       note: isImage
         ? "Rendering light falloff, texture detail, clean edges, and premium atmosphere."
         : "Rendering light, skin, fabric response, scene depth, and controlled cinematic motion.",
+      eta: "Usually 1–3 min",
       deliveryTitle: "Rendering inside Vision",
       deliveryNote: isImage
         ? "Vision is finishing your image with stronger texture, depth, and still-frame impact."
@@ -740,8 +743,9 @@ const generationUiCopy = (status, outputType = "video") => {
     },
     operator_required: {
       badge: "Engine syncing",
-      stage: "Syncing the engine",
+      stage: "Syncing the engine...",
       note: "Vision is coordinating the next render lane so your prompt can keep moving.",
+      eta: "Usually under 1 min",
       deliveryTitle: "Syncing inside Vision",
       deliveryNote: "A generation lane is being prepared behind the scenes.",
       expandLabel: "Preview pending",
@@ -749,8 +753,9 @@ const generationUiCopy = (status, outputType = "video") => {
     },
     downloading: {
       badge: "Importing",
-      stage: `Importing the ${typeLabel}`,
+      stage: "Finalizing output...",
       note: `The ${typeLabel} is finished. Vision is packaging the source output back into the studio.`,
+      eta: "Finishing now",
       deliveryTitle: "Importing into Vision",
       deliveryNote: "The source output is being attached so preview and download are ready together.",
       expandLabel: "Preview pending",
@@ -1046,8 +1051,9 @@ const presentGenerationJob = (job) => {
   const status = (job.status || "queued").toLowerCase();
   const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
   const ui = generationUiCopy(status, outputType);
+  const hasDeliverable = !!job.output_url;
 
-  if (["ready", "failed", "setup_required"].includes(status)) {
+  if (hasDeliverable || ["ready", "failed", "setup_required"].includes(status)) {
     stopVisionFocusGuard();
   }
 
@@ -1074,7 +1080,7 @@ const presentGenerationJob = (job) => {
     generationPrepare.hidden = !["setup_required", "operator_required"].includes(status);
   }
 
-  const isReady = status === "ready" && job.output_url;
+  const isReady = hasDeliverable;
   if (!isReady) {
     updateStudioOutputFromJob(job);
     resetGenerationDelivery(outputType, job.prompt || "", status);
@@ -1180,7 +1186,8 @@ const pollGenerationJob = async () => {
     const job = await response.json();
     presentGenerationJob(job);
 
-    if (["ready", "failed", "setup_required"].includes(job.status)) {
+    if (job.output_url || ["ready", "failed", "setup_required"].includes(String(job.status || "").toLowerCase())) {
+      activeGenerationJobId = null;
       stopGenerationPolling();
       return;
     }

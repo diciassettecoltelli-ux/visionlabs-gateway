@@ -8918,7 +8918,48 @@ body.is-studio-route .studio-output-stage.is-loading .studio-output-placeholder 
 }
 
 body.is-studio-route .studio-output-stage.is-loading .studio-output-copy {
-  display: none;
+  display: grid;
+  gap: 0.38rem;
+  justify-items: center;
+  text-align: center;
+  max-width: 22rem;
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-copy strong {
+  font-size: 0.84rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244, 247, 252, 0.92);
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-copy span {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(208, 214, 224, 0.72);
+}
+
+/* Studio loading + dock cleanup v33 */
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer,
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-helper {
+  display: none !important;
+}
+
+body.is-studio-route .studio-output-stage {
+  overflow: hidden;
+}
+
+body.is-studio-route .studio-output-stage.is-ready .studio-output-placeholder,
+body.is-studio-route .studio-output-stage.is-ready .studio-output-loader,
+body.is-studio-route .studio-output-stage.is-ready .studio-output-copy {
+  display: none !important;
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-placeholder {
+  background:
+    linear-gradient(180deg, rgba(5, 6, 8, 0.18), rgba(5, 6, 8, 0.34)),
+    rgba(5, 6, 8, 0.18);
+  backdrop-filter: blur(1.5px);
 }
 
 @media (max-width: 1024px) {
