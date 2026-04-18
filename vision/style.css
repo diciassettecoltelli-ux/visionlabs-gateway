@@ -8714,3 +8714,225 @@ body.is-studio-route .studio-loader.is-open {
   opacity: 1;
   pointer-events: auto;
 }
+
+/* Studio single-screen centered layout v28 */
+body.is-studio-route .hero {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 7.2rem 1.4rem 1.35rem;
+  min-height: 100vh;
+}
+
+body.is-studio-route .studio-dashboard {
+  display: flex;
+  justify-content: center;
+}
+
+body.is-studio-route .studio-output-shell {
+  width: min(100%, 88rem);
+  min-height: calc(100vh - 8.7rem);
+  height: calc(100vh - 8.7rem);
+  margin-inline: auto;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  justify-items: center;
+  align-content: start;
+  gap: 0.95rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.is-studio-route .studio-output-head {
+  position: relative;
+  width: min(100%, 74rem);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 0.6rem;
+  padding-top: 0.15rem;
+}
+
+body.is-studio-route .studio-output-head > div {
+  display: grid;
+  gap: 0.18rem;
+  justify-items: center;
+}
+
+body.is-studio-route .studio-history-badge {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 4.2rem;
+}
+
+body.is-studio-route .studio-output-stage {
+  width: min(100%, 74rem);
+  min-height: clamp(19rem, 46vh, 31rem);
+  height: clamp(19rem, 46vh, 31rem);
+  margin-inline: auto;
+  border-radius: 1.7rem;
+}
+
+body.is-studio-route .studio-output-placeholder {
+  padding: 2rem 2.2rem;
+}
+
+body.is-studio-route .studio-output-copy {
+  max-width: 32rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded {
+  width: min(100%, 74rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.7rem;
+  padding: 0.15rem 0 0;
+  margin-inline: auto;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-tools {
+  order: 1;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.48rem;
+  flex-wrap: wrap;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .generation-mode-switch {
+  padding: 0.14rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .mode-toggle {
+  min-width: 4.25rem;
+  height: 1.9rem;
+  padding-inline: 0.72rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .access-pill {
+  min-height: 1.9rem;
+  padding: 0.42rem 0.72rem;
+  font-size: 0.56rem;
+  letter-spacing: 0.14em;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions {
+  order: 2;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .action-pill {
+  min-width: 8.8rem;
+  height: 1.9rem;
+  padding-inline: 0.82rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.17em;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel {
+  order: 3;
+  width: min(100%, 52rem);
+  min-height: 4.05rem;
+  margin-inline: auto;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel input {
+  height: 3.2rem;
+  padding-inline: 2.8rem 5.1rem;
+  font-size: 0.96rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-launch-button {
+  width: 2.8rem;
+  height: 2.8rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer {
+  order: 4;
+  width: min(100%, 72rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-grid--compose {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-tile--compose {
+  min-width: 5.6rem;
+  padding: 0.42rem 0.56rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-account,
+body.is-studio-route .search-cluster.is-studio-embedded .studio-output-actions--compose {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button,
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button--ghost {
+  min-width: 8.8rem;
+  height: 2rem;
+  padding-inline: 0.85rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+}
+
+@media (max-width: 1024px) {
+  body.is-studio-route .hero {
+    padding: 6.7rem 0.95rem 1rem;
+  }
+
+  body.is-studio-route .studio-output-shell {
+    min-height: auto;
+    height: auto;
+    gap: 0.9rem;
+  }
+
+  body.is-studio-route .studio-output-head,
+  body.is-studio-route .studio-output-stage,
+  body.is-studio-route .search-cluster.is-studio-embedded,
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer {
+    width: 100%;
+  }
+
+  body.is-studio-route .studio-output-stage {
+    min-height: 34vh;
+    height: 34vh;
+  }
+
+  body.is-studio-route .studio-output-head {
+    padding-right: 0;
+  }
+
+  body.is-studio-route .studio-history-badge {
+    position: static;
+    transform: none;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded .search-panel {
+    width: 100%;
+  }
+}

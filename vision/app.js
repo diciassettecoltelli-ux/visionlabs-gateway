@@ -667,7 +667,7 @@ const renderStudioDashboard = () => {
 
   setStudioOutputState({
     state: "empty",
-    label: "Your output will appear here.",
+    label: "Your cinematic output will appear here.",
     note: "Generate an image or video and Vision will keep the newest result live in this canvas while it builds.",
     meta: currentUser.authenticated
       ? "No generation yet. Start with a prompt and Vision will build directly into this live canvas."
