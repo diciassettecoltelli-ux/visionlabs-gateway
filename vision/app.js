@@ -476,7 +476,20 @@ const deleteStudioHistoryItem = (id) => {
   }
 };
 
-const hasStudioAccountContext = () => !!currentUser.authenticated || !!accessState.access_id || !!accessState.admin;
+const getStudioCreditCounts = () => ({
+  video: Math.max(0, Number(accessState.video_remaining ?? 0) || 0),
+  image: Math.max(0, Number(accessState.image_remaining ?? 0) || 0),
+});
+
+const hasStudioCredits = () => {
+  const counts = getStudioCreditCounts();
+  return counts.video > 0 || counts.image > 0;
+};
+
+const hasStudioPackContext = () => !!accessState.admin || !!accessState.access_id || hasStudioCredits();
+
+const hasStudioAccountContext = () =>
+  !!currentUser.authenticated || !!currentUser.email || hasStudioPackContext();
 
 const getLatestStudioHistoryItem = () => readStudioHistory()[0] || null;
 
@@ -633,6 +646,7 @@ const renderStudioHistory = () => {
   studioHistoryGrid.style.display = items.length ? "" : "none";
   studioHistoryEmpty.hidden = items.length > 0;
   studioHistoryEmpty.style.display = items.length ? "none" : "";
+  studioOutputShell?.classList.toggle("has-history", items.length > 0);
 
   items.forEach((item) => {
     const isActive = String(item.id) === String(studioSelectedHistoryId || "");
@@ -700,19 +714,20 @@ const renderStudioDashboard = () => {
     return;
   }
   const adminMode = !!accessState.admin;
-  const hasPack = !!accessState.access_id || adminMode;
+  const hasPack = hasStudioPackContext();
+  const counts = getStudioCreditCounts();
   if (studioVideoCredits) {
-    studioVideoCredits.textContent = adminMode ? "∞" : String(accessState.video_remaining ?? 0);
+    studioVideoCredits.textContent = adminMode ? "∞" : String(counts.video);
   }
   if (studioImageCredits) {
-    studioImageCredits.textContent = adminMode ? "∞" : String(accessState.image_remaining ?? 0);
+    studioImageCredits.textContent = adminMode ? "∞" : String(counts.image);
   }
   if (studioPackStatus) {
     if (adminMode) {
       studioPackStatus.textContent = "Admin access is active. Vision engine is fully unlocked on this device.";
     } else if (hasPack) {
-      studioPackStatus.textContent = `${accessState.video_remaining ?? 0} video credits and ${accessState.image_remaining ?? 0} image credits are ready to use.`;
-    } else if (currentUser.authenticated) {
+      studioPackStatus.textContent = `${counts.video} video credits and ${counts.image} image credits are ready to use.`;
+    } else if (currentUser.authenticated || currentUser.email) {
       studioPackStatus.textContent = "No active pack yet. Unlock one and your credits will appear here instantly.";
     } else {
       studioPackStatus.textContent = "Access Vision or unlock a pack to keep your credits and creations in one place.";
@@ -1381,21 +1396,24 @@ const renderSubscribePackOptions = () => {
 
 const renderAuthState = () => {
   const signedIn = hasStudioAccountContext();
+  const showAccount = authStep === "account" || signedIn;
+  const counts = getStudioCreditCounts();
+  const hasPack = hasStudioPackContext();
   if (authTitle) {
-    authTitle.textContent = signedIn ? "Your Vision account." : "Access your Vision pack.";
+    authTitle.textContent = showAccount ? "Your Vision account." : "Access your Vision pack.";
   }
   if (authCopy) {
-    authCopy.textContent = signedIn
+    authCopy.textContent = showAccount
       ? "See your remaining credits, manage your current pack, or unlock a new one when you need more."
       : "Enter your email and Vision will send you a one-time access code to return to your pack from any device.";
   }
   if (authAccount) {
-    authAccount.hidden = !signedIn;
-    authAccount.style.display = signedIn ? "grid" : "none";
+    authAccount.hidden = !showAccount;
+    authAccount.style.display = showAccount ? "grid" : "none";
   }
   if (authForm) {
-    authForm.hidden = signedIn;
-    authForm.style.display = signedIn ? "none" : "grid";
+    authForm.hidden = showAccount;
+    authForm.style.display = showAccount ? "none" : "grid";
   }
   if (authAccountEmail) {
     authAccountEmail.textContent = currentUser.email || (accessState.access_id ? "Pack active on this device" : "Vision account");
@@ -1403,8 +1421,8 @@ const renderAuthState = () => {
   if (authAccountCredits) {
     if (accessState.admin) {
       authAccountCredits.textContent = "Vision engine unlocked";
-    } else if (accessState.access_id) {
-      authAccountCredits.textContent = `${accessState.video_remaining ?? 0} videos · ${accessState.image_remaining ?? 0} images remaining`;
+    } else if (hasPack) {
+      authAccountCredits.textContent = `${counts.video} videos · ${counts.image} images remaining`;
     } else {
       authAccountCredits.textContent = "No active pack yet.";
     }
@@ -1414,7 +1432,7 @@ const renderAuthState = () => {
       authBuyPack.hidden = true;
     } else {
       authBuyPack.hidden = false;
-      authBuyPack.textContent = accessState.access_id ? "Buy another pack" : "Buy a Vision pack";
+      authBuyPack.textContent = hasPack ? "Buy another pack" : "Buy a Vision pack";
     }
   }
   if (authCodeRow) {
@@ -1426,7 +1444,7 @@ const renderAuthState = () => {
   if (authSubmit) {
     authSubmit.textContent = authStep === "code" ? "Continue to Vision" : "Send access code";
   }
-  if (authNote && !signedIn && authStep === "email") {
+  if (authNote && !showAccount && authStep === "email") {
     authNote.textContent = "We’ll send a one-time access code so your pack follows you when you come back.";
   }
   if (authEmail && currentUser.email && !authEmail.value) {
@@ -1449,8 +1467,9 @@ const renderAccessState = (access, pack, user, packs) => {
   if (accessPill) {
     if (accessState.admin) {
       accessPill.textContent = "Vision engine unlocked";
-    } else if (accessState.access_id) {
-      accessPill.textContent = `Vision access live · ${accessState.video_remaining ?? 0} videos · ${accessState.image_remaining ?? 0} images`;
+    } else if (hasStudioPackContext()) {
+      const counts = getStudioCreditCounts();
+      accessPill.textContent = `Vision access live · ${counts.video} videos · ${counts.image} images`;
     } else {
       accessPill.textContent = "Vision access required";
     }
@@ -1464,7 +1483,7 @@ const renderAccessState = (access, pack, user, packs) => {
       trigger.textContent = "Vision unlocked";
       return;
     }
-    trigger.textContent = accessState.access_id ? "Buy another pack" : "Unlock Vision";
+    trigger.textContent = hasStudioPackContext() ? "Buy another pack" : "Unlock Vision";
   });
 
   if (isStudioRoute && topbarCta) {
@@ -1472,8 +1491,9 @@ const renderAccessState = (access, pack, user, packs) => {
       topbarCta.textContent = currentUser.email || "My account";
     } else if (accessState.admin) {
       topbarCta.textContent = "Studio unlocked";
-    } else if (accessState.access_id) {
-      topbarCta.textContent = `${accessState.video_remaining ?? 0} video · ${accessState.image_remaining ?? 0} images`;
+    } else if (hasStudioPackContext()) {
+      const counts = getStudioCreditCounts();
+      topbarCta.textContent = `${counts.video} video · ${counts.image} images`;
     } else {
       topbarCta.textContent = "Access Vision";
     }
@@ -2064,7 +2084,7 @@ studioAccountButton?.addEventListener("click", () => {
 
 studioTopupButton?.addEventListener("click", () => {
   setSubscribeState(true, {
-    reason: accessState.access_id ? "insufficient_credits" : "unlock",
+    reason: hasStudioPackContext() ? "insufficient_credits" : "unlock",
   });
 });
 
