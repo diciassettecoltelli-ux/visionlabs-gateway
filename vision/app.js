@@ -76,6 +76,7 @@ const studioHistoryGrid = document.querySelector("#studio-history-grid");
 const studioHistoryEmpty = document.querySelector("#studio-history-empty");
 const studioAccountButton = document.querySelector("#studio-account-button");
 const studioTopupButton = document.querySelector("#studio-topup-button");
+const studioOutputShell = document.querySelector(".studio-output-shell");
 const studioLoader = document.querySelector("#studio-loader");
 const studioOutputStage = document.querySelector("#studio-output-stage");
 const studioOutputVideo = document.querySelector("#studio-output-video");
@@ -812,6 +813,23 @@ const setSearchState = (open) => {
   if (open && promptInput) {
     window.setTimeout(() => promptInput.focus(), 320);
   }
+};
+
+const mountStudioCompose = () => {
+  if (!isStudioRoute || !searchCluster || !studioOutputShell) {
+    return;
+  }
+  const recentHead = studioOutputShell.querySelector(".studio-recent-head");
+  if (searchCluster.parentElement === studioOutputShell) {
+    searchCluster.classList.add("is-studio-embedded");
+    return;
+  }
+  if (recentHead) {
+    studioOutputShell.insertBefore(searchCluster, recentHead);
+  } else {
+    studioOutputShell.append(searchCluster);
+  }
+  searchCluster.classList.add("is-studio-embedded");
 };
 
 const setPromptHelper = (text, tone = "default") => {
@@ -2042,6 +2060,7 @@ const initializeVision = async () => {
   setMode(selectedMode);
   resetPromptHelper();
   if (isStudioRoute) {
+    mountStudioCompose();
     topNav?.setAttribute("aria-hidden", "true");
     if (topbarCta) {
       topbarCta.textContent = "Access Vision";

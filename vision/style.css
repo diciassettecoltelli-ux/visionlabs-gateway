@@ -7463,3 +7463,211 @@ body.is-studio-route .studio-history-empty span {
     min-height: 40rem;
   }
 }
+
+/* Studio full-screen workspace v22 */
+body.is-studio-route .hero {
+  grid-template-columns: 1fr;
+  grid-template-areas: "output";
+  width: min(100%, 96rem);
+  padding: 6.15rem 1.35rem 1.35rem;
+}
+
+body.is-studio-route .studio-dashboard {
+  height: 100%;
+}
+
+body.is-studio-route .studio-output-shell {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 0.95rem;
+  padding: 1.35rem;
+}
+
+body.is-studio-route .studio-output-stage {
+  min-height: 0;
+  height: 100%;
+}
+
+body.is-studio-route .studio-output-stage video,
+body.is-studio-route .studio-output-stage img {
+  min-height: 0;
+}
+
+body.is-studio-route .studio-output-head {
+  margin-bottom: 0;
+}
+
+body.is-studio-route .studio-output-title {
+  font-size: 1.46rem;
+}
+
+body.is-studio-route .studio-output-footer {
+  padding-top: 0;
+}
+
+body.is-studio-route .studio-output-meta {
+  max-width: 56rem;
+}
+
+body.is-studio-route .studio-recent-head,
+body.is-studio-route .studio-history-grid--strip,
+body.is-studio-route .studio-history-empty {
+  display: none;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "controls spacer actions"
+    "search search search"
+    "footer footer footer";
+  align-items: center;
+  gap: 0.8rem 1rem;
+  min-width: 0;
+  height: auto;
+  padding: 1rem 0 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-intro {
+  display: none;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-tools {
+  grid-area: controls;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .generation-mode-switch {
+  width: auto;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .access-pill {
+  min-width: 0;
+  padding-inline: 0.9rem;
+  white-space: nowrap;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-helper {
+  display: none;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .action-pill {
+  width: auto;
+  min-width: 11.4rem;
+  height: 2.7rem;
+  padding-inline: 1rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel {
+  grid-area: search;
+  width: 100%;
+  min-height: 4.65rem;
+  border-radius: 1.28rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel input {
+  height: 3.95rem;
+  font-size: 1rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer {
+  grid-area: footer;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-account {
+  display: contents;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-meta--compose {
+  display: grid;
+  gap: 0.3rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-grid--compose {
+  display: flex;
+  gap: 0.7rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-tile--compose {
+  min-height: 0;
+  padding: 0.7rem 0.82rem;
+  border-radius: 1rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-output-actions--compose {
+  display: flex;
+  gap: 0.72rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button,
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button--ghost {
+  width: auto;
+  min-width: 10.8rem;
+  height: 2.72rem;
+}
+
+@media (max-width: 1024px) {
+  body.is-studio-route .hero {
+    grid-template-columns: 1fr;
+    grid-template-areas: "output";
+    min-height: 100vh;
+    height: auto;
+    padding: 6.15rem 1rem 1rem;
+    overflow: visible;
+  }
+
+  body.is-studio-route .studio-dashboard {
+    height: auto;
+  }
+
+  body.is-studio-route .studio-output-shell {
+    height: auto;
+    min-height: auto;
+    grid-template-rows: auto minmax(22rem, 52vh) auto auto;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "controls"
+      "actions"
+      "search"
+      "footer";
+    gap: 0.8rem;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded .search-tools,
+  body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions,
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer,
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-output-actions--compose {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-grid--compose {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
