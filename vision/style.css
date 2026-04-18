@@ -7671,3 +7671,271 @@ body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button--
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Studio polish v23 */
+body.is-studio-route .hero {
+  width: min(100%, 98rem);
+  padding: 6.2rem 1.15rem 1.15rem;
+}
+
+body.is-studio-route .studio-output-shell {
+  gap: 0.85rem;
+  padding: 1.1rem;
+  border-radius: 1.5rem;
+}
+
+body.is-studio-route .studio-output-head {
+  padding: 0.2rem 0.2rem 0;
+}
+
+body.is-studio-route .studio-output-title {
+  font-size: 1.32rem;
+  letter-spacing: -0.03em;
+}
+
+body.is-studio-route .studio-history-badge {
+  min-width: 4.4rem;
+}
+
+body.is-studio-route .studio-output-stage {
+  min-height: min(59vh, 38rem);
+  height: min(59vh, 38rem);
+  border-radius: 1.18rem;
+}
+
+body.is-studio-route .studio-output-placeholder {
+  gap: 1.1rem;
+  padding: 2.3rem;
+}
+
+body.is-studio-route .studio-output-loader {
+  position: relative;
+  display: inline-flex;
+  gap: 0.45rem;
+  padding-bottom: 1rem;
+}
+
+body.is-studio-route .studio-output-loader::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 7rem;
+  height: 1px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(-50%);
+}
+
+body.is-studio-route .studio-output-loader::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 7rem;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.18));
+  transform-origin: left center;
+  transform: translateX(-50%) scaleX(0.18);
+  animation: studio-inline-loader-scan 1.8s ease-in-out infinite;
+}
+
+@keyframes studio-inline-loader-scan {
+  0% {
+    transform: translateX(-50%) scaleX(0.18);
+    opacity: 0.42;
+  }
+  50% {
+    transform: translateX(-50%) scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) scaleX(0.18);
+    opacity: 0.42;
+  }
+}
+
+body.is-studio-route .studio-output-copy {
+  max-width: 32rem;
+}
+
+body.is-studio-route .studio-output-copy strong {
+  font-size: 1.02rem;
+}
+
+body.is-studio-route .studio-output-copy span {
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+body.is-studio-route .studio-output-footer {
+  padding: 0 0.2rem;
+}
+
+body.is-studio-route .studio-output-meta {
+  font-size: 0.86rem;
+  color: rgba(184, 191, 201, 0.55);
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded {
+  gap: 0.9rem 0.9rem;
+  padding: 1rem 0.2rem 0;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-tools {
+  gap: 0.65rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .generation-mode-switch,
+body.is-studio-route .search-cluster.is-studio-embedded .access-pill {
+  min-height: 2.55rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions {
+  gap: 0.65rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .action-pill {
+  min-width: 11rem;
+  height: 2.55rem;
+  border-radius: 999px;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel {
+  min-height: 4.25rem;
+  border-radius: 1.18rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel input {
+  height: 3.55rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.8rem 1rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-grid--compose {
+  display: flex;
+  gap: 0.65rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-tile--compose {
+  min-width: 7.2rem;
+  padding: 0.6rem 0.75rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-tile--compose .studio-credit-label {
+  font-size: 0.65rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-tile--compose .studio-credit-value {
+  font-size: 1.1rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem 1rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-meta--compose {
+  align-self: center;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-line {
+  font-size: 0.8rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-output-actions--compose {
+  display: flex;
+  gap: 0.65rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button,
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button--ghost {
+  min-width: 10rem;
+  height: 2.55rem;
+}
+
+body.is-studio-route .studio-loader {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0) 22%),
+    linear-gradient(180deg, rgba(5, 6, 8, 0.97), rgba(5, 6, 8, 0.995));
+}
+
+body.is-studio-route .studio-loader-panel {
+  width: min(42rem, calc(100vw - 3rem));
+  gap: 1rem;
+}
+
+body.is-studio-route .studio-loader-kicker {
+  color: rgba(202, 208, 216, 0.56);
+}
+
+body.is-studio-route .studio-loader-title {
+  font-size: clamp(2.6rem, 6vw, 4.5rem);
+  letter-spacing: -0.07em;
+}
+
+body.is-studio-route .studio-loader-note {
+  font-size: 0.95rem;
+  color: rgba(197, 202, 211, 0.66);
+}
+
+body.is-studio-route .studio-loader-progress {
+  position: relative;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+body.is-studio-route .studio-loader-progress-bar {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.14));
+  transform-origin: left center;
+  animation: studio-loader-game-progress 5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes studio-loader-game-progress {
+  0% {
+    transform: scaleX(0.02);
+    opacity: 0.5;
+  }
+  22% {
+    transform: scaleX(0.28);
+    opacity: 0.82;
+  }
+  58% {
+    transform: scaleX(0.68);
+    opacity: 0.94;
+  }
+  84% {
+    transform: scaleX(0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1024px) {
+  body.is-studio-route .studio-output-stage {
+    min-height: 44vh;
+    height: 44vh;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer {
+    grid-template-columns: 1fr;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-account,
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-output-actions--compose {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+}
