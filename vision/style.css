@@ -7939,3 +7939,202 @@ body.is-studio-route .studio-loader-progress-bar {
     display: grid;
   }
 }
+
+/* Studio correction v24 */
+body.is-studio-route .studio-output-shell {
+  height: calc(100vh - 7.65rem);
+  min-height: calc(100vh - 7.65rem);
+  grid-template-rows: auto minmax(18rem, 1fr) auto;
+  gap: 1rem;
+}
+
+body.is-studio-route .studio-output-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.8rem;
+  padding: 0;
+}
+
+body.is-studio-route .studio-output-title {
+  font-size: 1.18rem;
+  letter-spacing: -0.025em;
+}
+
+body.is-studio-route .studio-output-stage {
+  min-height: clamp(19rem, 49vh, 31rem);
+  height: clamp(19rem, 49vh, 31rem);
+  border-radius: 1.12rem;
+  border: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+body.is-studio-route .studio-output-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem 2.4rem;
+}
+
+body.is-studio-route .studio-output-copy {
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
+  text-align: center;
+  max-width: 34rem;
+}
+
+body.is-studio-route .studio-output-copy strong {
+  font-size: 1.06rem;
+  color: rgba(245, 247, 250, 0.95);
+}
+
+body.is-studio-route .studio-output-copy span {
+  font-size: 0.88rem;
+  line-height: 1.58;
+  color: rgba(188, 194, 203, 0.66);
+}
+
+body.is-studio-route .studio-output-footer {
+  display: none;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded {
+  align-items: stretch;
+  gap: 0.78rem 0.9rem;
+  padding: 0.95rem 0 0;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-tools,
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions {
+  align-self: center;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .action-pill {
+  min-width: 10.6rem;
+  height: 2.44rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .generation-mode-switch,
+body.is-studio-route .search-cluster.is-studio-embedded .access-pill {
+  min-height: 2.4rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel {
+  min-height: 4rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel input {
+  height: 3.32rem;
+  font-size: 0.97rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem 0.95rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-grid--compose {
+  gap: 0.55rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-tile--compose {
+  min-width: 6.7rem;
+  padding: 0.55rem 0.68rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-credit-tile--compose .studio-credit-value {
+  font-size: 1rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem 0.95rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-line {
+  font-size: 0.77rem;
+  line-height: 1.45;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-output-actions--compose {
+  display: flex;
+  gap: 0.55rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button,
+body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button--ghost {
+  min-width: 9.25rem;
+  height: 2.38rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+}
+
+body.is-studio-route .studio-loader-panel {
+  display: grid;
+  justify-items: center;
+  width: min(44rem, calc(100vw - 3rem));
+  gap: 1.1rem;
+}
+
+body.is-studio-route .studio-loader-progress {
+  width: min(24rem, calc(100vw - 7rem));
+  max-width: 24rem;
+  min-width: 14rem;
+  height: 4px;
+  justify-self: center;
+}
+
+body.is-studio-route .studio-loader-progress-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 1024px) {
+  body.is-studio-route .studio-output-shell {
+    height: auto;
+    min-height: auto;
+    grid-template-rows: auto minmax(18rem, 42vh) auto;
+  }
+
+  body.is-studio-route .studio-output-stage {
+    min-height: 42vh;
+    height: 42vh;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "controls"
+      "actions"
+      "search"
+      "footer";
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded .search-tools,
+  body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions,
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer,
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-account,
+  body.is-studio-route .search-cluster.is-studio-embedded .studio-output-actions--compose {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
