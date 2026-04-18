@@ -9169,3 +9169,419 @@ body.is-studio-route .studio-output-stage.is-loading .studio-output-loader {
 body.is-studio-route .studio-output-stage.is-loading .studio-output-copy {
   display: none;
 }
+
+/* Studio final override v34 */
+body.is-studio-route {
+  background:
+    radial-gradient(circle at 50% 34%, rgba(122, 110, 144, 0.16), rgba(0, 0, 0, 0) 24%),
+    linear-gradient(180deg, #020305 0%, #05070a 100%);
+}
+
+body.is-studio-route::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(164deg, rgba(168, 136, 170, 0.18) 8%, rgba(0, 0, 0, 0) 22%),
+    linear-gradient(164deg, rgba(91, 170, 176, 0.12) 12%, rgba(0, 0, 0, 0) 28%),
+    linear-gradient(164deg, rgba(174, 137, 170, 0.12) 62%, rgba(0, 0, 0, 0) 76%),
+    linear-gradient(164deg, rgba(96, 166, 176, 0.08) 68%, rgba(0, 0, 0, 0) 84%);
+  filter: blur(30px);
+  opacity: 0.52;
+  z-index: -2;
+}
+
+body.is-studio-route::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(170, 178, 255, 0.08), rgba(0, 0, 0, 0) 22%),
+    radial-gradient(circle at 50% 74%, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0) 20%);
+  z-index: -1;
+}
+
+body.is-studio-route .topbar {
+  background: rgba(4, 5, 8, 0.72);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px);
+}
+
+body.is-studio-route .hero {
+  min-height: 100vh;
+  padding: 7rem 1.4rem 1.2rem;
+}
+
+body.is-studio-route .studio-dashboard {
+  display: flex;
+  justify-content: center;
+}
+
+body.is-studio-route .studio-output-shell {
+  position: relative;
+  width: min(100%, 90rem);
+  min-height: calc(100vh - 8.5rem);
+  height: calc(100vh - 8.5rem);
+  padding: 0;
+  margin: 0 auto;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+body.is-studio-route .studio-output-shell::before,
+body.is-studio-route .studio-output-head,
+body.is-studio-route .studio-output-footer,
+body.is-studio-route .studio-output-meta-block,
+body.is-studio-route .studio-output-meta,
+body.is-studio-route .studio-recent-head,
+body.is-studio-route .studio-history-empty {
+  display: none !important;
+}
+
+body.is-studio-route .studio-output-stage {
+  position: absolute;
+  top: 1.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(58rem, calc(100vw - 18rem));
+  max-width: calc(100vw - 3rem);
+  aspect-ratio: 1.06 / 1;
+  min-height: auto !important;
+  height: auto !important;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 1.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  background:
+    linear-gradient(180deg, rgba(9, 10, 13, 0.98), rgba(4, 5, 7, 0.995)),
+    #050607;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 30px 80px rgba(0, 0, 0, 0.32);
+}
+
+body.is-studio-route .studio-output-stage video,
+body.is-studio-route .studio-output-stage img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent;
+}
+
+body.is-studio-route .studio-output-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 0.9rem;
+  padding: 2rem;
+  background: transparent;
+}
+
+body.is-studio-route .studio-output-stage.is-empty .studio-output-placeholder {
+  display: none;
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-placeholder {
+  display: grid !important;
+  background:
+    linear-gradient(180deg, rgba(4, 5, 7, 0.12), rgba(4, 5, 7, 0.28)),
+    rgba(4, 5, 7, 0.1);
+  backdrop-filter: blur(1.6px);
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-loader {
+  display: inline-flex !important;
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-copy {
+  display: grid !important;
+  gap: 0.45rem;
+  max-width: 24rem;
+  justify-items: center;
+  text-align: center;
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-copy strong {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 252, 0.94);
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-copy span {
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: rgba(210, 216, 228, 0.78);
+}
+
+body.is-studio-route .studio-output-stage.is-ready .studio-output-placeholder,
+body.is-studio-route .studio-output-stage.is-ready .studio-output-loader,
+body.is-studio-route .studio-output-stage.is-ready .studio-output-copy {
+  display: none !important;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded {
+  position: absolute;
+  left: 50%;
+  bottom: 1.2rem;
+  transform: translateX(-50%);
+  width: min(44rem, calc(100vw - 18rem));
+  max-width: calc(100vw - 3rem);
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "controls center actions"
+    "search search search";
+  align-items: center;
+  gap: 0.8rem 0.9rem;
+  z-index: 2;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-tools {
+  grid-area: controls;
+  justify-content: flex-start;
+  margin: 0;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions {
+  grid-area: actions;
+  justify-content: flex-end;
+  margin: 0;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel {
+  grid-area: search;
+  width: 100%;
+  margin: 0;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer,
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-helper {
+  display: none !important;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .generation-mode-switch {
+  padding: 0.16rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .mode-toggle,
+body.is-studio-route .search-cluster.is-studio-embedded .access-pill,
+body.is-studio-route .search-cluster.is-studio-embedded .action-pill {
+  min-height: 1.9rem;
+  padding: 0.38rem 0.72rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel {
+  min-height: 3.7rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel input {
+  height: 3rem;
+  padding-inline: 3rem 4.8rem;
+  font-size: 0.96rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-launch-button {
+  width: 2.65rem;
+  height: 2.65rem;
+}
+
+body.is-studio-route .studio-history-grid--strip {
+  position: absolute;
+  top: 1.65rem;
+  right: 0;
+  width: 7.6rem;
+  max-height: calc(100vh - 11rem);
+  display: flex !important;
+  flex-direction: column;
+  gap: 0.7rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 0.2rem 0.25rem;
+  margin: 0;
+  z-index: 2;
+}
+
+body.is-studio-route .studio-history-item {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.52rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(180deg, rgba(18, 19, 24, 0.98), rgba(8, 9, 12, 0.98)),
+    rgba(8, 9, 12, 0.98);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+body.is-studio-route .studio-history-item.is-active {
+  border-color: rgba(134, 151, 204, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(134, 151, 204, 0.16);
+}
+
+body.is-studio-route .studio-history-select {
+  display: grid;
+  gap: 0.38rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+body.is-studio-route .studio-history-media {
+  aspect-ratio: 1 / 1;
+  border-radius: 0.82rem;
+  overflow: hidden;
+  background: #050607;
+}
+
+body.is-studio-route .studio-history-media img,
+body.is-studio-route .studio-history-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+body.is-studio-route .studio-history-copy {
+  display: grid;
+  gap: 0.18rem;
+}
+
+body.is-studio-route .studio-history-copy strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+body.is-studio-route .studio-history-meta {
+  font-size: 0.54rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(186, 193, 204, 0.55);
+}
+
+body.is-studio-route .studio-history-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+body.is-studio-route .studio-history-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(228, 232, 239, 0.8);
+  text-decoration: none;
+  font-size: 0.48rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+body.is-studio-route .studio-history-action--danger {
+  color: rgba(239, 173, 173, 0.82);
+}
+
+body.is-studio-route .studio-loader-progress-bar {
+  width: 0%;
+}
+
+body.is-studio-route .studio-loader.is-open .studio-loader-progress-bar {
+  width: 100%;
+}
+
+@media (max-width: 1180px) {
+  body.is-studio-route .studio-output-shell {
+    min-height: auto;
+    height: auto;
+    padding-bottom: 13rem;
+  }
+
+  body.is-studio-route .studio-output-stage {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: min(100%, 54rem);
+    max-width: 100%;
+    margin: 0 auto;
+  }
+
+  body.is-studio-route .studio-history-grid--strip {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: min(100%, 54rem);
+    max-height: none;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 1rem auto 0;
+  }
+
+  body.is-studio-route .studio-history-item {
+    min-width: 8rem;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded {
+    width: min(100%, 54rem);
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  body.is-studio-route .hero {
+    padding: 6.2rem 0.9rem 1rem;
+  }
+
+  body.is-studio-route .studio-output-stage {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "controls"
+      "actions"
+      "search";
+    justify-items: center;
+    width: 100%;
+    margin: 1rem auto 0;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded .search-tools,
+  body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions {
+    justify-content: center;
+  }
+
+  body.is-studio-route .studio-history-grid--strip {
+    width: 100%;
+  }
+}

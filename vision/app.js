@@ -376,6 +376,7 @@ let selectedPackId = "pro";
 let currentPack = { ...findPackById(selectedPackId, currentPacks) };
 let currentGenerationOutput = null;
 let currentStudioJob = null;
+let studioSelectedHistoryId = "";
 let lastSubscribeTrigger = null;
 let authPendingEmail = "";
 let authStep = "email";
@@ -441,7 +442,41 @@ const saveStudioHistoryItem = (job, src) => {
   const items = readStudioHistory().filter((entry) => entry?.id !== item.id);
   items.unshift(item);
   writeStudioHistory(items.slice(0, 10));
+  studioSelectedHistoryId = item.id;
 };
+
+const getStudioHistoryItemById = (id) => {
+  const normalizedId = String(id || "").trim();
+  if (!normalizedId) {
+    return null;
+  }
+  return readStudioHistory().find((entry) => String(entry?.id || "") === normalizedId) || null;
+};
+
+const getCurrentStudioHistoryItem = () => {
+  const items = readStudioHistory();
+  if (!items.length) {
+    return null;
+  }
+  if (studioSelectedHistoryId) {
+    return items.find((entry) => entry?.id === studioSelectedHistoryId) || items[0] || null;
+  }
+  return items[0] || null;
+};
+
+const deleteStudioHistoryItem = (id) => {
+  const normalizedId = String(id || "").trim();
+  if (!normalizedId) {
+    return;
+  }
+  const items = readStudioHistory().filter((entry) => String(entry?.id || "") !== normalizedId);
+  writeStudioHistory(items);
+  if (studioSelectedHistoryId === normalizedId) {
+    studioSelectedHistoryId = items[0]?.id || "";
+  }
+};
+
+const hasStudioAccountContext = () => !!currentUser.authenticated || !!accessState.access_id || !!accessState.admin;
 
 const getLatestStudioHistoryItem = () => readStudioHistory()[0] || null;
 
@@ -496,9 +531,7 @@ const setStudioOutputState = ({
 
   if (state === "loading") {
     studioOutputPlaceholder.hidden = false;
-    if (!hasStudioOutputMedia()) {
-      resetStudioOutputMedia();
-    }
+    resetStudioOutputMedia();
     return;
   }
 
@@ -590,33 +623,66 @@ const renderStudioHistory = () => {
     return;
   }
   const items = readStudioHistory();
+  if (!studioSelectedHistoryId && items[0]?.id) {
+    studioSelectedHistoryId = items[0].id;
+  }
   studioHistoryGrid.innerHTML = "";
   studioHistoryCount.textContent = `${items.length} creation${items.length === 1 ? "" : "s"} saved`;
   studioHistoryBadge.textContent = items.length ? `${items.length} saved` : "Empty";
   studioHistoryEmpty.hidden = items.length > 0;
 
   items.forEach((item) => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "studio-history-item";
+    const isActive = String(item.id) === String(studioSelectedHistoryId || "");
+    const card = document.createElement("article");
+    card.className = `studio-history-item${isActive ? " is-active" : ""}`;
     const mediaMarkup =
       item.type === "image"
         ? `<img src="${item.src}" alt="${item.prompt || "Vision image"}" loading="lazy" />`
         : `<video src="${item.src}" muted loop playsinline preload="metadata"></video>`;
     card.innerHTML = `
-      <span class="studio-history-media">${mediaMarkup}</span>
-      <span class="studio-history-copy">
-        <span class="studio-history-meta">${item.type === "image" ? "Image" : "Video"} · ${formatStudioTimestamp(item.created_at)}</span>
-        <strong>${item.prompt || "Untitled Vision creation"}</strong>
-      </span>
+      <button class="studio-history-select" type="button" aria-label="Show ${item.type} in canvas">
+        <span class="studio-history-media">${mediaMarkup}</span>
+        <span class="studio-history-copy">
+          <span class="studio-history-meta">${item.type === "image" ? "Image" : "Video"} · ${formatStudioTimestamp(item.created_at)}</span>
+          <strong>${item.prompt || "Untitled Vision creation"}</strong>
+        </span>
+      </button>
+      <div class="studio-history-actions">
+        <button class="studio-history-action" type="button" data-history-open="${item.id}">Open</button>
+        <a class="studio-history-action" href="${item.src}" download="${buildDownloadFilename({
+          prompt: item.prompt || "",
+          outputType: item.type,
+          jobId: item.id,
+          url: item.src,
+        })}">Download</a>
+        <button class="studio-history-action studio-history-action--danger" type="button" data-history-delete="${item.id}">Delete</button>
+      </div>
     `;
-    card.addEventListener("click", () => {
+    const selectButton = card.querySelector(".studio-history-select");
+    selectButton?.addEventListener("click", () => {
+      studioSelectedHistoryId = item.id;
+      setStudioOutputState({
+        state: "ready",
+        type: item.type,
+        src: item.src,
+        prompt: item.prompt,
+        label: item.type === "image" ? "Latest image ready." : "Latest video ready.",
+        note: item.prompt || "Generated inside Vision.",
+        meta: `${item.type === "image" ? "Image" : "Video"} · ${formatStudioTimestamp(item.created_at)}`,
+      });
+      renderStudioHistory();
+    });
+    card.querySelector("[data-history-open]")?.addEventListener("click", () => {
       setGalleryLightboxState(true, {
         mediaType: item.type,
         src: item.src,
         title: item.type === "image" ? "Latest Vision image" : "Latest Vision render",
         caption: item.prompt || "Generated inside Vision.",
       });
+    });
+    card.querySelector("[data-history-delete]")?.addEventListener("click", () => {
+      deleteStudioHistoryItem(item.id);
+      renderStudioDashboard();
     });
     studioHistoryGrid.appendChild(card);
     if (item.type !== "image") {
@@ -665,16 +731,16 @@ const renderStudioDashboard = () => {
     return;
   }
 
-  const latestItem = getLatestStudioHistoryItem();
-  if (latestItem) {
+  const currentItem = getCurrentStudioHistoryItem();
+  if (currentItem) {
     setStudioOutputState({
       state: "ready",
-      type: latestItem.type,
-      src: latestItem.src,
-      prompt: latestItem.prompt,
-      label: latestItem.type === "image" ? "Latest image ready." : "Latest video ready.",
-      note: latestItem.prompt || "Generated inside Vision.",
-      meta: `${latestItem.type === "image" ? "Image" : "Video"} · ${formatStudioTimestamp(latestItem.created_at)}`,
+      type: currentItem.type,
+      src: currentItem.src,
+      prompt: currentItem.prompt,
+      label: currentItem.type === "image" ? "Latest image ready." : "Latest video ready.",
+      note: currentItem.prompt || "Generated inside Vision.",
+      meta: `${currentItem.type === "image" ? "Image" : "Video"} · ${formatStudioTimestamp(currentItem.created_at)}`,
     });
     return;
   }
@@ -1311,7 +1377,7 @@ const renderSubscribePackOptions = () => {
 };
 
 const renderAuthState = () => {
-  const signedIn = !!currentUser.authenticated;
+  const signedIn = hasStudioAccountContext();
   if (authTitle) {
     authTitle.textContent = signedIn ? "Your Vision account." : "Access your Vision pack.";
   }
@@ -1329,7 +1395,7 @@ const renderAuthState = () => {
     authForm.style.display = signedIn ? "none" : "grid";
   }
   if (authAccountEmail) {
-    authAccountEmail.textContent = currentUser.email || "Vision account";
+    authAccountEmail.textContent = currentUser.email || (accessState.access_id ? "Pack active on this device" : "Vision account");
   }
   if (authAccountCredits) {
     if (accessState.admin) {
@@ -1858,7 +1924,7 @@ topbarCta?.addEventListener("click", (event) => {
     return;
   }
   event.preventDefault();
-  authStep = currentUser.authenticated ? "account" : "email";
+  authStep = hasStudioAccountContext() ? "account" : "email";
   renderAuthState();
   setAuthModalState(true);
 });
@@ -1988,7 +2054,7 @@ authBuyPack?.addEventListener("click", () => {
 });
 
 studioAccountButton?.addEventListener("click", () => {
-  authStep = currentUser.authenticated ? "account" : "email";
+  authStep = hasStudioAccountContext() ? "account" : "email";
   renderAuthState();
   setAuthModalState(true);
 });
@@ -2039,15 +2105,15 @@ studioOutputStage?.addEventListener("click", () => {
   if (currentStudioJob) {
     return;
   }
-  const latestItem = getLatestStudioHistoryItem();
-  if (!latestItem) {
+  const selectedItem = getCurrentStudioHistoryItem();
+  if (!selectedItem) {
     return;
   }
   setGalleryLightboxState(true, {
-    mediaType: latestItem.type,
-    src: latestItem.src,
-    title: latestItem.type === "image" ? "Latest Vision image" : "Latest Vision render",
-    caption: latestItem.prompt || "Generated inside Vision.",
+    mediaType: selectedItem.type,
+    src: selectedItem.src,
+    title: selectedItem.type === "image" ? "Latest Vision image" : "Latest Vision render",
+    caption: selectedItem.prompt || "Generated inside Vision.",
   });
 });
 
