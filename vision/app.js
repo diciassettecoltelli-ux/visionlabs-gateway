@@ -247,6 +247,11 @@ const clearPendingPrompt = () => {
   }
 };
 
+const wait = (ms) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+
 const visionFetch = (path, options = {}) => {
   const headers = {
     ...(options.headers || {}),
@@ -2057,6 +2062,10 @@ document.addEventListener("keydown", (event) => {
 
 const initializeVision = async () => {
   body.classList.toggle("is-studio-route", isStudioRoute);
+  if (isStudioRoute) {
+    body.classList.remove("studio-ready");
+    setStudioLoaderState(true);
+  }
   setMode(selectedMode);
   resetPromptHelper();
   if (isStudioRoute) {
@@ -2078,6 +2087,11 @@ const initializeVision = async () => {
   renderStudioDashboard();
   if (unlockedAdmin || confirmedCheckout) {
     await maybeResumePendingPrompt();
+  }
+  if (isStudioRoute) {
+    await wait(5000);
+    body.classList.add("studio-ready");
+    setStudioLoaderState(false);
   }
 };
 
