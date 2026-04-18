@@ -9068,3 +9068,32 @@ body.is-studio-route .search-cluster.is-studio-embedded {
     justify-content: center;
   }
 }
+
+/* Studio output shape refinement v31 */
+body.is-studio-route .studio-output-stage {
+  width: min(calc(100% - 2.5rem), 58rem);
+  aspect-ratio: 1.12 / 1;
+  min-height: auto;
+  height: auto;
+  background: #050607;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.018),
+    0 20px 36px rgba(0, 0, 0, 0.14);
+}
+
+body.is-studio-route .studio-output-stage video,
+body.is-studio-route .studio-output-stage img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #050607;
+}
+
+@media (max-width: 1024px) {
+  body.is-studio-route .studio-output-stage {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    min-height: 34vh;
+    height: auto;
+  }
+}
