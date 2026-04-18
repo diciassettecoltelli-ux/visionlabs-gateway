@@ -31,7 +31,7 @@
       href="https://fonts.googleapis.com/css2?family=Onest:wght@200;300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./style.css?v=20" />
+    <link rel="stylesheet" href="./style.css?v=21" />
   </head>
   <body>
     <div class="vision-shell">
@@ -96,8 +96,8 @@
         <div class="search-cluster" id="vision-search-panel" aria-hidden="true">
           <div class="studio-compose-intro">
             <div class="studio-compose-kicker">Vision / Compose</div>
-            <h2 class="studio-compose-title">Welcome to Vision Studio</h2>
-            <p class="studio-compose-copy">Write a prompt, choose image or video, and generate directly into your live output canvas.</p>
+            <h2 class="studio-compose-title">Compose inside Vision</h2>
+            <p class="studio-compose-copy">Write a prompt, refine it, then generate directly into your live output canvas without leaving the Studio.</p>
           </div>
           <div class="search-tools">
             <div class="generation-mode-switch" role="tablist" aria-label="Generation mode">
@@ -125,8 +125,30 @@
             </button>
           </form>
           <div class="prompt-actions">
-            <p class="prompt-helper" id="prompt-helper">From one raw idea to a sharper cinematic result. Vision strengthens mood, realism, framing, and visual tone before generation begins.</p>
             <button class="action-pill" id="improve-prompt-button" type="button">Improve Prompt</button>
+            <p class="prompt-helper" id="prompt-helper">From one raw idea to a sharper cinematic result. Vision strengthens mood, realism, framing, and visual tone before generation begins.</p>
+          </div>
+          <div class="studio-compose-footer">
+            <div class="studio-credit-grid studio-credit-grid--compose">
+              <div class="studio-credit-tile studio-credit-tile--compose">
+                <span class="studio-credit-label">Video credits</span>
+                <strong class="studio-credit-value" id="studio-video-credits">0</strong>
+              </div>
+              <div class="studio-credit-tile studio-credit-tile--compose">
+                <span class="studio-credit-label">Image credits</span>
+                <strong class="studio-credit-value" id="studio-image-credits">0</strong>
+              </div>
+            </div>
+            <div class="studio-compose-account">
+              <div class="studio-summary-meta studio-summary-meta--compose">
+                <span class="studio-summary-line" id="studio-pack-status">Unlock a Vision pack to begin creating.</span>
+                <span class="studio-summary-line" id="studio-history-count">0 creations saved</span>
+              </div>
+              <div class="studio-output-actions studio-output-actions--compose">
+                <button class="studio-summary-button studio-summary-button--ghost" id="studio-account-button" type="button">View account</button>
+                <button class="studio-summary-button" id="studio-topup-button" type="button">Buy a Vision pack</button>
+              </div>
+            </div>
           </div>
         </div>
         <section class="studio-dashboard" id="studio-dashboard" aria-label="Vision Studio dashboard">
@@ -134,7 +156,7 @@
             <div class="studio-output-head">
               <div>
                 <div class="studio-history-kicker">Studio / Output</div>
-                <h3 class="studio-output-title">Latest generation</h3>
+                <h3 class="studio-output-title">Live output</h3>
               </div>
               <span class="studio-history-badge" id="studio-history-badge">Empty</span>
             </div>
@@ -157,36 +179,18 @@
 
             <div class="studio-output-footer">
               <div class="studio-output-meta-block">
-                <div class="studio-output-meta" id="studio-output-meta">No generation yet. Your latest prompt and result will live here.</div>
-                <div class="studio-summary-meta">
-                  <span class="studio-summary-line" id="studio-pack-status">Unlock a Vision pack to begin creating.</span>
-                  <span class="studio-summary-line" id="studio-history-count">0 creations saved</span>
-                </div>
-              </div>
-              <div class="studio-output-actions">
-                <button class="studio-summary-button studio-summary-button--ghost" id="studio-account-button" type="button">View account</button>
-                <button class="studio-summary-button" id="studio-topup-button" type="button">Buy a Vision pack</button>
+                <div class="studio-output-meta" id="studio-output-meta">Your most recent image or video stays live here while Vision generates and after delivery.</div>
               </div>
             </div>
 
             <div class="studio-recent-head">
               <div class="studio-history-kicker">Studio / Recent</div>
-              <div class="studio-credit-grid studio-credit-grid--inline">
-                <div class="studio-credit-tile studio-credit-tile--compact">
-                  <span class="studio-credit-label">Video credits</span>
-                  <strong class="studio-credit-value" id="studio-video-credits">0</strong>
-                </div>
-                <div class="studio-credit-tile studio-credit-tile--compact">
-                  <span class="studio-credit-label">Image credits</span>
-                  <strong class="studio-credit-value" id="studio-image-credits">0</strong>
-                </div>
-              </div>
             </div>
 
             <div class="studio-history-grid studio-history-grid--strip" id="studio-history-grid"></div>
             <div class="studio-history-empty" id="studio-history-empty">
-              <strong>Your latest outputs will appear here.</strong>
-              <span>Generate an image or video and Vision will keep the newest results ready to reopen from this Studio page.</span>
+              <strong>No saved generations yet.</strong>
+              <span>Your latest images and videos will collect here once you start creating inside Vision.</span>
             </div>
           </article>
         </section>
@@ -750,7 +754,7 @@
       </div>
     </div>
 
-    <script src="./vision-config.js?v=20"></script>
-    <script src="./app.js?v=20"></script>
+    <script src="./vision-config.js?v=21"></script>
+    <script src="./app.js?v=21"></script>
   </body>
   </html>
