@@ -8957,3 +8957,114 @@ body.is-studio-route .studio-output-stage.is-loading .studio-output-copy {
     width: 100%;
   }
 }
+
+/* Studio centered TV layout v30 */
+body.is-studio-route .studio-output-shell {
+  position: relative;
+  width: min(100%, 84rem);
+  min-height: calc(100vh - 8.9rem);
+  height: calc(100vh - 8.9rem);
+  display: block;
+  overflow: hidden;
+}
+
+body.is-studio-route .studio-output-stage {
+  position: absolute;
+  top: 0.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 2rem), 72rem);
+  min-height: clamp(18rem, 48vh, 31rem);
+  height: clamp(18rem, 48vh, 31rem);
+  margin: 0;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded {
+  position: absolute;
+  left: 50%;
+  bottom: 1.55rem;
+  transform: translateX(-50%);
+  width: min(calc(100% - 2rem), 56rem);
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "controls actions"
+    "search search";
+  align-items: center;
+  gap: 0.7rem 0.85rem;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-tools {
+  grid-area: controls;
+  justify-content: flex-start;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions {
+  grid-area: actions;
+  justify-content: flex-end;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .search-panel {
+  grid-area: search;
+  width: 100%;
+}
+
+body.is-studio-route .search-cluster.is-studio-embedded .studio-compose-footer {
+  display: none !important;
+}
+
+body.is-studio-route .studio-output-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 0.75rem;
+  background: #07090d;
+  z-index: 0;
+}
+
+body.is-studio-route .studio-output-stage,
+body.is-studio-route .search-cluster.is-studio-embedded {
+  z-index: 1;
+}
+
+@media (max-width: 1024px) {
+  body.is-studio-route .studio-output-shell {
+    min-height: auto;
+    height: auto;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 1rem;
+    overflow: visible;
+  }
+
+  body.is-studio-route .studio-output-stage {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: 100%;
+    min-height: 34vh;
+    height: 34vh;
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    width: 100%;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "controls"
+      "actions"
+      "search";
+  }
+
+  body.is-studio-route .search-cluster.is-studio-embedded .search-tools,
+  body.is-studio-route .search-cluster.is-studio-embedded .prompt-actions {
+    justify-content: center;
+  }
+}
