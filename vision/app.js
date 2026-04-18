@@ -459,6 +459,12 @@ const resetStudioOutputMedia = () => {
   }
 };
 
+const hasStudioOutputMedia = () => {
+  const videoVisible = !!studioOutputVideo && !studioOutputVideo.hidden && !!studioOutputVideo.getAttribute("src");
+  const imageVisible = !!studioOutputImage && !studioOutputImage.hidden && !!studioOutputImage.getAttribute("src");
+  return videoVisible || imageVisible;
+};
+
 const setStudioOutputState = ({
   state = "empty",
   type = "video",
@@ -487,6 +493,14 @@ const setStudioOutputState = ({
   studioOutputStageLabel.textContent = label;
   studioOutputStageNote.textContent = note;
   studioOutputMeta.textContent = meta;
+
+  if (state === "loading") {
+    studioOutputPlaceholder.hidden = false;
+    if (!hasStudioOutputMedia()) {
+      resetStudioOutputMedia();
+    }
+    return;
+  }
 
   if (state !== "ready" || !src) {
     resetStudioOutputMedia();

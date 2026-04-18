@@ -9097,3 +9097,34 @@ body.is-studio-route .studio-output-stage img {
     height: auto;
   }
 }
+
+/* Studio output cleanup v32 */
+body.is-studio-route .studio-output-footer,
+body.is-studio-route .studio-output-meta-block,
+body.is-studio-route .studio-output-meta,
+body.is-studio-route .studio-recent-head,
+body.is-studio-route .studio-history-grid--strip,
+body.is-studio-route .studio-history-empty {
+  display: none !important;
+  visibility: hidden !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-placeholder {
+  display: grid;
+  background:
+    linear-gradient(180deg, rgba(6, 7, 9, 0.26), rgba(6, 7, 9, 0.42)),
+    rgba(6, 7, 9, 0.22);
+  backdrop-filter: blur(2px);
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-loader {
+  display: inline-flex;
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-copy {
+  display: none;
+}
