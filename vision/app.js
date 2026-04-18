@@ -629,7 +629,10 @@ const renderStudioHistory = () => {
   studioHistoryGrid.innerHTML = "";
   studioHistoryCount.textContent = `${items.length} creation${items.length === 1 ? "" : "s"} saved`;
   studioHistoryBadge.textContent = items.length ? `${items.length} saved` : "Empty";
+  studioHistoryGrid.hidden = items.length === 0;
+  studioHistoryGrid.style.display = items.length ? "" : "none";
   studioHistoryEmpty.hidden = items.length > 0;
+  studioHistoryEmpty.style.display = items.length ? "none" : "";
 
   items.forEach((item) => {
     const isActive = String(item.id) === String(studioSelectedHistoryId || "");
@@ -767,11 +770,11 @@ const generationUiCopy = (status, outputType = "video") => {
   const states = {
     queued: {
       badge: "Queued in Vision",
-      stage: isImage ? "Generating image..." : "Generating video...",
+      stage: "Queued",
       note: isImage
-        ? "Your prompt entered the still-image lane. Vision is shaping atmosphere, texture, and framing."
-        : "Your prompt entered the cinematic lane. Vision is mapping subject, movement, and visual tone.",
-      eta: "Usually under 1 min",
+        ? "Preparing your image lane inside Vision."
+        : "Preparing your video lane inside Vision.",
+      eta: "Usually under 1 minute remaining",
       deliveryTitle: "Queued in Vision",
       deliveryNote: isImage
         ? "Vision is preparing a sharper still with cleaner light, texture, and composition."
@@ -781,11 +784,11 @@ const generationUiCopy = (status, outputType = "video") => {
     },
     preparing: {
       badge: "Shaping direction",
-      stage: "Preparing the scene...",
+      stage: "Preparing",
       note: isImage
         ? "Balancing light, atmosphere, texture response, and still-frame hierarchy."
         : "Balancing realism, light direction, subject continuity, and camera language.",
-      eta: "Usually 1–2 min",
+      eta: "Usually 1–2 minutes remaining",
       deliveryTitle: "Preparing inside Vision",
       deliveryNote: isImage
         ? "Vision is tightening composition before the final image render begins."
@@ -795,11 +798,11 @@ const generationUiCopy = (status, outputType = "video") => {
     },
     generating: {
       badge: isImage ? "Rendering image" : "Rendering motion",
-      stage: isImage ? "Generating image..." : "Generating video...",
+      stage: isImage ? "Generating image" : "Generating video",
       note: isImage
         ? "Rendering light falloff, texture detail, clean edges, and premium atmosphere."
         : "Rendering light, skin, fabric response, scene depth, and controlled cinematic motion.",
-      eta: "Usually 1–3 min",
+      eta: "Usually 1–3 minutes remaining",
       deliveryTitle: "Rendering inside Vision",
       deliveryNote: isImage
         ? "Vision is finishing your image with stronger texture, depth, and still-frame impact."
@@ -809,9 +812,9 @@ const generationUiCopy = (status, outputType = "video") => {
     },
     operator_required: {
       badge: "Engine syncing",
-      stage: "Syncing the engine...",
+      stage: "Syncing",
       note: "Vision is coordinating the next render lane so your prompt can keep moving.",
-      eta: "Usually under 1 min",
+      eta: "Usually under 1 minute remaining",
       deliveryTitle: "Syncing inside Vision",
       deliveryNote: "A generation lane is being prepared behind the scenes.",
       expandLabel: "Preview pending",
@@ -819,9 +822,9 @@ const generationUiCopy = (status, outputType = "video") => {
     },
     downloading: {
       badge: "Importing",
-      stage: "Finalizing output...",
+      stage: "Finishing",
       note: `The ${typeLabel} is finished. Vision is packaging the source output back into the studio.`,
-      eta: "Finishing now",
+      eta: "Final seconds",
       deliveryTitle: "Importing into Vision",
       deliveryNote: "The source output is being attached so preview and download are ready together.",
       expandLabel: "Preview pending",
@@ -1298,7 +1301,7 @@ const setAuthModalState = (open) => {
     return;
   }
   window.setTimeout(() => {
-    if (currentUser.authenticated) {
+    if (hasStudioAccountContext()) {
       authLogout?.focus();
       return;
     }
@@ -1318,10 +1321,10 @@ const setAuthLoading = (loading, label) => {
     }
   }
   if (authEmail) {
-    authEmail.disabled = loading || currentUser.authenticated;
+    authEmail.disabled = loading || hasStudioAccountContext();
   }
   if (authCode) {
-    authCode.disabled = loading || currentUser.authenticated;
+    authCode.disabled = loading || hasStudioAccountContext();
   }
 };
 
@@ -1465,7 +1468,7 @@ const renderAccessState = (access, pack, user, packs) => {
   });
 
   if (isStudioRoute && topbarCta) {
-    if (currentUser.authenticated) {
+    if (currentUser.email) {
       topbarCta.textContent = currentUser.email || "My account";
     } else if (accessState.admin) {
       topbarCta.textContent = "Studio unlocked";
