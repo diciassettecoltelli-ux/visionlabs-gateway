@@ -8778,6 +8778,11 @@ body.is-studio-route .studio-output-stage {
   height: clamp(19rem, 46vh, 31rem);
   margin-inline: auto;
   border-radius: 1.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  background: #060708;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 18px 34px rgba(0, 0, 0, 0.12);
 }
 
 body.is-studio-route .studio-output-placeholder {
@@ -8898,6 +8903,22 @@ body.is-studio-route .search-cluster.is-studio-embedded .studio-summary-button--
   padding-inline: 0.85rem;
   font-size: 0.58rem;
   letter-spacing: 0.16em;
+}
+
+body.is-studio-route .studio-output-head {
+  display: none !important;
+}
+
+body.is-studio-route .studio-output-stage.is-empty .studio-output-placeholder {
+  display: none;
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-placeholder {
+  display: grid;
+}
+
+body.is-studio-route .studio-output-stage.is-loading .studio-output-copy {
+  display: none;
 }
 
 @media (max-width: 1024px) {
