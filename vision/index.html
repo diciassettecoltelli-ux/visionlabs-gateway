@@ -31,9 +31,10 @@
       href="https://fonts.googleapis.com/css2?family=Onest:wght@200;300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./style.css?v=36" />
+    <link id="vision-legacy-style" rel="stylesheet" href="./style.css?v=38" />
   </head>
   <body>
+    <div id="vision-legacy-root">
     <div class="vision-shell">
       <div class="scene-backdrop" aria-hidden="true">
         <div class="scene-sky"></div>
@@ -61,6 +62,8 @@
           </span>
           <span class="brand-name">Vision</span>
         </a>
+
+        <div class="studio-shell-domain" aria-hidden="true">visionstudiolab.com</div>
 
         <nav class="topnav" aria-label="Primary">
           <a href="/studio/">Studio</a>
@@ -99,20 +102,10 @@
             <h2 class="studio-compose-title">Compose inside Vision</h2>
             <p class="studio-compose-copy">Write a prompt, refine it, then generate directly into your live output canvas without leaving the Studio.</p>
           </div>
-          <div class="search-tools">
-            <div class="generation-mode-switch" role="tablist" aria-label="Generation mode">
-              <button class="mode-toggle is-active" type="button" data-generation-mode="video" aria-pressed="true">Video</button>
-              <button class="mode-toggle" type="button" data-generation-mode="image" aria-pressed="false">Image</button>
-            </div>
-            <div class="access-pill" id="vision-access-pill">Locked · Vision access required</div>
-          </div>
           <form class="search-panel" id="vision-search-form" action="#" method="get">
-            <div class="search-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                <circle cx="11" cy="11" r="7"></circle>
-                <path d="m20 20-3.5-3.5"></path>
-              </svg>
-            </div>
+            <button class="search-plus-button" type="button" aria-label="Add reference">
+              <span aria-hidden="true">+</span>
+            </button>
             <input id="vision-prompt" type="text" name="q" placeholder="Describe your video or image..." autocomplete="off" tabindex="-1" />
             <button class="search-launch-button" type="submit" aria-label="Search" tabindex="-1">
               <span class="search-launch-ring" aria-hidden="true"></span>
@@ -124,8 +117,17 @@
               </span>
             </button>
           </form>
+          <div class="search-tools">
+            <div class="generation-mode-switch" role="tablist" aria-label="Generation mode">
+              <button class="mode-toggle is-active" type="button" data-generation-mode="video" aria-pressed="true">Video</button>
+              <button class="mode-toggle" type="button" data-generation-mode="image" aria-pressed="false">Image</button>
+            </div>
+            <div class="studio-dock-actions">
+              <button class="access-pill" id="vision-access-pill" type="button">Locked · Vision access required</button>
+              <button class="action-pill" id="improve-prompt-button" type="button">Improve Prompt</button>
+            </div>
+          </div>
           <div class="prompt-actions">
-            <button class="action-pill" id="improve-prompt-button" type="button">Improve Prompt</button>
             <p class="prompt-helper" id="prompt-helper">From one raw idea to a sharper cinematic result. Vision strengthens mood, realism, framing, and visual tone before generation begins.</p>
           </div>
           <div class="studio-compose-footer">
@@ -183,15 +185,17 @@
               </div>
             </div>
 
-            <div class="studio-recent-head">
-              <div class="studio-history-kicker">Studio / Recent</div>
-            </div>
-
-            <div class="studio-history-grid studio-history-grid--strip" id="studio-history-grid"></div>
-            <div class="studio-history-empty" id="studio-history-empty">
-              <strong>No saved generations yet.</strong>
-              <span>Your latest images and videos will collect here once you start creating inside Vision.</span>
-            </div>
+            <aside class="studio-history-rail">
+              <div class="studio-recent-head">
+                <div class="studio-history-kicker">Recents</div>
+                <button class="studio-view-all" type="button">View all</button>
+              </div>
+              <div class="studio-history-grid studio-history-grid--strip" id="studio-history-grid"></div>
+              <div class="studio-history-empty" id="studio-history-empty">
+                <strong>No saved generations yet.</strong>
+                <span>Your latest images and videos will collect here once you start creating inside Vision.</span>
+              </div>
+            </aside>
           </article>
         </section>
       </main>
@@ -753,8 +757,46 @@
         </div>
       </div>
     </div>
+    </div>
 
-    <script src="./vision-config.js?v=36"></script>
-    <script src="./app.js?v=36"></script>
+    <div id="studio-shell-new-root" hidden></div>
+
+    <script>
+      (function () {
+        const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
+        const legacyRoot = document.getElementById("vision-legacy-root");
+        const studioRoot = document.getElementById("studio-shell-new-root");
+        const appendStylesheet = (href) => {
+          const link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = href;
+          document.head.appendChild(link);
+        };
+        const appendScript = (src) => {
+          const script = document.createElement("script");
+          script.src = src;
+          document.body.appendChild(script);
+        };
+
+        if (isStudioRoute) {
+          const legacyStyle = document.getElementById("vision-legacy-style");
+          if (legacyStyle) legacyStyle.disabled = true;
+          document.body.setAttribute("data-studio-shell", "new");
+          if (legacyRoot) {
+            legacyRoot.hidden = true;
+            legacyRoot.setAttribute("aria-hidden", "true");
+          }
+          if (studioRoot) {
+            studioRoot.hidden = false;
+          }
+          appendStylesheet("./studio-shell-new.css?v=105");
+          appendScript("./studio-shell-new.js?v=105");
+          return;
+        }
+
+        appendScript("./vision-config.js?v=38");
+        appendScript("./app.js?v=38");
+      })();
+    </script>
   </body>
   </html>
