@@ -46,6 +46,7 @@
     mode: "video",
     scene: "idle",
     prompt: "",
+    referenceAsset: null,
     access: { ...defaultAccess },
     user: { ...defaultUser },
     packs: [],
@@ -208,6 +209,49 @@
     const shortId = String(item.id || "").slice(0, 8);
     const extension = inferDownloadExtension(item.src, outputType);
     return `vision-${outputType}-${base}${shortId ? `-${shortId}` : ""}.${extension}`;
+  };
+
+  const formatFileSize = (bytes) => {
+    const value = Number(bytes || 0);
+    if (!Number.isFinite(value) || value <= 0) {
+      return "";
+    }
+    if (value >= 1024 * 1024) {
+      return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    if (value >= 1024) {
+      return `${Math.round(value / 1024)} KB`;
+    }
+    return `${value} B`;
+  };
+
+  const clearReferenceAsset = () => {
+    if (state.referenceAsset && state.referenceAsset.url) {
+      try {
+        window.URL.revokeObjectURL(state.referenceAsset.url);
+      } catch (error) {
+        // Ignore object URL cleanup failures.
+      }
+    }
+    state.referenceAsset = null;
+  };
+
+  const setReferenceAsset = (file) => {
+    if (!file) {
+      return;
+    }
+
+    clearReferenceAsset();
+    const kind = String(file.type || "").startsWith("video/") ? "video" : "image";
+    const url = window.URL.createObjectURL(file);
+    state.referenceAsset = {
+      name: String(file.name || `${kind}-reference`),
+      kind,
+      type: String(file.type || ""),
+      sizeLabel: formatFileSize(file.size),
+      url,
+    };
+    state.currentError = "";
   };
 
   const getHistoryStorageKeyForEmail = (email) => {
@@ -943,6 +987,24 @@
       `;
     }
 
+    if (state.referenceAsset) {
+      const referenceMedia =
+        state.referenceAsset.kind === "video"
+          ? `<video class="vss-canvas-video" src="${escapeHtml(state.referenceAsset.url)}" autoplay muted loop playsinline></video>`
+          : `<img class="vss-canvas-image" src="${escapeHtml(state.referenceAsset.url)}" alt="${escapeHtml(state.referenceAsset.name || "Reference asset")}" />`;
+      return `
+        <div class="vss-canvas-media vss-canvas-media--reference">
+          ${referenceMedia}
+          <div class="vss-canvas-scrim"></div>
+          <div class="vss-canvas-reference-meta">
+            <p class="vss-result-label">Reference ready</p>
+            <h2 class="vss-result-title">${escapeHtml(state.referenceAsset.name)}</h2>
+            <p class="vss-result-caption">Loaded in Studio and ready for prompt-led refinement. Replace it any time from the + button.</p>
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div class="vss-canvas-empty">
         <div class="vss-canvas-empty-copy">
@@ -964,8 +1026,9 @@
 
   const renderDock = () => `
     <div class="vss-dock">
+      <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" />
       <form class="vss-prompt-bar" id="vss-prompt-form">
-        <button class="vss-add-ref" type="button" aria-label="Add reference">+</button>
+        <button class="vss-add-ref" type="button" aria-label="Upload image or short video reference">+</button>
         <input
           class="vss-prompt-input"
           id="vss-prompt-input"
@@ -980,6 +1043,18 @@
           </svg>
         </button>
       </form>
+      ${
+        state.referenceAsset
+          ? `<div class="vss-reference-row">
+              <span class="vss-reference-chip">
+                <span class="vss-reference-chip-label">${escapeHtml(state.referenceAsset.kind === "video" ? "Video reference" : "Image reference")}</span>
+                <strong>${escapeHtml(state.referenceAsset.name)}</strong>
+                <span>${escapeHtml(state.referenceAsset.sizeLabel || "")}</span>
+              </span>
+              <button class="vss-reference-clear" id="vss-reference-clear" type="button">Remove</button>
+            </div>`
+          : ""
+      }
       <div class="vss-dock-footer">
         <div class="vss-mode-row">
           <div class="vss-mode-switch" role="tablist" aria-label="Mode switch">
@@ -989,11 +1064,7 @@
           <span class="vss-mode-separator" aria-hidden="true"></span>
           <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
         </div>
-        ${
-          state.prompt.trim()
-            ? `<button class="vss-improve" id="vss-improve-button" type="button">${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>`
-            : ""
-        }
+        <button class="vss-improve${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
       </div>
     </div>
   `;
@@ -1144,6 +1215,9 @@
     const promptInput = root.querySelector("#vss-prompt-input");
     const promptForm = root.querySelector("#vss-prompt-form");
     const improveButton = root.querySelector("#vss-improve-button");
+    const referenceInput = root.querySelector("#vss-reference-input");
+    const addReferenceButton = root.querySelector(".vss-add-ref");
+    const clearReferenceButton = root.querySelector("#vss-reference-clear");
 
     promptInput?.addEventListener("input", (event) => {
       state.prompt = String(event.target.value || "");
@@ -1157,6 +1231,25 @@
 
     improveButton?.addEventListener("click", () => {
       improvePrompt();
+    });
+
+    addReferenceButton?.addEventListener("click", () => {
+      referenceInput?.click();
+    });
+
+    referenceInput?.addEventListener("change", (event) => {
+      const [file] = Array.from(event.target.files || []);
+      if (!file) {
+        return;
+      }
+      setReferenceAsset(file);
+      event.target.value = "";
+      render();
+    });
+
+    clearReferenceButton?.addEventListener("click", () => {
+      clearReferenceAsset();
+      render();
     });
 
     root.querySelectorAll("[data-mode]").forEach((button) => {

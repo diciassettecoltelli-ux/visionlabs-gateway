@@ -207,6 +207,12 @@ body.vss-body {
   object-fit: cover;
 }
 
+.vss-canvas-media--reference .vss-canvas-image,
+.vss-canvas-media--reference .vss-canvas-video {
+  object-fit: contain;
+  background: #0e0f12;
+}
+
 .vss-canvas-scrim {
   position: absolute;
   inset: 0;
@@ -216,7 +222,8 @@ body.vss-body {
 
 .vss-canvas-empty,
 .vss-canvas-loading,
-.vss-canvas-result-meta {
+.vss-canvas-result-meta,
+.vss-canvas-reference-meta {
   position: absolute;
   inset: 0;
   display: grid;
@@ -378,6 +385,13 @@ body.vss-body {
   line-height: 1.48;
 }
 
+.vss-canvas-reference-meta {
+  align-content: end;
+  justify-items: start;
+  text-align: left;
+  padding: 44px;
+}
+
 .vss-dock {
   position: absolute;
   left: 50%;
@@ -387,6 +401,52 @@ body.vss-body {
   display: grid;
   justify-items: center;
   gap: 10px;
+}
+
+.vss-reference-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.vss-reference-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--vss-radius-pill);
+  background: rgba(15, 16, 19, 0.52);
+  color: rgba(235, 229, 221, 0.72);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.vss-reference-chip-label {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(214, 206, 197, 0.46);
+  font-size: 0.62rem;
+}
+
+.vss-reference-chip strong {
+  font-weight: 500;
+  color: rgba(244, 239, 233, 0.9);
+  letter-spacing: 0;
+}
+
+.vss-reference-clear {
+  border: 0;
+  background: transparent;
+  color: rgba(226, 219, 211, 0.56);
+  font-family: inherit;
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
 .vss-prompt-bar {
@@ -507,6 +567,13 @@ body.vss-body {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+.vss-improve.is-disabled,
+.vss-improve:disabled {
+  opacity: 0.36;
+  cursor: default;
+  pointer-events: none;
 }
 
 .vss-mode-switch button,
@@ -865,6 +932,17 @@ body.vss-body {
   .vss-dock {
     width: calc(100% - 20px);
     bottom: 18px;
+  }
+
+  .vss-reference-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .vss-reference-chip {
+    max-width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
   .vss-dock-footer {
