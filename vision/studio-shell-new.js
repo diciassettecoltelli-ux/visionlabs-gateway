@@ -869,7 +869,7 @@
     return `
       <header class="vss-header">
         <div class="vss-brand" aria-label="Vision">
-          <span class="vss-brand-mark" aria-hidden="true"><img class="vss-brand-mark-image" src="./brand-logo.svg?v=1" alt="" /></span>
+          <span class="vss-brand-mark" aria-hidden="true"><img class="vss-brand-mark-image" src="/brand-logo.svg?v=2" alt="" /></span>
           <span class="vss-brand-name">Vision</span>
         </div>
         <div class="vss-domain">visionstudiolab.com</div>
