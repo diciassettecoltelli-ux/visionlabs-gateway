@@ -89,32 +89,12 @@ body.vss-body {
 }
 
 .vss-brand-mark {
-  position: relative;
   width: 24px;
   height: 24px;
   flex: 0 0 auto;
-}
-
-.vss-brand-mark::before,
-.vss-brand-mark::after {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border: 1px solid rgba(247, 243, 237, 0.7);
-  border-radius: 999px;
-}
-
-.vss-brand-mark::after {
-  transform: rotate(58deg) scaleX(1.22);
-  opacity: 0.55;
-}
-
-.vss-brand-mark-inner {
-  position: absolute;
-  inset: 5px;
-  border: 1px solid rgba(247, 243, 237, 0.52);
-  border-radius: 999px;
-  transform: rotate(-58deg) scaleX(1.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .vss-brand-name {

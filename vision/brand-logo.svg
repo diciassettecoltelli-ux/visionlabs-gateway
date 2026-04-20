@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <g stroke="#F6F9FF" stroke-opacity="0.9" stroke-width="4.6">
+    <ellipse cx="50" cy="50" rx="49" ry="23.5" />
+    <ellipse cx="50" cy="50" rx="49" ry="23.5" transform="rotate(62 50 50)" />
+    <ellipse cx="50" cy="50" rx="49" ry="23.5" transform="rotate(-62 50 50)" opacity="0.88" />
+  </g>
+  <defs>
+    <linearGradient id="vision-brand-core" x1="50" y1="38.5" x2="50" y2="61.5" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FCFDFF" />
+      <stop offset="1" stop-color="#CED6E1" />
+    </linearGradient>
+    <linearGradient id="vision-brand-electron" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#F8FAFF" />
+      <stop offset="1" stop-color="#BAC4D1" />
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="11.5" fill="url(#vision-brand-core)" />
+  <circle cx="78" cy="17" r="6.3" fill="url(#vision-brand-electron)" />
+  <circle cx="16" cy="71" r="6.3" fill="url(#vision-brand-electron)" />
+</svg>
