@@ -127,6 +127,11 @@ body.vss-body {
   color: var(--vss-text-primary);
 }
 
+.vss-account-pill.is-guest {
+  gap: 12px;
+  padding-inline: 16px 12px;
+}
+
 .vss-account-avatar {
   display: grid;
   width: 38px;
@@ -144,6 +149,26 @@ body.vss-body {
   gap: 8px;
   color: rgba(244, 241, 235, 0.88);
   font-size: 1rem;
+}
+
+.vss-account-guest-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.vss-account-guest-label {
+  color: rgba(244, 241, 235, 0.94);
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vss-account-guest-note {
+  color: rgba(214, 207, 199, 0.56);
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
 }
 
 .vss-account-chevron {

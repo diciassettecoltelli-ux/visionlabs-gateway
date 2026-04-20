@@ -362,11 +362,18 @@
 
   const getAccountPillState = () => {
     const counts = getCreditCounts();
-    const label = hasAccountContext() ? `${counts.video + counts.image}` : "↗";
+    if (!hasAccountContext()) {
+      return {
+        variant: "guest",
+        label: "Access Vision",
+        subtitle: "Log in or buy a pack",
+      };
+    }
     const avatar = state.user.email ? state.user.email.charAt(0).toUpperCase() : "A";
     return {
+      variant: "account",
       avatar,
-      label,
+      label: `${counts.video + counts.image}`,
       subtitle: state.access.admin ? "∞" : `${counts.video}·${counts.image}`,
     };
   };
@@ -917,10 +924,17 @@
           <span class="vss-brand-name">Vision</span>
         </div>
         <div class="vss-domain">visionstudiolab.com</div>
-        <button class="vss-account-pill" id="vss-account-pill" type="button" aria-label="Vision account and credits">
-          <span class="vss-account-avatar">${escapeHtml(pill.avatar)}</span>
-          <span class="vss-account-metric">${escapeHtml(pill.label)}</span>
-          <span class="vss-account-metric">${escapeHtml(pill.subtitle)}</span>
+        <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Access Vision" : "Vision account and credits"}">
+          ${
+            pill.variant === "guest"
+              ? `<span class="vss-account-guest-copy">
+                  <span class="vss-account-guest-label">${escapeHtml(pill.label)}</span>
+                  <span class="vss-account-guest-note">${escapeHtml(pill.subtitle)}</span>
+                </span>`
+              : `<span class="vss-account-avatar">${escapeHtml(pill.avatar)}</span>
+                 <span class="vss-account-metric">${escapeHtml(pill.label)}</span>
+                 <span class="vss-account-metric">${escapeHtml(pill.subtitle)}</span>`
+          }
           <span class="vss-account-chevron">⌄</span>
         </button>
       </header>
