@@ -805,8 +805,8 @@ def _create_stripe_checkout_session(*, request: Request, email: str | None, pack
     pack = _pack_by_id(pack_id)
     payload: dict[str, Any] = {
         "mode": "payment",
-        "success_url": f"{frontend_base}/studio/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
-        "cancel_url": f"{frontend_base}/studio/?checkout=cancel",
+        "success_url": f"{frontend_base}/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": f"{frontend_base}/?checkout=cancel",
         "allow_promotion_codes": "true",
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",

@@ -4,6 +4,21 @@
     return;
   }
 
+  const currentUrl = new URL(window.location.href);
+  const checkoutState = currentUrl.searchParams.get("checkout");
+  const checkoutSessionId = currentUrl.searchParams.get("session_id");
+  if (checkoutState === "success" || checkoutState === "cancel" || checkoutSessionId) {
+    const redirectUrl = new URL("/", window.location.origin);
+    if (checkoutState) {
+      redirectUrl.searchParams.set("checkout", checkoutState);
+    }
+    if (checkoutSessionId) {
+      redirectUrl.searchParams.set("session_id", checkoutSessionId);
+    }
+    window.location.replace(redirectUrl.toString());
+    return;
+  }
+
   const root = document.getElementById("studio-shell-new-root");
   if (!root) {
     return;
