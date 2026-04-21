@@ -89,7 +89,8 @@ const studioOutputMeta = document.querySelector("#studio-output-meta");
 
 const configuredApiBase = typeof window.VISION_API_BASE === "string" ? window.VISION_API_BASE.trim() : "";
 const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-const VISION_API_BASE = configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "");
+const VISION_API_BASE =
+  configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
 const VISION_ACCESS_STORAGE_KEY = "vision_access_token";

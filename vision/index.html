@@ -770,11 +770,14 @@
           link.href = href;
           document.head.appendChild(link);
         };
-        const appendScript = (src) => {
-          const script = document.createElement("script");
-          script.src = src;
-          document.body.appendChild(script);
-        };
+        const appendScript = (src) =>
+          new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.body.appendChild(script);
+          });
 
         if (isStudioRoute) {
           const legacyStyle = document.getElementById("vision-legacy-style");
@@ -792,8 +795,12 @@
           return;
         }
 
-        appendScript("/vision-config.js?v=39");
-        appendScript("/app.js?v=39");
+        appendScript("/vision-config.js?v=40")
+          .catch(() => null)
+          .then(() => appendScript("/app.js?v=40"))
+          .catch((error) => {
+            console.error("Vision bootstrap failed", error);
+          });
       })();
     </script>
   </body>
