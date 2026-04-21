@@ -33,6 +33,7 @@
     />
     <link id="vision-legacy-style" rel="stylesheet" href="/style.css?v=39" />
     <link rel="stylesheet" href="/brand-logo-shared.css?v=2" />
+    <link rel="stylesheet" href="/public-footer.css?v=4" />
   </head>
   <body>
     <div id="vision-legacy-root">
@@ -62,7 +63,7 @@
         <nav class="topnav" aria-label="Primary">
           <a href="/studio/">Studio</a>
           <a href="#gallery">Gallery</a>
-          <a href="mailto:hello@visionstudiolab.com">Contact</a>
+          <a href="/contact.html">Contact</a>
           <a href="#about">About us</a>
         </nav>
 
@@ -658,70 +659,7 @@
         </div>
       </section>
 
-      <footer class="landing-footer" id="footer">
-        <div class="landing-footer-shell">
-          <div class="landing-footer-top">
-            <div class="landing-footer-brand">
-              <div class="landing-footer-mark">
-                <img class="brand-mark-image" src="/brand-logo.svg" alt="Vision" />
-                <span class="brand-wordmark">Vision</span>
-              </div>
-              <p class="landing-footer-copy">
-                Vision is a cinematic creation interface for turning prompts into premium visual worlds, refined stills, and moving scenes with
-                stronger direction.
-              </p>
-            </div>
-
-            <div class="landing-footer-columns">
-              <div class="landing-footer-column">
-                <div class="landing-footer-label">Explore</div>
-                <a href="/studio/" data-enter-studio>Studio</a>
-                <a href="#gallery">Gallery</a>
-                <a href="#pricing">Pricing</a>
-                <a href="#about">About us</a>
-              </div>
-
-              <div class="landing-footer-column">
-                <div class="landing-footer-label">Access</div>
-                <button class="landing-footer-action" type="button" data-open-subscribe>Unlock Vision</button>
-                <button class="landing-footer-action" type="button" data-enter-studio>Enter Vision Studio</button>
-                <button class="landing-footer-action" type="button" id="footer-access-vision">Access Vision</button>
-                <a href="mailto:hello@visionstudiolab.com?subject=Vision%20Support">Support</a>
-                <a href="mailto:hello@visionstudiolab.com?subject=Vision%20Account">Account help</a>
-              </div>
-
-              <div class="landing-footer-column">
-                <div class="landing-footer-label">Contact</div>
-                <a href="mailto:hello@visionstudiolab.com">hello@visionstudiolab.com</a>
-                <a href="mailto:hello@visionstudiolab.com?subject=Vision%20Partnerships">Partnerships</a>
-                <a href="mailto:hello@visionstudiolab.com?subject=Vision%20Press">Press</a>
-              </div>
-
-              <div class="landing-footer-column">
-                <div class="landing-footer-label">Legal</div>
-                <a href="mailto:hello@visionstudiolab.com?subject=Vision%20Privacy%20Policy">Privacy policy</a>
-                <a href="mailto:hello@visionstudiolab.com?subject=Vision%20Terms%20of%20Use">Terms of use</a>
-                <a href="mailto:hello@visionstudiolab.com?subject=Vision%20License%20and%20Terms">License &amp; terms</a>
-                <a href="mailto:hello@visionstudiolab.com?subject=Vision%20Copyright%20Policy">Copyright policy</a>
-              </div>
-            </div>
-          </div>
-
-          <div class="landing-footer-bottom">
-            <div class="landing-footer-socials">
-              <span>Channels</span>
-              <span>Instagram</span>
-              <span>TikTok</span>
-              <span>YouTube</span>
-              <span>LinkedIn</span>
-            </div>
-            <div class="landing-footer-meta">
-              <span>Built for cinematic creation. Need support, legal information, or access help?</span>
-              <a href="mailto:hello@visionstudiolab.com">hello@visionstudiolab.com</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <div data-public-footer></div>
 
     </div>
 
@@ -912,7 +850,8 @@
           return;
         }
 
-        appendScript("/vision-config.js?v=40")
+        appendScript("/public-footer.js?v=4")
+          .then(() => appendScript("/vision-config.js?v=40"))
           .catch(() => null)
           .then(() => appendScript("/app.js?v=42"))
           .catch((error) => {
