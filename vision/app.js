@@ -29,6 +29,7 @@ const subscribeCopy = document.querySelector(".subscribe-copy");
 const subscribePackGrid = document.querySelector("#subscribe-pack-grid");
 const subscribeSubmit = document.querySelector(".subscribe-submit");
 const subscribeNote = document.querySelector("#subscribe-note");
+const subscribeReturningLink = document.querySelector("#subscribe-returning-link");
 const authModal = document.querySelector("#auth-modal");
 const authClose = document.querySelector(".auth-close");
 const authTitle = document.querySelector("#auth-title");
@@ -267,11 +268,7 @@ const visionFetch = (path, options = {}) => {
   });
 };
 
-const enterStudio = () => {
-  if (isStudioRoute) {
-    setSearchState(true);
-    return;
-  }
+const navigateToStudio = ({ delay = 5000 } = {}) => {
   if (studioTransitionInFlight) {
     return;
   }
@@ -279,7 +276,24 @@ const enterStudio = () => {
   setStudioLoaderState(true);
   window.setTimeout(() => {
     window.location.assign(VISION_STUDIO_PATH);
-  }, 5000);
+  }, delay);
+};
+
+const enterStudio = ({ skipGate = false, trigger = null, reason = "unlock" } = {}) => {
+  if (isStudioRoute) {
+    setSearchState(true);
+    return;
+  }
+
+  if (!skipGate && !hasStudioPackContext()) {
+    setSubscribeState(true, {
+      trigger,
+      reason,
+    });
+    return;
+  }
+
+  navigateToStudio();
 };
 
 const stripUrlParams = (...params) => {
@@ -1565,6 +1579,16 @@ const setSubscribeState = (open, context = {}) => {
   window.setTimeout(() => subscribeEmail?.focus(), 220);
 };
 
+const openAccessVision = () => {
+  authStep = hasStudioAccountContext() ? "account" : "email";
+  if (!hasStudioAccountContext() && authNote) {
+    authNote.textContent = "Enter your email and Vision will send you a one-time access code to return to your pack from any device.";
+  }
+  renderAuthState();
+  setSubscribeState(false);
+  setAuthModalState(true);
+};
+
 const loadAccessState = async () => {
   try {
     const response = await visionFetch("/api/access/me");
@@ -1923,7 +1947,7 @@ if (atomGuideText) {
 }
 
 atomTrigger?.addEventListener("click", () => {
-  enterStudio();
+  enterStudio({ trigger: atomTrigger, reason: "unlock" });
 });
 
 modeButtons.forEach((button) => {
@@ -1938,7 +1962,10 @@ studioTriggers.forEach((trigger) => {
       return;
     }
     event.preventDefault();
-    enterStudio();
+    enterStudio({
+      trigger,
+      reason: hasStudioPackContext() ? "insufficient_credits" : "unlock",
+    });
   });
 });
 
@@ -2032,6 +2059,10 @@ subscribeForm?.addEventListener("submit", async (event) => {
     return;
   }
   await beginCheckout(email);
+});
+
+subscribeReturningLink?.addEventListener("click", () => {
+  openAccessVision();
 });
 
 authForm?.addEventListener("submit", async (event) => {
@@ -2191,6 +2222,10 @@ const initializeVision = async () => {
   const unlockedAdmin = await unlockAdminIfNeeded();
   const confirmedCheckout = await confirmCheckoutIfNeeded();
   await loadAccessState();
+  if (confirmedCheckout && !isStudioRoute) {
+    enterStudio({ skipGate: true });
+    return;
+  }
   if (isStudioRoute) {
     setSearchState(true);
   }

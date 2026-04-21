@@ -10196,3 +10196,30 @@ body.is-studio-route .studio-loader.is-open .studio-loader-progress-bar {
     justify-content: center;
   }
 }
+
+.subscribe-returning {
+  margin: 10px 0 0;
+  color: rgba(239, 234, 228, 0.62);
+  font-size: 0.84rem;
+  letter-spacing: 0.01em;
+}
+
+.subscribe-returning-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(247, 242, 236, 0.92);
+  font: inherit;
+  letter-spacing: 0.08em;
+  margin-left: 0.35rem;
+  padding: 0;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.subscribe-returning-link:hover,
+.subscribe-returning-link:focus-visible {
+  color: rgba(255, 255, 255, 1);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
