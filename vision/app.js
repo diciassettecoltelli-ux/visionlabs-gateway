@@ -67,6 +67,9 @@ const generationDeliveryTitle = document.querySelector("#generation-delivery-tit
 const generationDeliveryNote = document.querySelector("#generation-delivery-note");
 const topNav = document.querySelector(".topnav");
 const topbarCta = document.querySelector(".topbar-cta");
+const legacyRoot = document.querySelector("#vision-legacy-root");
+const studioShellRoot = document.querySelector("#studio-shell-new-root");
+const legacyStyle = document.querySelector("#vision-legacy-style");
 const studioDashboard = document.querySelector("#studio-dashboard");
 const studioVideoCredits = document.querySelector("#studio-video-credits");
 const studioImageCredits = document.querySelector("#studio-image-credits");
@@ -92,6 +95,9 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
+const STUDIO_SHELL_ASSET_VERSION = "107";
+const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
+const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
 const VISION_ACCESS_STORAGE_KEY = "vision_access_token";
 const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
@@ -269,15 +275,128 @@ const visionFetch = (path, options = {}) => {
   });
 };
 
-const navigateToStudio = ({ delay = 5000 } = {}) => {
+const ensureDynamicStylesheet = (href) => {
+  const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).find(
+    (node) => node.getAttribute("href") === href,
+  );
+  if (existing) {
+    return existing;
+  }
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+  return link;
+};
+
+const ensureDynamicScript = (src) => {
+  if (studioShellAssetPromise) {
+    return studioShellAssetPromise;
+  }
+
+  const existing = Array.from(document.querySelectorAll("script[src]")).find(
+    (node) => node.getAttribute("src") === src,
+  );
+
+  if (existing?.dataset.loaded === "true" || window.__visionStudioShellReady) {
+    studioShellAssetPromise = Promise.resolve();
+    return studioShellAssetPromise;
+  }
+
+  studioShellAssetPromise = new Promise((resolve, reject) => {
+    if (existing) {
+      existing.addEventListener(
+        "load",
+        () => {
+          existing.dataset.loaded = "true";
+          resolve();
+        },
+        { once: true },
+      );
+      existing.addEventListener("error", reject, { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = false;
+    script.addEventListener(
+      "load",
+      () => {
+        script.dataset.loaded = "true";
+        resolve();
+      },
+      { once: true },
+    );
+    script.addEventListener("error", reject, { once: true });
+    document.body.appendChild(script);
+  }).catch((error) => {
+    studioShellAssetPromise = null;
+    throw error;
+  });
+
+  return studioShellAssetPromise;
+};
+
+const waitForStudioShellReady = () =>
+  new Promise((resolve) => {
+    if (window.__visionStudioShellReady) {
+      resolve();
+      return;
+    }
+    const handleReady = () => {
+      window.removeEventListener("vision-studio-shell-ready", handleReady);
+      resolve();
+    };
+    window.addEventListener("vision-studio-shell-ready", handleReady, { once: true });
+  });
+
+const mountStudioInternally = async ({ minimumLoaderMs = 1200 } = {}) => {
   if (studioTransitionInFlight) {
     return;
   }
+
   studioTransitionInFlight = true;
+  const startedAt = performance.now();
+  setSubscribeState(false);
+  setAuthModalState(false);
   setStudioLoaderState(true);
-  window.setTimeout(() => {
-    window.location.assign(VISION_STUDIO_PATH);
-  }, delay);
+  body.classList.remove("studio-ready");
+  document.body.setAttribute("data-studio-shell", "new");
+
+  if (studioShellRoot) {
+    studioShellRoot.hidden = false;
+  }
+
+  window.history.pushState({ visionStudio: true }, "", VISION_STUDIO_PATH);
+
+  try {
+    ensureDynamicStylesheet(STUDIO_SHELL_CSS_HREF);
+    await ensureDynamicScript(STUDIO_SHELL_JS_HREF);
+    await waitForStudioShellReady();
+
+    const elapsed = performance.now() - startedAt;
+    if (elapsed < minimumLoaderMs) {
+      await wait(minimumLoaderMs - elapsed);
+    }
+
+    if (legacyRoot) {
+      legacyRoot.hidden = true;
+      legacyRoot.setAttribute("aria-hidden", "true");
+    }
+    if (legacyStyle) {
+      legacyStyle.disabled = true;
+    }
+
+    body.classList.add("studio-ready");
+    setStudioLoaderState(false);
+  } catch (error) {
+    setStudioLoaderState(false);
+    studioTransitionInFlight = false;
+    throw error;
+  }
+
+  studioTransitionInFlight = false;
 };
 
 const enterStudio = ({ skipGate = false, trigger = null, reason = "unlock" } = {}) => {
@@ -286,15 +405,15 @@ const enterStudio = ({ skipGate = false, trigger = null, reason = "unlock" } = {
     return;
   }
 
-  if (!skipGate && !hasStudioPackContext()) {
+  if (!skipGate) {
     setSubscribeState(true, {
       trigger,
-      reason,
+      reason: hasStudioPackContext() ? "insufficient_credits" : reason,
     });
     return;
   }
 
-  navigateToStudio();
+  void mountStudioInternally();
 };
 
 const stripUrlParams = (...params) => {
@@ -396,6 +515,7 @@ let lastSubscribeTrigger = null;
 let authPendingEmail = "";
 let authStep = "email";
 let studioTransitionInFlight = false;
+let studioShellAssetPromise = null;
 
 const getStudioHistoryStorageKey = () => {
   const identity = String(currentUser?.email || "guest")
@@ -1580,14 +1700,25 @@ const setSubscribeState = (open, context = {}) => {
   window.setTimeout(() => subscribeEmail?.focus(), 220);
 };
 
-const openAccessVision = () => {
-  authStep = hasStudioAccountContext() ? "account" : "email";
-  if (!hasStudioAccountContext() && authNote) {
+const openAccessVision = async ({ forceEmail = false, email = "", autoSend = false } = {}) => {
+  const normalizedEmail = String(email || currentUser.email || "").trim();
+  authStep = forceEmail ? "email" : hasStudioAccountContext() ? "account" : "email";
+  authPendingEmail = "";
+  if (authCode) {
+    authCode.value = "";
+  }
+  if (authEmail && normalizedEmail) {
+    authEmail.value = normalizedEmail;
+  }
+  if (authNote && authStep === "email") {
     authNote.textContent = "Enter your email and Vision will send you a one-time access code to return to your pack from any device.";
   }
   renderAuthState();
   setSubscribeState(false);
   setAuthModalState(true);
+  if (autoSend && normalizedEmail) {
+    await requestAuthCode(normalizedEmail);
+  }
 };
 
 const loadAccessState = async () => {
@@ -1656,6 +1787,9 @@ const verifyAuthCode = async (email, code) => {
       authCode.value = "";
     }
     setAuthModalState(false);
+    if (!isStudioRoute) {
+      await mountStudioInternally();
+    }
   } catch (error) {
     if (authNote) {
       authNote.textContent = error instanceof Error ? error.message : "That access code did not work.";
@@ -1853,14 +1987,14 @@ const confirmCheckoutIfNeeded = async () => {
     }
     renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
     stripUrlParams("checkout", "session_id");
-    return true;
+    return payload;
   } catch (error) {
     stripUrlParams("checkout", "session_id");
     setSubscribeState(true, { reason: "unlock" });
     if (subscribeNote) {
       subscribeNote.textContent = error instanceof Error ? error.message : "Payment confirmation failed.";
     }
-    return false;
+    return null;
   }
 };
 
@@ -2063,7 +2197,7 @@ subscribeForm?.addEventListener("submit", async (event) => {
 });
 
 subscribeReturningLink?.addEventListener("click", () => {
-  openAccessVision();
+  void openAccessVision();
 });
 
 authForm?.addEventListener("submit", async (event) => {
@@ -2222,11 +2356,18 @@ const initializeVision = async () => {
   }
   const unlockedAdmin = await unlockAdminIfNeeded();
   const confirmedCheckout = await confirmCheckoutIfNeeded();
-  await loadAccessState();
   if (confirmedCheckout && !isStudioRoute) {
-    enterStudio({ skipGate: true });
+    const checkoutEmail = String(confirmedCheckout?.user?.email || currentUser.email || "").trim();
+    storeAccessToken("");
+    renderAccessState(defaultAccess, currentPack, { ...defaultUser, email: checkoutEmail }, currentPacks);
+    await openAccessVision({
+      forceEmail: true,
+      email: checkoutEmail,
+      autoSend: Boolean(checkoutEmail),
+    });
     return;
   }
+  await loadAccessState();
   if (isStudioRoute) {
     setSearchState(true);
   }

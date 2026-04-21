@@ -10,7 +10,7 @@
   }
 
   document.documentElement.classList.add("vss-html");
-  document.body.className = "vss-body";
+  document.body.classList.add("vss-body");
 
   const DEFAULT_API_BASE = String(window.VISION_API_BASE || "https://vision-gateway.onrender.com").replace(/\/$/, "");
   const VISION_HISTORY_STORAGE_KEY = "vision_generation_history_v1";
@@ -1357,6 +1357,8 @@
     maybeRestorePendingPrompt();
     syncScene();
     render();
+    window.__visionStudioShellReady = true;
+    window.dispatchEvent(new CustomEvent("vision-studio-shell-ready"));
   };
 
   init();
