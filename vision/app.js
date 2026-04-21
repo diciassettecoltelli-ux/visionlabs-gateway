@@ -30,6 +30,7 @@ const subscribePackGrid = document.querySelector("#subscribe-pack-grid");
 const subscribeSubmit = document.querySelector(".subscribe-submit");
 const subscribeNote = document.querySelector("#subscribe-note");
 const subscribeReturningLink = document.querySelector("#subscribe-returning-link");
+const footerAccessVision = document.querySelector("#footer-access-vision");
 const authModal = document.querySelector("#auth-modal");
 const authClose = document.querySelector(".auth-close");
 const authTitle = document.querySelector("#auth-title");
@@ -2195,6 +2196,10 @@ subscribeForm?.addEventListener("submit", async (event) => {
 });
 
 subscribeReturningLink?.addEventListener("click", () => {
+  void openAccessVision();
+});
+
+footerAccessVision?.addEventListener("click", () => {
   void openAccessVision();
 });
 
