@@ -88,30 +88,17 @@
           </div>
 
           <div class="public-footer__social" aria-label="Vision channels">
-            <a href="https://instagram.com" target="_blank" rel="noreferrer noopener" aria-label="Instagram">
+            <a href="https://www.instagram.com/visionlabstudios_/" target="_blank" rel="noreferrer noopener" aria-label="Instagram">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3.5" y="3.5" width="17" height="17" rx="5"></rect>
                 <circle cx="12" cy="12" r="3.75"></circle>
                 <path d="M17.5 6.5h.01"></path>
               </svg>
             </a>
-            <a href="https://tiktok.com" target="_blank" rel="noreferrer noopener" aria-label="TikTok">
+            <a href="https://www.tiktok.com/@visionlabofficial" target="_blank" rel="noreferrer noopener" aria-label="TikTok">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 4c1 2.1 2.9 3.6 5 3.9"></path>
                 <path d="M9.5 12.5A4.5 4.5 0 1 0 14 17V4"></path>
-              </svg>
-            </a>
-            <a href="https://youtube.com" target="_blank" rel="noreferrer noopener" aria-label="YouTube">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 12s0-3.2-.4-4.7a2.5 2.5 0 0 0-1.7-1.7C18.4 5 12 5 12 5s-6.4 0-7.9.6a2.5 2.5 0 0 0-1.7 1.7C2 8.8 2 12 2 12s0 3.2.4 4.7a2.5 2.5 0 0 0 1.7 1.7C5.6 19 12 19 12 19s6.4 0 7.9-.6a2.5 2.5 0 0 0 1.7-1.7C22 15.2 22 12 22 12Z"></path>
-                <path d="m10 9 5 3-5 3V9Z"></path>
-              </svg>
-            </a>
-            <a href="https://linkedin.com" target="_blank" rel="noreferrer noopener" aria-label="LinkedIn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-12h4v2"></path>
-                <rect x="2" y="9" width="4" height="12"></rect>
-                <circle cx="4" cy="4" r="2"></circle>
               </svg>
             </a>
           </div>
