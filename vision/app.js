@@ -96,7 +96,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "108";
+const STUDIO_SHELL_ASSET_VERSION = "110";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -626,6 +626,42 @@ const hasStudioPackContext = () => !!accessState.admin || !!accessState.access_i
 
 const hasStudioAccountContext = () =>
   !!currentUser.authenticated || !!currentUser.email || hasStudioPackContext();
+
+const syncTopbarCta = () => {
+  if (!topbarCta) {
+    return;
+  }
+
+  if (isStudioRoute) {
+    if (currentUser.email) {
+      topbarCta.textContent = currentUser.email || "My account";
+    } else if (accessState.admin) {
+      topbarCta.textContent = "Studio unlocked";
+    } else if (hasStudioPackContext()) {
+      const counts = getStudioCreditCounts();
+      topbarCta.textContent = `${counts.video} video · ${counts.image} images`;
+    } else {
+      topbarCta.textContent = "Access Vision";
+    }
+    topbarCta.setAttribute("href", VISION_STUDIO_PATH);
+    topbarCta.removeAttribute("data-enter-studio");
+    topbarCta.removeAttribute("aria-current");
+    return;
+  }
+
+  if (hasStudioAccountContext()) {
+    topbarCta.textContent = "Access Vision";
+    topbarCta.setAttribute("href", "/?open=access");
+    topbarCta.removeAttribute("data-enter-studio");
+    topbarCta.removeAttribute("aria-current");
+    return;
+  }
+
+  topbarCta.textContent = "Enter Vision Studio";
+  topbarCta.setAttribute("href", VISION_STUDIO_PATH);
+  topbarCta.setAttribute("data-enter-studio", "");
+  topbarCta.removeAttribute("aria-current");
+};
 
 const getLatestStudioHistoryItem = () => readStudioHistory()[0] || null;
 
@@ -1622,19 +1658,7 @@ const renderAccessState = (access, pack, user, packs) => {
     trigger.textContent = hasStudioPackContext() ? "Buy another pack" : "Unlock Vision";
   });
 
-  if (isStudioRoute && topbarCta) {
-    if (currentUser.email) {
-      topbarCta.textContent = currentUser.email || "My account";
-    } else if (accessState.admin) {
-      topbarCta.textContent = "Studio unlocked";
-    } else if (hasStudioPackContext()) {
-      const counts = getStudioCreditCounts();
-      topbarCta.textContent = `${counts.video} video · ${counts.image} images`;
-    } else {
-      topbarCta.textContent = "Access Vision";
-    }
-  }
-
+  syncTopbarCta();
   renderAuthState();
   renderStudioDashboard();
 };
@@ -1732,6 +1756,34 @@ const loadAccessState = async () => {
     renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
   } catch (error) {
     renderAccessState(defaultAccess, currentPack, defaultUser, currentPacks);
+  }
+};
+
+const maybeOpenPublicIntent = async () => {
+  if (isStudioRoute) {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  const intent = url.searchParams.get("open");
+  if (!intent) {
+    return;
+  }
+
+  url.searchParams.delete("open");
+  const cleanSearch = url.searchParams.toString();
+  const cleanUrl = `${url.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${url.hash}`;
+  window.history.replaceState({}, "", cleanUrl);
+
+  if (intent === "subscribe") {
+    setSubscribeState(true, {
+      reason: accessState.access_id ? "insufficient_credits" : "unlock",
+    });
+    return;
+  }
+
+  if (intent === "access") {
+    await openAccessVision();
   }
 };
 
@@ -2095,6 +2147,14 @@ studioTriggers.forEach((trigger) => {
     if (isStudioRoute && trigger === topbarCta) {
       return;
     }
+    if (trigger === topbarCta && !isStudioRoute && hasStudioAccountContext()) {
+      event.preventDefault();
+      void openAccessVision({
+        forceEmail: Boolean(currentUser.email) && !currentUser.authenticated && !hasStudioPackContext(),
+        email: currentUser.email || "",
+      });
+      return;
+    }
     event.preventDefault();
     enterStudio({
       trigger,
@@ -2350,13 +2410,8 @@ const initializeVision = async () => {
   if (isStudioRoute) {
     mountStudioCompose();
     topNav?.setAttribute("aria-hidden", "true");
-    if (topbarCta) {
-      topbarCta.textContent = "Access Vision";
-      topbarCta.setAttribute("href", "/studio/");
-      topbarCta.removeAttribute("data-enter-studio");
-      topbarCta.removeAttribute("aria-current");
-    }
   }
+  syncTopbarCta();
   const unlockedAdmin = await unlockAdminIfNeeded();
   const confirmedCheckout = await confirmCheckoutIfNeeded();
   if (confirmedCheckout && !isStudioRoute) {
@@ -2371,6 +2426,7 @@ const initializeVision = async () => {
     return;
   }
   await loadAccessState();
+  await maybeOpenPublicIntent();
   if (isStudioRoute) {
     setSearchState(true);
   }

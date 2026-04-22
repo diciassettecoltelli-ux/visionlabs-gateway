@@ -934,12 +934,15 @@
     const pill = getAccountPillState();
     return `
       <header class="vss-header">
-        <div class="vss-brand" aria-label="Vision">
-          <span class="vss-brand-mark" aria-hidden="true"><img class="vss-brand-mark-image" src="/brand-logo.svg?v=2" alt="" /></span>
-          <span class="vss-brand-name">Vision</span>
+        <div class="vss-brand-cluster">
+          <a class="vss-brand" href="/" aria-label="Return to Vision home">
+            <span class="vss-brand-mark" aria-hidden="true"><img class="vss-brand-mark-image" src="/brand-logo.svg?v=2" alt="" /></span>
+            <span class="vss-brand-name">Vision</span>
+          </a>
+          <a class="vss-home-link" href="/">Back home</a>
         </div>
         <div class="vss-domain">visionstudiolab.com</div>
-        <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Access Vision" : "Vision account and credits"}">
+        <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Access Vision" : "Vision account and credits"}" aria-haspopup="dialog" aria-expanded="${state.accountPanelOpen ? "true" : "false"}">
           ${
             pill.variant === "guest"
               ? `<span class="vss-account-guest-copy">
@@ -959,6 +962,7 @@
   const renderCanvasMedia = () => {
     if (state.scene === "result" && getSelectedRecent()) {
       const item = getSelectedRecent();
+      const fullscreenLabel = item.kind === "video" ? "Open full screen" : "Open image";
       const media =
         item.kind === "video"
           ? `<video class="vss-canvas-video" src="${escapeHtml(item.src)}" autoplay muted loop playsinline></video>`
@@ -967,6 +971,10 @@
         <div class="vss-canvas-media">
           ${media}
           <div class="vss-canvas-scrim"></div>
+          <div class="vss-canvas-actions" aria-label="Current result actions">
+            <a class="vss-canvas-action" href="${escapeHtml(item.src)}" target="_blank" rel="noreferrer noopener">${escapeHtml(fullscreenLabel)}</a>
+            <a class="vss-canvas-action" href="${escapeHtml(item.src)}" download="${escapeHtml(buildDownloadFilename(item))}">Download</a>
+          </div>
           <div class="vss-canvas-result-meta">
             <p class="vss-result-label">${item.kind === "video" ? "Latest video" : "Latest image"}</p>
             <h2 class="vss-result-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still"))}</h2>

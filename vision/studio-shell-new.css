@@ -80,12 +80,53 @@ body.vss-body {
   margin-bottom: 60px;
 }
 
+.vss-brand-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  justify-self: start;
+  min-width: 0;
+}
+
 .vss-brand {
   display: inline-flex;
   align-items: center;
   gap: 18px;
-  justify-self: start;
   color: var(--vss-text-primary);
+  text-decoration: none;
+  transition: opacity 220ms ease;
+}
+
+.vss-brand:hover,
+.vss-brand:focus-visible {
+  opacity: 0.92;
+}
+
+.vss-home-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--vss-radius-pill);
+  background: rgba(18, 19, 22, 0.36);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  color: rgba(242, 237, 230, 0.8);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition:
+    background 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease;
+}
+
+.vss-home-link:hover,
+.vss-home-link:focus-visible {
+  border-color: rgba(255, 255, 255, 0.11);
+  background: rgba(24, 25, 29, 0.56);
+  color: rgba(250, 246, 240, 0.96);
 }
 
 .vss-brand-mark {
@@ -125,6 +166,22 @@ body.vss-body {
     inset 0 1px 0 rgba(255, 255, 255, 0.02),
     0 10px 24px rgba(0, 0, 0, 0.12);
   color: var(--vss-text-primary);
+  cursor: pointer;
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.vss-account-pill:hover,
+.vss-account-pill:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(24, 25, 29, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 14px 28px rgba(0, 0, 0, 0.16);
 }
 
 .vss-account-pill.is-guest {
@@ -243,6 +300,51 @@ body.vss-body {
   inset: 0;
   background:
     linear-gradient(180deg, rgba(8, 8, 10, 0.08) 0%, transparent 28%, transparent 62%, rgba(8, 8, 10, 0.44) 100%);
+}
+
+.vss-canvas-actions {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 2;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.vss-canvas-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--vss-radius-pill);
+  background: rgba(14, 15, 18, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 12px 24px rgba(0, 0, 0, 0.16);
+  color: rgba(247, 242, 236, 0.9);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-decoration: none;
+  text-transform: uppercase;
+  backdrop-filter: blur(14px);
+  transition:
+    transform 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease,
+    color 220ms ease;
+}
+
+.vss-canvas-action:hover,
+.vss-canvas-action:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(20, 21, 25, 0.76);
+  color: rgba(252, 248, 242, 0.98);
 }
 
 .vss-canvas-empty,
@@ -939,6 +1041,11 @@ body.vss-body {
     margin-bottom: 28px;
   }
 
+  .vss-brand-cluster {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
   .vss-domain,
   .vss-account-pill {
     justify-self: start;
@@ -952,6 +1059,19 @@ body.vss-body {
     height: clamp(390px, 52vh, 520px);
     min-height: 390px;
     border-radius: 28px;
+  }
+
+  .vss-canvas-actions {
+    top: 16px;
+    right: 16px;
+    gap: 8px;
+    max-width: calc(100% - 32px);
+  }
+
+  .vss-canvas-action {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 0.62rem;
   }
 
   .vss-dock {
