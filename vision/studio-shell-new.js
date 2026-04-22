@@ -298,7 +298,12 @@
   };
 
   const readStudioHistory = () =>
-    readHistoryFromKey(getHistoryStorageKey()).filter((item) => item && item.id && item.src);
+    readHistoryFromKey(getHistoryStorageKey())
+      .filter((item) => item && item.id && item.src)
+      .map((item) => ({
+        ...item,
+        src: visionAssetUrl(item.src),
+      }));
 
   const writeStudioHistory = (items) => {
     writeHistoryToKey(getHistoryStorageKey(), items);
@@ -418,10 +423,11 @@
     if (!job || !job.id || !src) {
       return null;
     }
+    const resolvedSrc = visionAssetUrl(src);
     const item = {
       id: String(job.id),
       type: (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video",
-      src,
+      src: resolvedSrc,
       prompt: String(job.prompt || ""),
       created_at: job.completed_at || job.updated_at || new Date().toISOString(),
     };

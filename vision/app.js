@@ -45,6 +45,7 @@ const authNote = document.querySelector("#auth-note");
 const authAccount = document.querySelector("#auth-account");
 const authAccountEmail = document.querySelector("#auth-account-email");
 const authAccountCredits = document.querySelector("#auth-account-credits");
+const authEnterStudio = document.querySelector("#auth-enter-studio");
 const authBuyPack = document.querySelector("#auth-buy-pack");
 const authLogout = document.querySelector("#auth-logout");
 const generationModal = document.querySelector("#generation-modal");
@@ -96,7 +97,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "110";
+const STUDIO_SHELL_ASSET_VERSION = "111";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -533,7 +534,14 @@ const readStudioHistory = () => {
       return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed
+          .filter((entry) => entry && entry.id && entry.src)
+          .map((entry) => ({
+            ...entry,
+            src: visionAssetUrl(entry.src),
+          }))
+      : [];
   } catch (error) {
     return [];
   }
@@ -568,10 +576,11 @@ const saveStudioHistoryItem = (job, src) => {
     return;
   }
   const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
+  const resolvedSrc = visionAssetUrl(src);
   const item = {
     id: String(job.id),
     type: outputType,
-    src,
+    src: resolvedSrc,
     prompt: String(job.prompt || "").trim(),
     created_at: job.completed_at || job.updated_at || new Date().toISOString(),
   };
@@ -650,8 +659,8 @@ const syncTopbarCta = () => {
   }
 
   if (hasStudioAccountContext()) {
-    topbarCta.textContent = "Access Vision";
-    topbarCta.setAttribute("href", "/?open=access");
+    topbarCta.textContent = "Return to Studio";
+    topbarCta.setAttribute("href", VISION_STUDIO_PATH);
     topbarCta.removeAttribute("data-enter-studio");
     topbarCta.removeAttribute("aria-current");
     return;
@@ -1599,6 +1608,9 @@ const renderAuthState = () => {
       authAccountCredits.textContent = "No active pack yet.";
     }
   }
+  if (authEnterStudio) {
+    authEnterStudio.hidden = !showAccount;
+  }
   if (authBuyPack) {
     if (accessState.admin) {
       authBuyPack.hidden = true;
@@ -2148,11 +2160,6 @@ studioTriggers.forEach((trigger) => {
       return;
     }
     if (trigger === topbarCta && !isStudioRoute && hasStudioAccountContext()) {
-      event.preventDefault();
-      void openAccessVision({
-        forceEmail: Boolean(currentUser.email) && !currentUser.authenticated && !hasStudioPackContext(),
-        email: currentUser.email || "",
-      });
       return;
     }
     event.preventDefault();
@@ -2303,6 +2310,14 @@ authBuyPack?.addEventListener("click", () => {
   setSubscribeState(true, {
     reason: accessState.access_id ? "insufficient_credits" : "unlock",
   });
+});
+
+authEnterStudio?.addEventListener("click", () => {
+  setAuthModalState(false);
+  if (isStudioRoute) {
+    return;
+  }
+  window.location.assign(VISION_STUDIO_PATH);
 });
 
 studioAccountButton?.addEventListener("click", () => {

@@ -740,7 +740,8 @@
           <div class="auth-account-kicker">Vision account</div>
           <div class="auth-account-line auth-account-line--email" id="auth-account-email">Vision account</div>
           <div class="auth-account-line auth-account-line--credits" id="auth-account-credits">0 videos · 0 images</div>
-          <button class="auth-submit auth-submit--full" id="auth-buy-pack" type="button">Buy a Vision pack</button>
+          <button class="auth-submit auth-submit--full" id="auth-enter-studio" type="button">Enter Studio</button>
+          <button class="auth-secondary auth-secondary--full" id="auth-buy-pack" type="button">Buy a Vision pack</button>
           <button class="auth-secondary auth-secondary--full" id="auth-logout" type="button">Log out</button>
         </div>
       </div>
@@ -845,15 +846,15 @@
           if (studioRoot) {
             studioRoot.hidden = false;
           }
-          appendStylesheet("/studio-shell-new.css?v=108");
-          appendScript("/studio-shell-new.js?v=108");
+          appendStylesheet("/studio-shell-new.css?v=111");
+          appendScript("/studio-shell-new.js?v=111");
           return;
         }
 
         appendScript("/public-footer.js?v=6")
           .then(() => appendScript("/vision-config.js?v=40"))
           .catch(() => null)
-          .then(() => appendScript("/app.js?v=42"))
+          .then(() => appendScript("/app.js?v=43"))
           .catch((error) => {
             console.error("Vision bootstrap failed", error);
           });
