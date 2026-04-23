@@ -846,15 +846,15 @@
           if (studioRoot) {
             studioRoot.hidden = false;
           }
-          appendStylesheet("/studio-shell-new.css?v=119");
-          appendScript("/studio-shell-new.js?v=119");
+          appendStylesheet("/studio-shell-new.css?v=120");
+          appendScript("/studio-shell-new.js?v=120");
           return;
         }
 
         appendScript("/public-footer.js?v=6")
           .then(() => appendScript("/vision-config.js?v=40"))
           .catch(() => null)
-          .then(() => appendScript("/app.js?v=51"))
+          .then(() => appendScript("/app.js?v=52"))
           .catch((error) => {
             console.error("Vision bootstrap failed", error);
           });

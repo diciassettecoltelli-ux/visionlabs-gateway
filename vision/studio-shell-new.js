@@ -1597,6 +1597,14 @@
           </svg>
         </button>
       </form>
+      <div class="vss-mode-row vss-mode-row--elevated">
+        <div class="vss-mode-switch" role="tablist" aria-label="Mode switch">
+          <button type="button" data-mode="video" class="${state.mode === "video" ? "is-active" : ""}">Video</button>
+          <button type="button" data-mode="image" class="${state.mode === "image" ? "is-active" : ""}">Image</button>
+        </div>
+        <span class="vss-mode-separator" aria-hidden="true"></span>
+        <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
+      </div>
       ${
         state.referenceAsset
           ? `<div class="vss-reference-row">
@@ -1617,14 +1625,6 @@
           <button class="vss-improve${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${
             state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
           } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
-        </div>
-        <div class="vss-mode-row">
-          <div class="vss-mode-switch" role="tablist" aria-label="Mode switch">
-            <button type="button" data-mode="video" class="${state.mode === "video" ? "is-active" : ""}">Video</button>
-            <button type="button" data-mode="image" class="${state.mode === "image" ? "is-active" : ""}">Image</button>
-          </div>
-          <span class="vss-mode-separator" aria-hidden="true"></span>
-          <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
         </div>
       </div>
     </div>
