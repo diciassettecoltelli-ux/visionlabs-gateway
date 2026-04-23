@@ -239,6 +239,8 @@
         assetUrl: resolvedAssetUrl,
         checkedAt: Date.now(),
       };
+      reconcileSelectedRecent();
+      syncScene();
       render();
       return {
         assetPath: asset.assetPath,
@@ -426,6 +428,50 @@
     }
   };
 
+  const normalizeStoredHistoryItem = (item) => {
+    if (!item || !item.id) {
+      return null;
+    }
+    const normalizedSrc = normalizeGeneratedAssetPath(item.src);
+    if (!normalizedSrc) {
+      return null;
+    }
+    return {
+      ...item,
+      id: String(item.id),
+      type: item.type === "image" ? "image" : "video",
+      src: normalizedSrc,
+      prompt: String(item.prompt || ""),
+      created_at: item.created_at || "",
+    };
+  };
+
+  const sanitizeHistoryItems = (items) => {
+    const sanitized = [];
+    let dirty = false;
+    (Array.isArray(items) ? items : []).forEach((item) => {
+      const normalized = normalizeStoredHistoryItem(item);
+      if (!normalized) {
+        dirty = true;
+        return;
+      }
+      if (
+        String(item.id || "") !== normalized.id ||
+        String(item.src || "") !== normalized.src ||
+        String(item.prompt || "") !== normalized.prompt ||
+        (item.type === "image" ? "image" : "video") !== normalized.type ||
+        String(item.created_at || "") !== normalized.created_at
+      ) {
+        dirty = true;
+      }
+      sanitized.push(normalized);
+    });
+    return {
+      items: sanitized,
+      dirty,
+    };
+  };
+
   const writeHistoryToKey = (key, items) => {
     try {
       window.localStorage.setItem(key, JSON.stringify(items));
@@ -434,16 +480,18 @@
     }
   };
 
-  const readStudioHistory = () =>
-    readHistoryFromKey(getHistoryStorageKey())
-      .filter((item) => item && item.id && item.src)
-      .map((item) => ({
-        ...item,
-        src: visionAssetUrl(item.src),
-      }));
+  const readStudioHistory = (options) => {
+    const opts = options || {};
+    const key = getHistoryStorageKey();
+    const sanitized = sanitizeHistoryItems(readHistoryFromKey(key));
+    if (opts.writeBack && sanitized.dirty) {
+      writeHistoryToKey(key, sanitized.items);
+    }
+    return sanitized.items;
+  };
 
   const writeStudioHistory = (items) => {
-    writeHistoryToKey(getHistoryStorageKey(), items);
+    writeHistoryToKey(getHistoryStorageKey(), sanitizeHistoryItems(items).items);
   };
 
   const maybePromoteGuestHistory = () => {
@@ -537,7 +585,7 @@
 
   const syncRecents = () => {
     maybePromoteGuestHistory();
-    state.recents = readStudioHistory()
+    state.recents = readStudioHistory({ writeBack: true })
       .slice(0, 12)
       .map((item) => ({
         id: String(item.id),
@@ -557,20 +605,35 @@
       verifyAssetAvailability(asset.assetPath);
     });
 
-    if (state.selectedId && state.recents.some((item) => item.id === state.selectedId)) {
-      return;
+    if (!state.selectedId || !state.recents.some((item) => item.id === state.selectedId)) {
+      state.selectedId = state.recents[0] ? state.recents[0].id : "";
     }
-
-    state.selectedId = state.recents[0] ? state.recents[0].id : "";
+    reconcileSelectedRecent();
   };
 
   const getSelectedRecent = () => state.recents.find((item) => item.id === state.selectedId) || null;
+
+  const reconcileSelectedRecent = () => {
+    const selected = getSelectedRecent();
+    const selectedAsset = selected ? getAssetAvailability(selected.src) : null;
+    if (selected && selectedAsset && selectedAsset.available) {
+      return false;
+    }
+    const fallback = state.recents.find((item) => getAssetAvailability(item.src).available) || null;
+    const nextSelectedId = fallback ? fallback.id : "";
+    const changed = nextSelectedId !== state.selectedId;
+    state.selectedId = nextSelectedId;
+    return changed;
+  };
 
   const saveHistoryItem = (job, src) => {
     if (!job || !job.id || !src) {
       return null;
     }
-    const resolvedSrc = visionAssetUrl(src);
+    const resolvedSrc = normalizeGeneratedAssetPath(src);
+    if (!resolvedSrc) {
+      return null;
+    }
     const item = {
       id: String(job.id),
       type: (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video",
@@ -1337,7 +1400,7 @@
                         : `<div class="vss-recent-missing">${assetMissing ? "Source unavailable" : "Checking source..."}</div>`;
                     return `
                       <article class="vss-recent-card${isSelected ? " is-selected" : ""}">
-                        <button class="vss-recent-select" type="button" data-recent-id="${escapeHtml(item.id)}">
+                        <button class="vss-recent-select" type="button" data-recent-id="${escapeHtml(item.id)}" ${hasAsset ? "" : "disabled aria-disabled=\"true\""}>
                           <div class="vss-recent-thumb">
                             ${media}
                             <span class="vss-recent-duration">${item.kind === "video" ? "Video" : "Image"}</span>
@@ -1523,7 +1586,13 @@
 
     root.querySelectorAll("[data-recent-id]").forEach((button) => {
       button.addEventListener("click", () => {
-        state.selectedId = button.getAttribute("data-recent-id") || "";
+        const nextId = button.getAttribute("data-recent-id") || "";
+        const nextItem = state.recents.find((item) => item.id === nextId) || null;
+        const nextAsset = nextItem ? getAssetAvailability(nextItem.src) : null;
+        if (!nextAsset || !nextAsset.available) {
+          return;
+        }
+        state.selectedId = nextId;
         state.menuOpenFor = "";
         state.currentError = "";
         syncScene();
