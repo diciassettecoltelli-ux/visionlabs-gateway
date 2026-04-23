@@ -88,13 +88,17 @@
     improveLoading: false,
     checkoutLoading: false,
     menuOpenFor: "",
+    menuAnchor: null,
     assetStatusByPath: {},
+    selectionSource: "auto",
+    recentValidationPending: false,
     viewer: { ...defaultViewer },
   };
 
   let pollHandle = null;
   let pendingPollJobId = "";
   const pendingAssetChecks = new Map();
+  let recentsValidationToken = 0;
 
   const escapeHtml = (value) =>
     String(value ?? "")
@@ -188,6 +192,8 @@
     };
   };
 
+  const isAssetPending = (asset) => !!asset && (asset.state === "unknown" || asset.state === "checking");
+
   const verifyAssetAvailability = async (path, options) => {
     const opts = options || {};
     const asset = getAssetAvailability(path);
@@ -249,6 +255,7 @@
         assetUrl: resolvedAssetUrl,
         checkedAt: Date.now(),
       };
+      refreshRecentValidationState();
       reconcileSelectedRecent();
       syncScene();
       render();
@@ -391,6 +398,7 @@
     if (!asset.available || !asset.assetUrl) {
       return;
     }
+    clearRecentMenu();
     state.viewer = {
       open: true,
       kind: item.kind === "video" ? "video" : "image",
@@ -407,6 +415,7 @@
     if (!asset.assetPath) {
       return;
     }
+    clearRecentMenu();
     state.assetStatusByPath[asset.assetPath] = {
       state: "missing",
       assetUrl: asset.assetUrl,
@@ -739,12 +748,25 @@
 
   const getRecentById = (id) => state.recents.find((item) => item.id === String(id || "")) || null;
 
-  const setSelectedRecent = (item) => {
+  const clearRecentMenu = () => {
+    state.menuOpenFor = "";
+    state.menuAnchor = null;
+  };
+
+  const getLatestAvailableRecent = () => state.recents.find((item) => getAssetAvailability(item.src).available) || null;
+
+  const refreshRecentValidationState = () => {
+    state.recentValidationPending = state.recents.some((item) => isAssetPending(getAssetAvailability(item.src)));
+    return state.recentValidationPending;
+  };
+
+  const setSelectedRecent = (item, options) => {
     if (!item) {
       return false;
     }
     state.selectedId = item.id;
-    state.menuOpenFor = "";
+    state.selectionSource = options && options.source === "manual" ? "manual" : "auto";
+    clearRecentMenu();
     state.currentError = "";
     syncScene();
     return true;
@@ -756,7 +778,7 @@
     if (!item || !asset || !asset.available) {
       return false;
     }
-    setSelectedRecent(item);
+    setSelectedRecent(item, { source: "manual" });
     if (options && options.openViewer) {
       openViewerForItem(item);
       return true;
@@ -766,6 +788,7 @@
   };
 
   const syncRecents = () => {
+    recentsValidationToken += 1;
     maybePromoteGuestHistory();
     state.recents = readStudioHistory({ writeBack: true })
       .slice(0, 12)
@@ -776,36 +799,69 @@
         prompt: String(item.prompt || ""),
         createdAt: item.created_at || "",
       }));
-
-    const assetPaths = new Set();
-    state.recents.forEach((item) => {
-      const asset = getAssetAvailability(item.src);
-      if (!asset.assetPath || assetPaths.has(asset.assetPath)) {
-        return;
-      }
-      assetPaths.add(asset.assetPath);
-      verifyAssetAvailability(asset.assetPath);
-    });
-
     if (!state.selectedId || !state.recents.some((item) => item.id === state.selectedId)) {
-      state.selectedId = state.recents[0] ? state.recents[0].id : "";
+      state.selectedId = "";
+      state.selectionSource = "auto";
     }
+    refreshRecentValidationState();
     reconcileSelectedRecent();
+    verifyRecents();
   };
 
   const getSelectedRecent = () => state.recents.find((item) => item.id === state.selectedId) || null;
 
-  const reconcileSelectedRecent = () => {
+  const reconcileSelectedRecent = (options) => {
+    const opts = options || {};
     const selected = getSelectedRecent();
     const selectedAsset = selected ? getAssetAvailability(selected.src) : null;
-    if (selected && selectedAsset && selectedAsset.available) {
+    const selectedAvailable = !!(selected && selectedAsset && selectedAsset.available);
+    if (state.selectionSource === "manual" && selectedAvailable && !opts.forceLatest) {
       return false;
     }
-    const fallback = state.recents.find((item) => getAssetAvailability(item.src).available) || null;
+    const fallback = getLatestAvailableRecent();
     const nextSelectedId = fallback ? fallback.id : "";
-    const changed = nextSelectedId !== state.selectedId;
+    const changed = nextSelectedId !== state.selectedId || state.selectionSource !== "auto";
     state.selectedId = nextSelectedId;
+    state.selectionSource = "auto";
     return changed;
+  };
+
+  const verifyRecents = async () => {
+    const token = ++recentsValidationToken;
+    const assetPaths = [];
+    const seen = new Set();
+
+    state.recents.forEach((item) => {
+      const asset = getAssetAvailability(item.src);
+      if (!asset.assetPath || seen.has(asset.assetPath)) {
+        return;
+      }
+      seen.add(asset.assetPath);
+      assetPaths.push(asset.assetPath);
+    });
+
+    refreshRecentValidationState();
+    syncScene();
+    render();
+
+    for (const assetPath of assetPaths) {
+      if (token !== recentsValidationToken) {
+        return;
+      }
+      await verifyAssetAvailability(assetPath, { force: isAssetPending(getAssetAvailability(assetPath)) });
+      if (token !== recentsValidationToken) {
+        return;
+      }
+      refreshRecentValidationState();
+    }
+
+    if (token !== recentsValidationToken) {
+      return;
+    }
+    refreshRecentValidationState();
+    reconcileSelectedRecent();
+    syncScene();
+    render();
   };
 
   const saveHistoryItem = (job, src) => {
@@ -828,6 +884,7 @@
     writeStudioHistory(items.slice(0, 16));
     syncRecents();
     state.selectedId = item.id;
+    state.selectionSource = "auto";
     return item;
   };
 
@@ -956,6 +1013,10 @@
     }
     if (getSelectedRecent()) {
       state.scene = "result";
+      return;
+    }
+    if (state.recents.length && state.recentValidationPending) {
+      state.scene = "resolving";
       return;
     }
     state.scene = "idle";
@@ -1380,6 +1441,10 @@
       const assetMissing = asset.state === "missing" || asset.state === "invalid";
       const openLabel = item.kind === "video" ? "Open video" : "Open image";
       const downloadLabel = assetMissing ? "Download unavailable" : "Download";
+      const resultLabel =
+        state.selectionSource === "manual"
+          ? (item.kind === "video" ? "Selected video" : "Selected image")
+          : (item.kind === "video" ? "Latest video" : "Latest image");
       const media =
         hasAsset
           ? `<button class="vss-canvas-preview" type="button" data-open-current-preview="${escapeHtml(item.id)}" aria-label="${escapeHtml(openLabel)}">
@@ -1404,12 +1469,12 @@
           </div>
           <div class="vss-canvas-result-meta">
             <p class="vss-result-label">${
-              hasAsset ? (item.kind === "video" ? "Latest video" : "Latest image") : (assetMissing ? "Source unavailable" : "Checking source")
+              hasAsset ? resultLabel : (assetMissing ? "Source unavailable" : "Checking source")
             }</p>
             <h2 class="vss-result-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still", 52))}</h2>
             <p class="vss-result-caption">${escapeHtml(
               hasAsset
-                ? summarizeDescription(item.prompt, "Generated inside Vision.", 92)
+                ? summarizeDescription(item.prompt, "Generated inside Vision.", 74)
                 : assetMissing
                   ? "This source is no longer available. Delete it or choose a newer recent."
                   : "Vision is verifying the generated source before enabling open and download.",
@@ -1477,6 +1542,21 @@
       `;
     }
 
+    if (state.recents.length && !getSelectedRecent()) {
+      return `
+        <div class="vss-canvas-empty vss-canvas-empty--status">
+          <div class="vss-canvas-empty-copy">
+            <div class="vss-canvas-empty-label">${state.recentValidationPending ? "Checking recent outputs" : "No available outputs"}</div>
+            <p class="vss-empty-note">${
+              state.recentValidationPending
+                ? "Vision is verifying your latest media and will promote the newest valid result automatically."
+                : "Only unavailable sources are left in recents. Dismiss them from the rail or generate something new."
+            }</p>
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div class="vss-canvas-empty">
         <div class="vss-canvas-empty-copy">
@@ -1500,7 +1580,9 @@
     <div class="vss-dock">
       <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" />
       <form class="vss-prompt-bar" id="vss-prompt-form">
-        <button class="vss-add-ref" type="button" aria-label="Upload image or short video reference" title="Add image or short video reference">+</button>
+        <button class="vss-add-ref" type="button" aria-label="Upload image or short video reference" title="Add image or short video reference">
+          <span class="vss-add-ref-symbol" aria-hidden="true">+</span>
+        </button>
         <input
           class="vss-prompt-input"
           id="vss-prompt-input"
@@ -1525,7 +1607,7 @@
               </span>
               <button class="vss-reference-clear" id="vss-reference-clear" type="button">Remove</button>
             </div>`
-          : ""
+          : `<p class="vss-reference-hint">Use + to add an image or short video reference.</p>`
       }
       <div class="vss-dock-footer">
         <div class="vss-improve-row" id="vss-improve-row" ${
@@ -1568,11 +1650,11 @@
             <div>
               <div class="vss-viewer-kicker">Studio / Viewer</div>
               <h2 class="vss-viewer-title" id="vss-viewer-title">${escapeHtml(viewerTitle)}</h2>
-              <p class="vss-viewer-caption">${escapeHtml(state.viewer.caption || "Generated inside Vision.")}</p>
+              <p class="vss-viewer-caption">${escapeHtml(summarizeDescription(state.viewer.caption || "", "Generated inside Vision.", 92))}</p>
             </div>
             <div class="vss-viewer-actions">
-              <button class="vss-viewer-action" type="button" data-viewer-download>Download</button>
-              <a class="vss-viewer-link" href="${escapeHtml(state.viewer.assetUrl)}" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+              <button class="vss-viewer-action is-primary" type="button" data-viewer-download>Download</button>
+              <a class="vss-viewer-link is-secondary" href="${escapeHtml(state.viewer.assetUrl)}" target="_blank" rel="noopener noreferrer">Open in new tab</a>
             </div>
           </div>
         </div>
@@ -1580,14 +1662,22 @@
     `;
   };
 
-  const renderRecentMenu = (item) => {
-    const isOpen = state.menuOpenFor === item.id;
-    if (!isOpen) {
+  const getMenuAnchorStyle = () => {
+    if (!state.menuAnchor) {
+      return "";
+    }
+    return `style="top:${Math.round(state.menuAnchor.top)}px; left:${Math.round(state.menuAnchor.left)}px; width:${Math.round(state.menuAnchor.width || 216)}px;"`;
+  };
+
+  const renderRecentMenu = () => {
+    const item = getRecentById(state.menuOpenFor);
+    if (!item || !state.menuAnchor) {
       return "";
     }
     const asset = getAssetAvailability(item.src);
     return `
-      <div class="vss-recent-popover" data-menu-panel="${escapeHtml(item.id)}">
+      <button class="vss-menu-layer" id="vss-menu-layer" type="button" aria-label="Close recent actions"></button>
+      <div class="vss-recent-popover is-floating" data-menu-panel="${escapeHtml(item.id)}" role="menu" ${getMenuAnchorStyle()}>
         ${
           asset.available
             ? `<button class="vss-recent-popover-action" type="button" data-open-id="${escapeHtml(item.id)}">Open</button>`
@@ -1651,11 +1741,10 @@
                             </div>
                             <div class="vss-recent-toolbar">
                               ${assetMissing ? `<button class="vss-recent-dismiss" type="button" data-delete-id="${escapeHtml(item.id)}">Dismiss</button>` : ""}
-                              <button class="vss-recent-menu-button" type="button" data-menu-id="${escapeHtml(item.id)}" aria-label="More actions">•••</button>
+                              <button class="vss-recent-menu-button" type="button" data-menu-id="${escapeHtml(item.id)}" aria-label="More actions" aria-haspopup="menu" aria-expanded="${state.menuOpenFor === item.id ? "true" : "false"}">•••</button>
                             </div>
                           </div>
                         </div>
-                        ${renderRecentMenu(item)}
                       </article>
                     `;
                   })
@@ -1753,6 +1842,7 @@
             ${renderCanvas()}
             ${renderRecents()}
           </main>
+          ${renderRecentMenu()}
           ${renderViewer()}
           ${renderAccountPanel()}
         </div>
@@ -1769,6 +1859,7 @@
     const referenceInput = root.querySelector("#vss-reference-input");
     const addReferenceButton = root.querySelector(".vss-add-ref");
     const clearReferenceButton = root.querySelector("#vss-reference-clear");
+    const recentsList = root.querySelector(".vss-recent-list");
 
     const syncImproveButton = () => {
       if (!improveButton) {
@@ -1870,7 +1961,21 @@
         event.preventDefault();
         event.stopPropagation();
         const menuId = button.getAttribute("data-menu-id") || "";
-        state.menuOpenFor = state.menuOpenFor === menuId ? "" : menuId;
+        if (state.menuOpenFor === menuId) {
+          clearRecentMenu();
+          render();
+          return;
+        }
+        const rect = button.getBoundingClientRect();
+        const menuWidth = 216;
+        const menuHeight = 170;
+        const opensUp = rect.bottom + menuHeight + 14 > window.innerHeight;
+        state.menuOpenFor = menuId;
+        state.menuAnchor = {
+          width: menuWidth,
+          top: opensUp ? Math.max(16, rect.top - menuHeight - 10) : Math.min(window.innerHeight - menuHeight - 16, rect.bottom + 10),
+          left: Math.min(window.innerWidth - menuWidth - 16, Math.max(16, rect.right - menuWidth)),
+        };
         render();
       });
     });
@@ -1900,13 +2005,31 @@
         event.preventDefault();
         event.stopPropagation();
         const deleteId = button.getAttribute("data-delete-id") || "";
-        state.menuOpenFor = "";
+        clearRecentMenu();
         deleteHistoryItem(deleteId);
         render();
       });
     });
 
+    root.querySelector("#vss-menu-layer")?.addEventListener("click", () => {
+      clearRecentMenu();
+      render();
+    });
+
+    recentsList?.addEventListener(
+      "scroll",
+      () => {
+        if (!state.menuOpenFor) {
+          return;
+        }
+        clearRecentMenu();
+        render();
+      },
+      { passive: true },
+    );
+
     root.querySelector("#vss-account-pill")?.addEventListener("click", () => {
+      clearRecentMenu();
       state.accountPanelOpen = !state.accountPanelOpen;
       if (state.accountPanelOpen) {
         state.authStep = hasAccountContext() ? "account" : "email";
@@ -1973,10 +2096,24 @@
       closeViewer();
       return;
     }
+    if (state.menuOpenFor) {
+      event.preventDefault();
+      clearRecentMenu();
+      render();
+      return;
+    }
     if (state.accountPanelOpen) {
       state.accountPanelOpen = false;
       render();
     }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!state.menuOpenFor) {
+      return;
+    }
+    clearRecentMenu();
+    render();
   });
 
   const init = async () => {

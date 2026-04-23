@@ -153,11 +153,11 @@ body.vss-viewer-open {
   display: inline-flex;
   align-items: center;
   gap: 14px;
-  min-height: 52px;
-  padding: 8px 14px 8px 8px;
-  border: 1px solid var(--vss-border);
+  min-height: 56px;
+  padding: 8px 16px 8px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
   border-radius: var(--vss-radius-pill);
-  background: rgba(18, 19, 22, 0.44);
+  background: rgba(18, 19, 22, 0.74);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.02),
     0 10px 24px rgba(0, 0, 0, 0.12);
@@ -173,8 +173,8 @@ body.vss-viewer-open {
 .vss-account-pill:hover,
 .vss-account-pill:focus-visible {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(24, 25, 29, 0.62);
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(24, 25, 29, 0.9);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 14px 28px rgba(0, 0, 0, 0.16);
@@ -190,32 +190,33 @@ body.vss-viewer-open {
   min-width: 0;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 3px;
 }
 
 .vss-account-label {
-  max-width: 180px;
+  max-width: 220px;
   overflow: hidden;
   color: rgba(244, 241, 235, 0.92);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
+  font-weight: 600;
   letter-spacing: 0.03em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .vss-account-note {
-  color: rgba(214, 207, 199, 0.62);
-  font-size: 0.74rem;
+  color: rgba(225, 218, 210, 0.76);
+  font-size: 0.76rem;
   letter-spacing: 0.04em;
 }
 
 .vss-account-avatar {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(255, 255, 255, 0.07);
   color: rgba(244, 241, 235, 0.92);
   font-weight: 600;
 }
@@ -337,7 +338,7 @@ body.vss-viewer-open {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(8, 8, 10, 0.06) 0%, transparent 30%, transparent 58%, rgba(8, 8, 10, 0.56) 100%);
+    linear-gradient(180deg, rgba(8, 8, 10, 0.04) 0%, transparent 26%, transparent 48%, rgba(8, 8, 10, 0.34) 72%, rgba(8, 8, 10, 0.82) 100%);
   pointer-events: none;
 }
 
@@ -397,7 +398,9 @@ body.vss-viewer-open {
 }
 
 .vss-canvas-action[disabled] {
-  opacity: 0.42;
+  opacity: 0.38;
+  background: rgba(12, 13, 16, 0.78);
+  color: rgba(208, 201, 193, 0.42);
   cursor: default;
   pointer-events: none;
 }
@@ -422,6 +425,10 @@ body.vss-viewer-open {
   gap: 20px;
 }
 
+.vss-canvas-empty--status .vss-canvas-empty-copy {
+  max-width: 440px;
+}
+
 .vss-canvas-empty-label {
   text-transform: uppercase;
   letter-spacing: 0.36em;
@@ -435,6 +442,13 @@ body.vss-viewer-open {
   height: 42px;
   background: rgba(255, 255, 255, 0.38);
   animation: vss-blink 1.15s step-end infinite;
+}
+
+.vss-empty-note {
+  margin: 0;
+  color: rgba(229, 222, 214, 0.62);
+  font-size: 0.94rem;
+  line-height: 1.6;
 }
 
 .vss-canvas-loading {
@@ -539,7 +553,7 @@ body.vss-viewer-open {
   justify-items: start;
   text-align: left;
   background:
-    linear-gradient(180deg, transparent 56%, rgba(8, 8, 10, 0.3) 76%, rgba(8, 8, 10, 0.72) 100%);
+    linear-gradient(180deg, transparent 54%, rgba(8, 8, 10, 0.16) 70%, rgba(8, 8, 10, 0.82) 100%);
   pointer-events: none;
 }
 
@@ -553,19 +567,35 @@ body.vss-viewer-open {
 
 .vss-result-title {
   margin: 10px 0 6px;
-  max-width: 24ch;
-  font-size: 1.52rem;
-  line-height: 1.08;
-  font-weight: 500;
+  max-width: 20ch;
+  font-size: 1.74rem;
+  line-height: 1.02;
+  font-weight: 540;
   color: var(--vss-text-primary);
 }
 
 .vss-result-caption {
   margin: 0;
-  max-width: 44ch;
-  color: rgba(235, 229, 220, 0.64);
-  font-size: 0.9rem;
-  line-height: 1.44;
+  max-width: 36ch;
+  color: rgba(235, 229, 220, 0.68);
+  font-size: 0.88rem;
+  line-height: 1.48;
+}
+
+.vss-canvas-missing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  box-sizing: border-box;
+  color: rgba(240, 209, 209, 0.82);
+  font-size: 0.96rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(92, 54, 54, 0.1), transparent 38%),
+    linear-gradient(180deg, rgba(15, 16, 19, 0.92), rgba(10, 11, 14, 0.98));
 }
 
 .vss-canvas-reference-meta {
@@ -582,7 +612,7 @@ body.vss-viewer-open {
   display: grid;
   place-items: center;
   padding: 28px;
-  background: rgba(7, 8, 10, 0.84);
+  background: rgba(5, 6, 8, 0.92);
   backdrop-filter: blur(18px);
 }
 
@@ -614,7 +644,7 @@ body.vss-viewer-open {
   padding: 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--vss-radius-pill);
-  background: rgba(10, 11, 14, 0.74);
+  background: rgba(10, 11, 14, 0.9);
   color: rgba(247, 242, 236, 0.88);
   font: inherit;
   font-size: 0.68rem;
@@ -627,7 +657,7 @@ body.vss-viewer-open {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: min(68vh, 760px);
+  min-height: min(70vh, 760px);
   max-height: calc(100vh - 220px);
   padding: 24px;
   border-radius: 28px;
@@ -706,6 +736,22 @@ body.vss-viewer-open {
     color 220ms ease;
 }
 
+.vss-viewer-action.is-primary {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, #f6f1ea, #ddd5ca);
+  color: #17181b;
+}
+
+.vss-viewer-link.is-secondary {
+  background: rgba(15, 16, 19, 0.72);
+}
+
+.vss-viewer-action.is-primary:hover,
+.vss-viewer-action.is-primary:focus-visible {
+  background: linear-gradient(180deg, #fbf7f0, #e7ded2);
+  color: #17181b;
+}
+
 .vss-viewer-action:hover,
 .vss-viewer-action:focus-visible,
 .vss-viewer-link:hover,
@@ -736,14 +782,14 @@ body.vss-viewer-open {
   position: absolute;
   top: 94px;
   right: 56px;
-  width: min(420px, calc(100vw - 56px));
+  width: min(438px, calc(100vw - 56px));
   display: grid;
   gap: 18px;
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.075);
   border-radius: 28px;
   background:
-    linear-gradient(180deg, rgba(24, 25, 29, 0.98), rgba(16, 17, 20, 0.99));
+    linear-gradient(180deg, rgba(24, 25, 29, 0.99), rgba(16, 17, 20, 1));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.02),
     0 24px 60px rgba(0, 0, 0, 0.3);
@@ -809,6 +855,13 @@ body.vss-viewer-open {
 .vss-access-form {
   display: grid;
   gap: 16px;
+}
+
+.vss-account-summary {
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.016);
+  border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .vss-account-summary-head {
@@ -952,6 +1005,15 @@ body.vss-viewer-open {
   gap: 12px;
 }
 
+.vss-reference-hint {
+  width: 100%;
+  margin: 0;
+  color: rgba(214, 207, 199, 0.46);
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-align: left;
+}
+
 .vss-reference-chip {
   display: inline-flex;
   align-items: center;
@@ -1021,17 +1083,25 @@ body.vss-viewer-open {
   height: 48px;
   justify-self: center;
   border-radius: 999px;
-  color: rgba(240, 234, 226, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.028);
+  color: rgba(245, 239, 232, 0.84);
   font-size: 1.38rem;
-  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease, border-color 180ms ease;
 }
 
 .vss-add-ref:hover,
 .vss-add-ref:focus-visible {
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(250, 246, 240, 0.94);
   transform: translateY(-1px);
   outline: none;
+}
+
+.vss-add-ref-symbol {
+  display: block;
+  transform: translateY(-1px);
 }
 
 .vss-prompt-input {
@@ -1046,7 +1116,7 @@ body.vss-viewer-open {
 }
 
 .vss-prompt-input::placeholder {
-  color: rgba(227, 221, 213, 0.42);
+  color: rgba(227, 221, 213, 0.56);
 }
 
 .vss-submit {
@@ -1107,20 +1177,24 @@ body.vss-viewer-open {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  border-radius: 20px;
+  background: rgba(15, 16, 19, 0.48);
 }
 
 .vss-improve-note {
-  color: rgba(214, 207, 199, 0.54);
-  font-size: 0.76rem;
+  color: rgba(228, 221, 213, 0.7);
+  font-size: 0.78rem;
   letter-spacing: 0.08em;
 }
 
 .vss-improve {
-  min-height: 38px;
-  padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
   border-radius: var(--vss-radius-pill);
-  background: rgba(20, 21, 25, 0.78);
+  background: rgba(20, 21, 25, 0.92);
   color: rgba(248, 244, 238, 0.9);
   font-family: inherit;
   font-size: 0.68rem;
@@ -1220,10 +1294,11 @@ body.vss-viewer-open {
 .vss-recent-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 8px;
+  padding-right: 12px;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
@@ -1241,24 +1316,36 @@ body.vss-viewer-open {
   position: relative;
   display: grid;
   gap: 10px;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.028);
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.015);
   color: inherit;
   text-align: left;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.vss-recent-card:hover {
+  border-color: rgba(255, 255, 255, 0.055);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .vss-recent-card.is-selected {
-  padding: 12px;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.026);
+  border-color: rgba(255, 255, 255, 0.11);
+  background: linear-gradient(180deg, rgba(28, 29, 33, 0.78), rgba(18, 19, 22, 0.92));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.018),
-    0 20px 34px rgba(0, 0, 0, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 22px 34px rgba(0, 0, 0, 0.16);
 }
 
 .vss-recent-card.is-stale {
-  opacity: 0.7;
+  opacity: 0.74;
+  background: rgba(23, 19, 21, 0.46);
+  border-color: rgba(133, 93, 93, 0.08);
 }
 
 .vss-recent-select {
@@ -1272,6 +1359,10 @@ body.vss-viewer-open {
   text-align: left;
   font: inherit;
   cursor: pointer;
+}
+
+.vss-recent-select:disabled {
+  cursor: default;
 }
 
 .vss-recent-select:focus-visible {
@@ -1288,18 +1379,19 @@ body.vss-viewer-open {
 .vss-recent-thumb {
   position: relative;
   width: 100%;
-  aspect-ratio: 1.12 / 1;
+  aspect-ratio: 1.16 / 1;
   border-radius: var(--vss-radius-lg);
   overflow: hidden;
   border: 1px solid var(--vss-border);
   background: linear-gradient(180deg, rgba(24, 25, 29, 0.94), rgba(16, 17, 20, 0.98));
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
 .vss-recent-card.is-selected .vss-recent-thumb {
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.04),
-    0 16px 30px rgba(0, 0, 0, 0.2);
+    0 18px 34px rgba(0, 0, 0, 0.22);
 }
 
 .vss-recent-card.is-stale .vss-recent-thumb img,
@@ -1320,7 +1412,7 @@ body.vss-viewer-open {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(10, 11, 14, 0.16), rgba(10, 11, 14, 0.28)),
+    linear-gradient(180deg, rgba(10, 11, 14, 0.12), rgba(10, 11, 14, 0.34)),
     radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.02), transparent 42%);
   pointer-events: none;
 }
@@ -1334,6 +1426,24 @@ body.vss-viewer-open {
   background: rgba(10, 11, 14, 0.58);
   color: rgba(246, 241, 233, 0.74);
   font-size: 0.72rem;
+}
+
+.vss-recent-missing {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 18px;
+  box-sizing: border-box;
+  color: rgba(233, 202, 202, 0.82);
+  font-size: 0.8rem;
+  line-height: 1.3;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(109, 63, 63, 0.12), transparent 36%),
+    linear-gradient(180deg, rgba(20, 16, 18, 0.94), rgba(14, 12, 14, 0.98));
 }
 
 .vss-recent-meta {
@@ -1367,9 +1477,9 @@ body.vss-viewer-open {
 
 .vss-recent-title {
   margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.28;
-  color: rgba(239, 234, 227, 0.66);
+  font-size: 0.92rem;
+  line-height: 1.3;
+  color: rgba(239, 234, 227, 0.72);
 }
 
 .vss-recent-date {
@@ -1379,7 +1489,7 @@ body.vss-viewer-open {
 }
 
 .vss-recent-card.is-selected .vss-recent-title {
-  color: rgba(246, 241, 235, 0.82);
+  color: rgba(246, 241, 235, 0.94);
 }
 
 .vss-recent-card.is-selected .vss-recent-date {
@@ -1405,19 +1515,22 @@ body.vss-viewer-open {
 }
 
 .vss-recent-status.is-selected {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(247, 242, 236, 0.9);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(247, 242, 236, 0.96);
 }
 
 .vss-recent-status.is-stale {
-  background: rgba(72, 61, 61, 0.34);
-  color: rgba(236, 204, 204, 0.78);
+  background: rgba(82, 52, 52, 0.52);
+  color: rgba(241, 214, 214, 0.88);
 }
 
 .vss-recent-dismiss {
-  border: 0;
-  background: transparent;
-  color: rgba(214, 207, 199, 0.52);
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--vss-radius-pill);
+  background: rgba(255, 255, 255, 0.024);
+  color: rgba(222, 214, 206, 0.62);
   font: inherit;
   font-size: 0.68rem;
   letter-spacing: 0.14em;
@@ -1427,7 +1540,9 @@ body.vss-viewer-open {
 
 .vss-recent-dismiss:hover,
 .vss-recent-dismiss:focus-visible {
-  color: rgba(242, 236, 229, 0.84);
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(242, 236, 229, 0.9);
   outline: none;
 }
 
@@ -1435,54 +1550,67 @@ body.vss-viewer-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.055);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.016);
-  color: rgba(223, 216, 208, 0.42);
+  background: rgba(15, 16, 19, 0.7);
+  color: rgba(235, 228, 221, 0.64);
   font: inherit;
-  letter-spacing: 0.08em;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+  transition: border-color 180ms ease, color 180ms ease, background 180ms ease, transform 180ms ease;
 }
 
 .vss-recent-menu-button:hover,
 .vss-recent-menu-button:focus-visible {
-  border-color: rgba(255, 255, 255, 0.072);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(243, 239, 232, 0.72);
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(20, 21, 25, 0.92);
+  color: rgba(243, 239, 232, 0.92);
   outline: none;
+}
+
+.vss-menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 17;
+  border: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .vss-recent-popover {
   position: absolute;
-  top: calc(100% - 2px);
-  right: 0;
   display: grid;
-  gap: 4px;
-  min-width: 152px;
-  padding: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.048);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(23, 24, 27, 0.96), rgba(16, 17, 20, 0.98));
+  gap: 8px;
+  min-width: 188px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(23, 24, 27, 0.995), rgba(16, 17, 20, 1));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.018),
-    0 18px 34px rgba(0, 0, 0, 0.22);
-  z-index: 12;
+    inset 0 1px 0 rgba(255, 255, 255, 0.02),
+    0 24px 46px rgba(0, 0, 0, 0.34);
+  z-index: 18;
+}
+
+.vss-recent-popover.is-floating {
+  position: fixed;
 }
 
 .vss-recent-popover-action {
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: rgba(240, 234, 226, 0.78);
+  justify-content: flex-start;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(245, 239, 232, 0.88);
   text-decoration: none;
   font: inherit;
   font-size: 0.82rem;
@@ -1491,18 +1619,22 @@ body.vss-viewer-open {
 
 .vss-recent-popover-action:hover,
 .vss-recent-popover-action:focus-visible {
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   outline: none;
 }
 
 .vss-recent-popover-action[disabled] {
-  opacity: 0.42;
+  opacity: 1;
+  color: rgba(214, 207, 199, 0.4);
+  background: rgba(255, 255, 255, 0.018);
+  border-color: rgba(255, 255, 255, 0.02);
   cursor: default;
   pointer-events: none;
 }
 
 .vss-recent-popover-action--danger {
-  color: rgba(242, 195, 195, 0.8);
+  color: rgba(246, 206, 206, 0.92);
 }
 
 .vss-rail-empty {
@@ -1600,6 +1732,7 @@ body.vss-viewer-open {
 
   .vss-account-pill {
     align-self: flex-start;
+    width: min(100%, 320px);
   }
 
   .vss-account-panel {
@@ -1652,6 +1785,10 @@ body.vss-viewer-open {
     gap: 12px;
   }
 
+  .vss-reference-hint {
+    text-align: center;
+  }
+
   .vss-prompt-bar {
     grid-template-columns: 52px minmax(0, 1fr) 58px;
     min-height: 66px;
@@ -1679,6 +1816,7 @@ body.vss-viewer-open {
   .vss-improve-row {
     justify-content: center;
     flex-wrap: wrap;
+    padding: 12px;
   }
 
   .vss-improve-note {
@@ -1726,6 +1864,7 @@ body.vss-viewer-open {
   .vss-viewer-action,
   .vss-viewer-link {
     flex: 1 1 100%;
+    min-height: 46px;
   }
 
   .vss-rail {
@@ -1736,11 +1875,16 @@ body.vss-viewer-open {
   .vss-recent-list {
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: 68%;
+    grid-auto-columns: 78%;
     overflow-x: auto;
     overflow-y: hidden;
     padding-bottom: 4px;
     padding-right: 0;
+    scroll-snap-type: x proximity;
+  }
+
+  .vss-recent-card {
+    scroll-snap-align: start;
   }
 
   .vss-recent-title {
@@ -1750,5 +1894,6 @@ body.vss-viewer-open {
   .vss-recent-bottomline,
   .vss-recent-topline {
     flex-wrap: wrap;
+    align-items: flex-start;
   }
 }
