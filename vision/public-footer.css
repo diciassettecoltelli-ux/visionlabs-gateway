@@ -1,5 +1,6 @@
 .public-footer {
-  margin-top: clamp(96px, 10vw, 140px);
+  margin-top: 0;
+  padding-top: clamp(72px, 8vw, 112px);
   background:
     radial-gradient(circle at 18% 16%, rgba(124, 118, 144, 0.12), transparent 34%),
     radial-gradient(circle at 82% 88%, rgba(63, 84, 96, 0.1), transparent 28%),

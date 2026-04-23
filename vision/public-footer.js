@@ -84,7 +84,6 @@
 
           <div class="public-footer__trust">
             <span>Secure checkout with Stripe</span>
-            <span>No watermark on paid exports</span>
           </div>
 
           <div class="public-footer__social" aria-label="Vision channels">
