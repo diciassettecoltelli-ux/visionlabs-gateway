@@ -110,14 +110,21 @@ def _collapse_duplicate_tokens(text: str) -> str:
 def _strip_leading_style(prompt: str) -> str:
     cleaned = prompt.strip()
     prefixes = [
+        r"(?i)^ultra[- ]realistic cinematic scene of\s+",
         r"(?i)^ultra[- ]realistic cinematic shot of\s+",
         r"(?i)^ultra[- ]realistic cinematic still of\s+",
         r"(?i)^ultra[- ]realistic still frame of\s+",
+        r"(?i)^ultra[- ]realistic scene of\s+",
+        r"(?i)^cinematic scene of\s+",
         r"(?i)^cinematic shot of\s+",
+        r"(?i)^cinematic video of\s+",
         r"(?i)^cinematic still of\s+",
+        r"(?i)^scene of\s+",
         r"(?i)^still frame of\s+",
         r"(?i)^shot of\s+",
+        r"(?i)^video of\s+",
         r"(?i)^image of\s+",
+        r"(?i)^render of\s+",
         r"(?i)^still of\s+",
     ]
     changed = True
@@ -158,11 +165,20 @@ def _normalize_subject(prompt: str) -> str:
     cleaned = re.sub(r"(?i)\bultra[- ]?realistic\b", "", cleaned)
     cleaned = re.sub(r"(?i)\bcinematic\b", "", cleaned)
     cleaned = re.sub(r"(?i)\brealistic\b", "", cleaned)
+    cleaned = _strip_leading_style(cleaned)
     cleaned = re.sub(r"(?i)\b(no text,\s*)?no watermark\.?$", "", cleaned).strip(" ,.-")
     cleaned = re.sub(r"\s*,\s*", ", ", cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned)
     cleaned = _collapse_duplicate_tokens(cleaned)
     return cleaned.strip(" ,.-")
+
+
+def _tighten_existing_prompt(prompt: str) -> str:
+    cleaned = " ".join(_dedupe_intro(prompt).strip().split())
+    cleaned = _collapse_duplicate_tokens(cleaned)
+    cleaned = re.sub(r"\s*,\s*", ", ", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    return _trim_prompt(cleaned.strip(" ,.-"))
 
 
 def _trim_prompt(text: str, limit: int = 420) -> str:
@@ -276,12 +292,13 @@ def _prompt_profile(prompt: str) -> str:
 
 def _local_prompt(prompt: str, mode: str) -> dict[str, str | None]:
     normalized = "image" if mode == "image" else "video"
-    cleaned = _normalize_subject(_dedupe_intro(prompt))
+    source_prompt = _dedupe_intro(prompt)
+    cleaned = _normalize_subject(source_prompt)
     if not cleaned:
         cleaned = "a cinematic subject"
-    if _looks_already_enhanced(cleaned, normalized):
+    if _looks_already_enhanced(source_prompt, normalized):
         return {
-            "improved_prompt": cleaned,
+            "improved_prompt": _tighten_existing_prompt(source_prompt) or cleaned,
             "summary": "Prompt already sharpened by Vision.",
             "provider": "vision_local",
             "model": None,
@@ -354,12 +371,13 @@ def status() -> dict[str, Any]:
 
 def improve_prompt(*, prompt: str, mode: str = "video", model: str | None = None) -> dict[str, str | None]:
     normalized_mode = "image" if mode == "image" else "video"
-    cleaned_prompt = _normalize_subject(_dedupe_intro(prompt))
+    source_prompt = _dedupe_intro(prompt)
+    cleaned_prompt = _normalize_subject(source_prompt)
     if not cleaned_prompt:
         raise RuntimeError("Prompt enhancement needs a prompt first.")
-    if _looks_already_enhanced(cleaned_prompt, normalized_mode):
+    if _looks_already_enhanced(source_prompt, normalized_mode):
         return {
-            "improved_prompt": cleaned_prompt,
+            "improved_prompt": _tighten_existing_prompt(source_prompt) or cleaned_prompt,
             "summary": "Prompt already sharpened by Vision.",
             "provider": "vision_local",
             "model": None,
@@ -414,12 +432,12 @@ User prompt: {cleaned_prompt}
         )
         text = _first_text(response)
         if not text:
-            return _local_prompt(cleaned_prompt, normalized_mode)
+            return _local_prompt(source_prompt, normalized_mode)
         payload = json.loads(text)
         improved_prompt = str(payload.get("improved_prompt") or "").strip()
         summary = str(payload.get("summary") or "").strip()
         if not improved_prompt:
-            return _local_prompt(cleaned_prompt, normalized_mode)
+            return _local_prompt(source_prompt, normalized_mode)
         return {
             "improved_prompt": improved_prompt,
             "summary": summary or "Enhanced by Vision.",
@@ -427,4 +445,4 @@ User prompt: {cleaned_prompt}
             "model": model or _default_model(),
         }
     except Exception:
-        return _local_prompt(cleaned_prompt, normalized_mode)
+        return _local_prompt(source_prompt, normalized_mode)

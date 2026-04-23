@@ -102,31 +102,32 @@
 
   const visionApiUrl = (path) => `${DEFAULT_API_BASE}${path}`;
 
-  const visionAssetUrl = (path) => {
+  const normalizeGeneratedAssetPath = (path) => {
     const raw = String(path || "").trim();
     if (!raw) {
       return "";
     }
-    if (/^(blob:|data:)/i.test(raw)) {
-      return raw;
-    }
-    const candidate = /^https?:\/\//i.test(raw) ? raw : raw.startsWith("/") ? `${DEFAULT_API_BASE}${raw}` : "";
-    if (!candidate) {
-      return "";
-    }
+
+    const candidate = raw.startsWith("generated/") ? `/${raw}` : raw;
+
     try {
-      const parsed = new URL(candidate, window.location.origin);
-      const gatewayOrigin = new URL(DEFAULT_API_BASE).origin;
-      if (!parsed.pathname || parsed.pathname === "/") {
+      const parsed = /^https?:\/\//i.test(candidate) ? new URL(candidate) : new URL(candidate, window.location.origin);
+      const pathname = String(parsed.pathname || "").replace(/\/{2,}/g, "/");
+      if (!pathname.startsWith("/generated/") || pathname === "/generated/") {
         return "";
       }
-      if (parsed.origin === gatewayOrigin && !parsed.pathname.startsWith("/generated/")) {
-        return "";
-      }
-      return parsed.toString();
+      return `${pathname}${parsed.search}${parsed.hash}`;
     } catch (error) {
       return "";
     }
+  };
+
+  const visionAssetUrl = (path) => {
+    const assetPath = normalizeGeneratedAssetPath(path);
+    if (!assetPath) {
+      return "";
+    }
+    return `${DEFAULT_API_BASE}${assetPath}`;
   };
 
   const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
@@ -1314,6 +1315,11 @@
       improveButton.hidden = !hasContext;
       improveButton.setAttribute("aria-hidden", hasContext ? "false" : "true");
       improveButton.disabled = state.improveLoading || !hasPrompt;
+      if (state.improveLoading || !hasPrompt) {
+        improveButton.setAttribute("aria-disabled", "true");
+      } else {
+        improveButton.removeAttribute("aria-disabled");
+      }
       improveButton.classList.toggle("is-disabled", !hasPrompt);
       if (!hasPrompt && hasContext) {
         improveButton.title = "Add a prompt to improve this reference.";

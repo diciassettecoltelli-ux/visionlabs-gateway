@@ -97,7 +97,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "112";
+const STUDIO_SHELL_ASSET_VERSION = "113";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -174,31 +174,32 @@ const promptHelperDefaults = {
 
 const visionApiUrl = (path) => `${VISION_API_BASE}${path}`;
 
-const visionAssetUrl = (path) => {
+const normalizeGeneratedAssetPath = (path) => {
   const raw = String(path || "").trim();
   if (!raw) {
     return "";
   }
-  if (/^(blob:|data:)/i.test(raw)) {
-    return raw;
-  }
-  const candidate = /^https?:\/\//i.test(raw) ? raw : raw.startsWith("/") && VISION_API_BASE ? `${VISION_API_BASE}${raw}` : "";
-  if (!candidate) {
-    return "";
-  }
+
+  const candidate = raw.startsWith("generated/") ? `/${raw}` : raw;
+
   try {
-    const parsed = new URL(candidate, window.location.origin);
-    const gatewayOrigin = new URL(VISION_API_BASE).origin;
-    if (!parsed.pathname || parsed.pathname === "/") {
+    const parsed = /^https?:\/\//i.test(candidate) ? new URL(candidate) : new URL(candidate, window.location.origin);
+    const pathname = String(parsed.pathname || "").replace(/\/{2,}/g, "/");
+    if (!pathname.startsWith("/generated/") || pathname === "/generated/") {
       return "";
     }
-    if (parsed.origin === gatewayOrigin && !parsed.pathname.startsWith("/generated/")) {
-      return "";
-    }
-    return parsed.toString();
+    return `${pathname}${parsed.search}${parsed.hash}`;
   } catch (error) {
     return "";
   }
+};
+
+const visionAssetUrl = (path) => {
+  const assetPath = normalizeGeneratedAssetPath(path);
+  if (!assetPath) {
+    return "";
+  }
+  return `${VISION_API_BASE}${assetPath}`;
 };
 
 const parseJsonSafely = async (response) => {
@@ -1180,6 +1181,11 @@ const setImprovePromptLoading = (loading) => {
   const hasPrompt = !!promptInput?.value?.trim();
   improvePromptButton.hidden = !hasPrompt;
   improvePromptButton.disabled = loading || !hasPrompt;
+  if (loading || !hasPrompt) {
+    improvePromptButton.setAttribute("aria-disabled", "true");
+  } else {
+    improvePromptButton.removeAttribute("aria-disabled");
+  }
   improvePromptButton.textContent = loading ? "Improving..." : "Improve Prompt";
 };
 
@@ -1191,6 +1197,11 @@ const syncImprovePromptButton = () => {
   improvePromptButton.hidden = !hasPrompt;
   improvePromptButton.disabled = improvePromptInFlight || !hasPrompt;
   improvePromptButton.setAttribute("aria-hidden", hasPrompt ? "false" : "true");
+  if (improvePromptInFlight || !hasPrompt) {
+    improvePromptButton.setAttribute("aria-disabled", "true");
+  } else {
+    improvePromptButton.removeAttribute("aria-disabled");
+  }
 };
 
 const setGalleryLightboxState = (open, payload = {}) => {
