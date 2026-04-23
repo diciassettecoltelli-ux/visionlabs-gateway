@@ -97,7 +97,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "111";
+const STUDIO_SHELL_ASSET_VERSION = "112";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -175,16 +175,30 @@ const promptHelperDefaults = {
 const visionApiUrl = (path) => `${VISION_API_BASE}${path}`;
 
 const visionAssetUrl = (path) => {
-  if (!path) {
-    return path;
+  const raw = String(path || "").trim();
+  if (!raw) {
+    return "";
   }
-  if (/^https?:\/\//i.test(path)) {
-    return path;
+  if (/^(blob:|data:)/i.test(raw)) {
+    return raw;
   }
-  if (path.startsWith("/") && VISION_API_BASE) {
-    return `${VISION_API_BASE}${path}`;
+  const candidate = /^https?:\/\//i.test(raw) ? raw : raw.startsWith("/") && VISION_API_BASE ? `${VISION_API_BASE}${raw}` : "";
+  if (!candidate) {
+    return "";
   }
-  return path;
+  try {
+    const parsed = new URL(candidate, window.location.origin);
+    const gatewayOrigin = new URL(VISION_API_BASE).origin;
+    if (!parsed.pathname || parsed.pathname === "/") {
+      return "";
+    }
+    if (parsed.origin === gatewayOrigin && !parsed.pathname.startsWith("/generated/")) {
+      return "";
+    }
+    return parsed.toString();
+  } catch (error) {
+    return "";
+  }
 };
 
 const parseJsonSafely = async (response) => {
@@ -771,9 +785,9 @@ const updateStudioOutputFromJob = (job) => {
   const status = String(job.status || "queued").toLowerCase();
   const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
   const ui = generationUiCopy(status, outputType);
+  const resolvedOutputUrl = visionAssetUrl(job.output_url);
 
-  if (job.output_url) {
-    const resolvedOutputUrl = visionAssetUrl(job.output_url);
+  if (resolvedOutputUrl) {
     setStudioOutputState({
       state: "ready",
       type: outputType,
@@ -784,6 +798,18 @@ const updateStudioOutputFromJob = (job) => {
       meta: `${outputType === "image" ? "Image" : "Video"} ready · ${formatStudioTimestamp(
         job.completed_at || job.updated_at || new Date().toISOString(),
       )}`,
+    });
+    return;
+  }
+
+  if (status === "ready") {
+    setStudioOutputState({
+      state: "empty",
+      type: outputType,
+      prompt: job.prompt || "",
+      label: "Source unavailable",
+      note: "Vision finished the job, but the media asset URL was missing or invalid.",
+      meta: "Open and download remain disabled until a valid generated file is available.",
     });
     return;
   }
@@ -831,14 +857,17 @@ const renderStudioHistory = () => {
 
   items.forEach((item) => {
     const isActive = String(item.id) === String(studioSelectedHistoryId || "");
+    const hasAsset = !!item.src;
     const card = document.createElement("article");
     card.className = `studio-history-item${isActive ? " is-active" : ""}`;
     const mediaMarkup =
-      item.type === "image"
-        ? `<img src="${item.src}" alt="${item.prompt || "Vision image"}" loading="lazy" />`
-        : `<video src="${item.src}" muted loop playsinline preload="metadata"></video>`;
+      hasAsset
+        ? item.type === "image"
+          ? `<img src="${item.src}" alt="${item.prompt || "Vision image"}" loading="lazy" />`
+          : `<video src="${item.src}" muted loop playsinline preload="metadata"></video>`
+        : `<span class="studio-history-missing">Source unavailable</span>`;
     card.innerHTML = `
-      <button class="studio-history-select" type="button" aria-label="Show ${item.type} in canvas">
+      <button class="studio-history-select" type="button" aria-label="Show ${item.type} in canvas" ${hasAsset ? "" : "disabled aria-disabled=\"true\""}>
         <span class="studio-history-media">${mediaMarkup}</span>
         <span class="studio-history-copy">
           <span class="studio-history-meta">${item.type === "image" ? "Image" : "Video"} · ${formatStudioTimestamp(item.created_at)}</span>
@@ -846,18 +875,25 @@ const renderStudioHistory = () => {
         </span>
       </button>
       <div class="studio-history-actions">
-        <button class="studio-history-action" type="button" data-history-open="${item.id}">Open</button>
-        <a class="studio-history-action" href="${item.src}" download="${buildDownloadFilename({
-          prompt: item.prompt || "",
-          outputType: item.type,
-          jobId: item.id,
-          url: item.src,
-        })}">Download</a>
+        <button class="studio-history-action" type="button" data-history-open="${item.id}" ${hasAsset ? "" : "disabled aria-disabled=\"true\""}>Open</button>
+        ${
+          hasAsset
+            ? `<a class="studio-history-action" href="${item.src}" download="${buildDownloadFilename({
+                prompt: item.prompt || "",
+                outputType: item.type,
+                jobId: item.id,
+                url: item.src,
+              })}">Download</a>`
+            : `<button class="studio-history-action" type="button" disabled aria-disabled="true">Download</button>`
+        }
         <button class="studio-history-action studio-history-action--danger" type="button" data-history-delete="${item.id}">Delete</button>
       </div>
     `;
     const selectButton = card.querySelector(".studio-history-select");
     selectButton?.addEventListener("click", () => {
+      if (!hasAsset) {
+        return;
+      }
       studioSelectedHistoryId = item.id;
       setStudioOutputState({
         state: "ready",
@@ -871,6 +907,9 @@ const renderStudioHistory = () => {
       renderStudioHistory();
     });
     card.querySelector("[data-history-open]")?.addEventListener("click", () => {
+      if (!hasAsset) {
+        return;
+      }
       setGalleryLightboxState(true, {
         mediaType: item.type,
         src: item.src,
@@ -1138,8 +1177,20 @@ const setImprovePromptLoading = (loading) => {
   if (!improvePromptButton) {
     return;
   }
-  improvePromptButton.disabled = loading;
+  const hasPrompt = !!promptInput?.value?.trim();
+  improvePromptButton.hidden = !hasPrompt;
+  improvePromptButton.disabled = loading || !hasPrompt;
   improvePromptButton.textContent = loading ? "Improving..." : "Improve Prompt";
+};
+
+const syncImprovePromptButton = () => {
+  if (!improvePromptButton) {
+    return;
+  }
+  const hasPrompt = !!promptInput?.value?.trim();
+  improvePromptButton.hidden = !hasPrompt;
+  improvePromptButton.disabled = improvePromptInFlight || !hasPrompt;
+  improvePromptButton.setAttribute("aria-hidden", hasPrompt ? "false" : "true");
 };
 
 const setGalleryLightboxState = (open, payload = {}) => {
@@ -1315,8 +1366,10 @@ const presentGenerationJob = (job) => {
   currentStudioJob = job || null;
   const status = (job.status || "queued").toLowerCase();
   const outputType = (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video";
-  const ui = generationUiCopy(status, outputType);
-  const hasDeliverable = !!job.output_url;
+  const resolvedOutputUrl = visionAssetUrl(job.output_url);
+  const effectiveStatus = status === "ready" && !resolvedOutputUrl ? "failed" : status;
+  const ui = generationUiCopy(effectiveStatus, outputType);
+  const hasDeliverable = !!resolvedOutputUrl;
 
   if (hasDeliverable || ["ready", "failed", "setup_required"].includes(status)) {
     stopVisionFocusGuard();
@@ -1334,25 +1387,23 @@ const presentGenerationJob = (job) => {
   };
 
   if (generationTitle) {
-    generationTitle.textContent = friendlyTitles[status] || "Vision render";
+    generationTitle.textContent = friendlyTitles[effectiveStatus] || "Vision render";
   }
   if (generationPrompt) {
     generationPrompt.textContent = job.prompt || "";
   }
-  setGenerationStage(status, job.message || job.error || "");
+  setGenerationStage(effectiveStatus, job.message || job.error || "");
 
   if (generationPrepare) {
     generationPrepare.hidden = !["setup_required", "operator_required"].includes(status);
   }
 
-  const isReady = hasDeliverable;
-  if (!isReady) {
-    updateStudioOutputFromJob(job);
-    resetGenerationDelivery(outputType, job.prompt || "", status);
+  if (!hasDeliverable) {
+    updateStudioOutputFromJob({ ...job, output_url: resolvedOutputUrl });
+    resetGenerationDelivery(outputType, job.prompt || "", effectiveStatus);
     return;
   }
 
-  const resolvedOutputUrl = visionAssetUrl(job.output_url);
   currentGenerationOutput = {
     type: outputType,
     src: resolvedOutputUrl,
@@ -1384,7 +1435,7 @@ const presentGenerationJob = (job) => {
   if (generationPreview) {
     generationPreview.classList.remove("is-loading");
     generationPreview.classList.add("is-ready");
-    generationPreview.dataset.state = status;
+    generationPreview.dataset.state = effectiveStatus;
     generationPreview.setAttribute("aria-label", outputType === "image" ? "Open generated image" : "Open generated video");
   }
   if (generationPreviewPlaceholder) {
@@ -2204,6 +2255,10 @@ promptInput?.addEventListener("focus", () => {
   body.classList.add("is-prompt-focused");
 });
 
+promptInput?.addEventListener("input", () => {
+  syncImprovePromptButton();
+});
+
 promptInput?.addEventListener("blur", () => {
   body.classList.remove("is-prompt-focused");
 });
@@ -2221,6 +2276,13 @@ galleryButtons.forEach((button) => {
 });
 
 improvePromptButton?.addEventListener("click", improvePrompt);
+
+generationDownload?.addEventListener("click", (event) => {
+  const href = generationDownload.getAttribute("href");
+  if (generationDownload.getAttribute("aria-disabled") === "true" || !href || href === "#") {
+    event.preventDefault();
+  }
+});
 
 galleryLightboxClose?.addEventListener("click", () => {
   setGalleryLightboxState(false);
@@ -2422,6 +2484,7 @@ const initializeVision = async () => {
   }
   setMode(selectedMode);
   resetPromptHelper();
+  syncImprovePromptButton();
   if (isStudioRoute) {
     mountStudioCompose();
     topNav?.setAttribute("aria-hidden", "true");

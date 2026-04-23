@@ -103,16 +103,30 @@
   const visionApiUrl = (path) => `${DEFAULT_API_BASE}${path}`;
 
   const visionAssetUrl = (path) => {
-    if (!path) {
+    const raw = String(path || "").trim();
+    if (!raw) {
       return "";
     }
-    if (/^https?:\/\//i.test(path)) {
-      return path;
+    if (/^(blob:|data:)/i.test(raw)) {
+      return raw;
     }
-    if (path.startsWith("/")) {
-      return `${DEFAULT_API_BASE}${path}`;
+    const candidate = /^https?:\/\//i.test(raw) ? raw : raw.startsWith("/") ? `${DEFAULT_API_BASE}${raw}` : "";
+    if (!candidate) {
+      return "";
     }
-    return path;
+    try {
+      const parsed = new URL(candidate, window.location.origin);
+      const gatewayOrigin = new URL(DEFAULT_API_BASE).origin;
+      if (!parsed.pathname || parsed.pathname === "/") {
+        return "";
+      }
+      if (parsed.origin === gatewayOrigin && !parsed.pathname.startsWith("/generated/")) {
+        return "";
+      }
+      return parsed.toString();
+    } catch (error) {
+      return "";
+    }
   };
 
   const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
@@ -641,6 +655,10 @@
   const saveGeneratedResult = async (job) => {
     const outputUrl = visionAssetUrl(job.output_url);
     if (!outputUrl) {
+      state.currentJob = null;
+      state.currentError = "Vision finished the job, but the generated media URL was missing or invalid.";
+      syncScene();
+      render();
       return;
     }
     saveHistoryItem(job, outputUrl);
@@ -676,9 +694,16 @@
       render();
 
       const status = String(job.status || "").toLowerCase();
-      if (job.output_url || status === "ready") {
+      if (visionAssetUrl(job.output_url)) {
         stopPolling();
         await saveGeneratedResult(job);
+        return;
+      }
+      if (status === "ready") {
+        stopPolling();
+        handleJobFailure({
+          message: "Vision finished the job, but the generated media URL was missing or invalid.",
+        });
         return;
       }
       if (status === "failed" || status === "setup_required") {
@@ -968,23 +993,31 @@
   const renderCanvasMedia = () => {
     if (state.scene === "result" && getSelectedRecent()) {
       const item = getSelectedRecent();
+      const assetUrl = visionAssetUrl(item.src);
+      const hasAsset = !!assetUrl;
       const fullscreenLabel = item.kind === "video" ? "Open full screen" : "Open image";
       const media =
-        item.kind === "video"
-          ? `<video class="vss-canvas-video" src="${escapeHtml(item.src)}" autoplay muted loop playsinline></video>`
-          : `<img class="vss-canvas-image" src="${escapeHtml(item.src)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`;
+        hasAsset
+          ? item.kind === "video"
+            ? `<video class="vss-canvas-video" src="${escapeHtml(assetUrl)}" autoplay muted loop playsinline></video>`
+            : `<img class="vss-canvas-image" src="${escapeHtml(assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`
+          : `<div class="vss-canvas-missing">Generated media unavailable</div>`;
       return `
         <div class="vss-canvas-media">
           ${media}
           <div class="vss-canvas-scrim"></div>
           <div class="vss-canvas-actions" aria-label="Current result actions">
-            <a class="vss-canvas-action" href="${escapeHtml(item.src)}" target="_blank" rel="noreferrer noopener">${escapeHtml(fullscreenLabel)}</a>
-            <a class="vss-canvas-action" href="${escapeHtml(item.src)}" download="${escapeHtml(buildDownloadFilename(item))}">Download</a>
+            <button class="vss-canvas-action" type="button" data-open-current ${hasAsset ? `data-asset-url="${escapeHtml(assetUrl)}"` : "disabled aria-disabled=\"true\""}>${escapeHtml(fullscreenLabel)}</button>
+            ${
+              hasAsset
+                ? `<a class="vss-canvas-action" href="${escapeHtml(assetUrl)}" download="${escapeHtml(buildDownloadFilename({ ...item, src: assetUrl }))}">Download</a>`
+                : `<button class="vss-canvas-action" type="button" disabled aria-disabled="true">Download</button>`
+            }
           </div>
           <div class="vss-canvas-result-meta">
             <p class="vss-result-label">${item.kind === "video" ? "Latest video" : "Latest image"}</p>
             <h2 class="vss-result-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still"))}</h2>
-            <p class="vss-result-caption">${escapeHtml(item.prompt || "Generated inside Vision.")}</p>
+            <p class="vss-result-caption">${escapeHtml(hasAsset ? item.prompt || "Generated inside Vision." : "The Studio result is saved, but the original media URL is missing or invalid.")}</p>
           </div>
         </div>
       `;
@@ -1107,7 +1140,9 @@
           <span class="vss-mode-separator" aria-hidden="true"></span>
           <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
         </div>
-        <button class="vss-improve${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
+        <button class="vss-improve${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${
+          state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
+        } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
       </div>
     </div>
   `;
@@ -1117,9 +1152,14 @@
     if (!isOpen) {
       return "";
     }
+    const assetUrl = visionAssetUrl(item.src);
     return `
       <div class="vss-recent-popover" data-menu-panel="${escapeHtml(item.id)}">
-        <a href="${escapeHtml(item.src)}" download="${escapeHtml(buildDownloadFilename(item))}" class="vss-recent-popover-action">Download</a>
+        ${
+          assetUrl
+            ? `<a href="${escapeHtml(assetUrl)}" download="${escapeHtml(buildDownloadFilename({ ...item, src: assetUrl }))}" class="vss-recent-popover-action">Download</a>`
+            : `<button class="vss-recent-popover-action" type="button" disabled aria-disabled="true">Download unavailable</button>`
+        }
         <button class="vss-recent-popover-action vss-recent-popover-action--danger" type="button" data-delete-id="${escapeHtml(item.id)}">Delete</button>
       </div>
     `;
@@ -1138,13 +1178,16 @@
                 ${state.recents
                   .map((item) => {
                     const isSelected = state.selectedId === item.id;
+                    const assetUrl = visionAssetUrl(item.src);
                     const media =
-                      item.kind === "video"
-                        ? `<video src="${escapeHtml(item.src)}" muted loop playsinline autoplay></video>`
-                        : `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`;
+                      assetUrl
+                        ? item.kind === "video"
+                          ? `<video src="${escapeHtml(assetUrl)}" muted loop playsinline autoplay></video>`
+                          : `<img src="${escapeHtml(assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`
+                        : `<div class="vss-recent-missing">Source unavailable</div>`;
                     return `
                       <article class="vss-recent-card${isSelected ? " is-selected" : ""}">
-                        <button class="vss-recent-select" type="button" data-recent-id="${escapeHtml(item.id)}">
+                        <button class="vss-recent-select" type="button" data-recent-id="${escapeHtml(item.id)}" ${assetUrl ? "" : "disabled aria-disabled=\"true\""}>
                           <div class="vss-recent-thumb">
                             ${media}
                             <span class="vss-recent-duration">${item.kind === "video" ? "Video" : "Image"}</span>
@@ -1262,8 +1305,26 @@
     const addReferenceButton = root.querySelector(".vss-add-ref");
     const clearReferenceButton = root.querySelector("#vss-reference-clear");
 
+    const syncImproveButton = () => {
+      if (!improveButton) {
+        return;
+      }
+      const hasPrompt = !!String(promptInput && promptInput.value ? promptInput.value : state.prompt || "").trim();
+      const hasContext = hasPrompt || !!state.referenceAsset;
+      improveButton.hidden = !hasContext;
+      improveButton.setAttribute("aria-hidden", hasContext ? "false" : "true");
+      improveButton.disabled = state.improveLoading || !hasPrompt;
+      improveButton.classList.toggle("is-disabled", !hasPrompt);
+      if (!hasPrompt && hasContext) {
+        improveButton.title = "Add a prompt to improve this reference.";
+      } else {
+        improveButton.removeAttribute("title");
+      }
+    };
+
     promptInput?.addEventListener("input", (event) => {
       state.prompt = String(event.target.value || "");
+      syncImproveButton();
     });
 
     promptForm?.addEventListener("submit", (event) => {
@@ -1275,6 +1336,8 @@
     improveButton?.addEventListener("click", () => {
       improvePrompt();
     });
+
+    syncImproveButton();
 
     addReferenceButton?.addEventListener("click", () => {
       referenceInput?.click();
@@ -1310,6 +1373,15 @@
         syncScene();
         render();
       });
+    });
+
+    root.querySelector("[data-open-current]")?.addEventListener("click", () => {
+      const selected = getSelectedRecent();
+      const assetUrl = visionAssetUrl(selected && selected.src);
+      if (!assetUrl) {
+        return;
+      }
+      window.open(assetUrl, "_blank", "noopener,noreferrer");
     });
 
     root.querySelectorAll("[data-menu-id]").forEach((button) => {

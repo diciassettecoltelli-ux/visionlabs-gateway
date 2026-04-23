@@ -119,7 +119,7 @@
             </div>
             <div class="studio-dock-actions">
               <button class="access-pill" id="vision-access-pill" type="button">Locked · Vision access required</button>
-              <button class="action-pill" id="improve-prompt-button" type="button">Improve Prompt</button>
+              <button class="action-pill" id="improve-prompt-button" type="button" hidden aria-hidden="true">Improve Prompt</button>
             </div>
           </div>
           <div class="prompt-actions">
@@ -846,15 +846,15 @@
           if (studioRoot) {
             studioRoot.hidden = false;
           }
-          appendStylesheet("/studio-shell-new.css?v=111");
-          appendScript("/studio-shell-new.js?v=111");
+          appendStylesheet("/studio-shell-new.css?v=112");
+          appendScript("/studio-shell-new.js?v=112");
           return;
         }
 
         appendScript("/public-footer.js?v=6")
           .then(() => appendScript("/vision-config.js?v=40"))
           .catch(() => null)
-          .then(() => appendScript("/app.js?v=43"))
+          .then(() => appendScript("/app.js?v=44"))
           .catch((error) => {
             console.error("Vision bootstrap failed", error);
           });
