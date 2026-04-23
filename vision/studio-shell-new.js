@@ -396,8 +396,8 @@
       kind: item.kind === "video" ? "video" : "image",
       assetPath: asset.assetPath,
       assetUrl: asset.assetUrl,
-      title: summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still"),
-      caption: item.prompt || "Generated inside Vision.",
+      title: summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still", 52),
+      caption: summarizeDescription(item.prompt, "Generated inside Vision.", 112),
     };
     render();
   };
@@ -667,12 +667,37 @@
     }
   };
 
-  const summarizePrompt = (prompt, fallback) => {
+  const summarizePrompt = (prompt, fallback, maxLength) => {
     const cleaned = String(prompt || "").trim().replace(/\s+/g, " ");
+    const limit = Number(maxLength || 34);
     if (!cleaned) {
       return fallback;
     }
-    return cleaned.length > 34 ? `${cleaned.slice(0, 31).trimEnd()}...` : cleaned;
+    return cleaned.length > limit ? `${cleaned.slice(0, Math.max(0, limit - 3)).trimEnd()}...` : cleaned;
+  };
+
+  const summarizeDescription = (prompt, fallback, maxLength) => {
+    const cleaned = String(prompt || "").trim().replace(/\s+/g, " ");
+    const limit = Number(maxLength || 96);
+    if (!cleaned) {
+      return fallback;
+    }
+    return cleaned.length > limit ? `${cleaned.slice(0, Math.max(0, limit - 3)).trimEnd()}...` : cleaned;
+  };
+
+  const shortenEmail = (email) => {
+    const normalized = normalizeEmail(email);
+    if (!normalized) {
+      return "Vision account";
+    }
+    if (normalized.length <= 28) {
+      return normalized;
+    }
+    const [localPart, domainPart] = normalized.split("@");
+    if (!domainPart) {
+      return `${normalized.slice(0, 25)}...`;
+    }
+    return `${localPart.slice(0, 12)}...@${domainPart}`;
   };
 
   const getCreditCounts = () => ({
@@ -685,13 +710,13 @@
 
   const getAccessLabel = () => {
     if (state.access.admin) {
-      return "Vision unlocked";
+      return "Unlimited access";
     }
     if (hasPackContext()) {
       const counts = getCreditCounts();
-      return `Vision access live · ${counts.video} videos · ${counts.image} images`;
+      return `${counts.video} videos · ${counts.image} images`;
     }
-    return "Vision access required";
+    return "Access required";
   };
 
   const getAccountPillState = () => {
@@ -707,9 +732,37 @@
     return {
       variant: "account",
       avatar,
-      label: `${counts.video + counts.image}`,
-      subtitle: state.access.admin ? "∞" : `${counts.video}·${counts.image}`,
+      label: shortenEmail(state.user.email),
+      subtitle: state.access.admin ? "Unlimited access" : `${counts.video} videos · ${counts.image} images`,
     };
+  };
+
+  const getRecentById = (id) => state.recents.find((item) => item.id === String(id || "")) || null;
+
+  const setSelectedRecent = (item) => {
+    if (!item) {
+      return false;
+    }
+    state.selectedId = item.id;
+    state.menuOpenFor = "";
+    state.currentError = "";
+    syncScene();
+    return true;
+  };
+
+  const selectRecent = (id, options) => {
+    const item = getRecentById(id);
+    const asset = item ? getAssetAvailability(item.src) : null;
+    if (!item || !asset || !asset.available) {
+      return false;
+    }
+    setSelectedRecent(item);
+    if (options && options.openViewer) {
+      openViewerForItem(item);
+      return true;
+    }
+    render();
+    return true;
   };
 
   const syncRecents = () => {
@@ -1300,7 +1353,6 @@
           </a>
           <a class="vss-home-link" href="/">Back home</a>
         </div>
-        <div class="vss-domain">visionstudiolab.com</div>
         <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Access Vision" : "Vision account and credits"}" aria-haspopup="dialog" aria-expanded="${state.accountPanelOpen ? "true" : "false"}">
           ${
             pill.variant === "guest"
@@ -1309,8 +1361,10 @@
                   <span class="vss-account-guest-note">${escapeHtml(pill.subtitle)}</span>
                 </span>`
               : `<span class="vss-account-avatar">${escapeHtml(pill.avatar)}</span>
-                 <span class="vss-account-metric">${escapeHtml(pill.label)}</span>
-                 <span class="vss-account-metric">${escapeHtml(pill.subtitle)}</span>`
+                 <span class="vss-account-copy">
+                   <span class="vss-account-label">${escapeHtml(pill.label)}</span>
+                   <span class="vss-account-note">${escapeHtml(pill.subtitle)}</span>
+                 </span>`
           }
           <span class="vss-account-chevron">⌄</span>
         </button>
@@ -1328,32 +1382,36 @@
       const downloadLabel = assetMissing ? "Download unavailable" : "Download";
       const media =
         hasAsset
-          ? item.kind === "video"
-            ? `<video class="vss-canvas-video" src="${escapeHtml(asset.assetUrl)}" autoplay muted loop playsinline></video>`
-            : `<img class="vss-canvas-image" src="${escapeHtml(asset.assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`
+          ? `<button class="vss-canvas-preview" type="button" data-open-current-preview="${escapeHtml(item.id)}" aria-label="${escapeHtml(openLabel)}">
+              ${
+                item.kind === "video"
+                  ? `<video class="vss-canvas-video" src="${escapeHtml(asset.assetUrl)}" autoplay muted loop playsinline></video>`
+                  : `<img class="vss-canvas-image" src="${escapeHtml(asset.assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still", 48))}" />`
+              }
+            </button>`
           : `<div class="vss-canvas-missing">${assetMissing ? "Source unavailable" : "Checking source..."}</div>`;
       return `
         <div class="vss-canvas-media">
           ${media}
           <div class="vss-canvas-scrim"></div>
           <div class="vss-canvas-actions" aria-label="Current result actions">
-            <button class="vss-canvas-action" type="button" data-open-current="${escapeHtml(item.id)}" ${hasAsset ? "" : "disabled aria-disabled=\"true\""}>${escapeHtml(openLabel)}</button>
+            <button class="vss-canvas-action is-primary" type="button" data-open-current="${escapeHtml(item.id)}" ${hasAsset ? "" : "disabled aria-disabled=\"true\""}>${escapeHtml(openLabel)}</button>
             ${
               hasAsset
-                ? `<button class="vss-canvas-action" type="button" data-download-current="${escapeHtml(item.id)}">Download</button>`
-                : `<button class="vss-canvas-action" type="button" disabled aria-disabled="true">${escapeHtml(downloadLabel)}</button>`
+                ? `<button class="vss-canvas-action is-secondary" type="button" data-download-current="${escapeHtml(item.id)}">Download</button>`
+                : `<button class="vss-canvas-action is-secondary" type="button" disabled aria-disabled="true">${escapeHtml(downloadLabel)}</button>`
             }
           </div>
           <div class="vss-canvas-result-meta">
             <p class="vss-result-label">${
               hasAsset ? (item.kind === "video" ? "Latest video" : "Latest image") : (assetMissing ? "Source unavailable" : "Checking source")
             }</p>
-            <h2 class="vss-result-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still"))}</h2>
+            <h2 class="vss-result-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still", 52))}</h2>
             <p class="vss-result-caption">${escapeHtml(
               hasAsset
-                ? item.prompt || "Generated inside Vision."
+                ? summarizeDescription(item.prompt, "Generated inside Vision.", 92)
                 : assetMissing
-                  ? "This history item points to a generated file that no longer exists on Vision."
+                  ? "This source is no longer available. Delete it or choose a newer recent."
                   : "Vision is verifying the generated source before enabling open and download.",
             )}</p>
           </div>
@@ -1442,12 +1500,12 @@
     <div class="vss-dock">
       <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" />
       <form class="vss-prompt-bar" id="vss-prompt-form">
-        <button class="vss-add-ref" type="button" aria-label="Upload image or short video reference">+</button>
+        <button class="vss-add-ref" type="button" aria-label="Upload image or short video reference" title="Add image or short video reference">+</button>
         <input
           class="vss-prompt-input"
           id="vss-prompt-input"
           type="text"
-          placeholder="Describe your video or image..."
+          placeholder="Describe your video or image, or add a reference..."
           value="${escapeHtml(state.prompt)}"
         />
         <button class="vss-submit" type="submit" aria-label="Generate">
@@ -1470,6 +1528,14 @@
           : ""
       }
       <div class="vss-dock-footer">
+        <div class="vss-improve-row" id="vss-improve-row" ${
+          state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
+        }>
+          <span class="vss-improve-note">Refine your prompt before you generate.</span>
+          <button class="vss-improve${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${
+            state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
+          } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
+        </div>
         <div class="vss-mode-row">
           <div class="vss-mode-switch" role="tablist" aria-label="Mode switch">
             <button type="button" data-mode="video" class="${state.mode === "video" ? "is-active" : ""}">Video</button>
@@ -1477,13 +1543,6 @@
           </div>
           <span class="vss-mode-separator" aria-hidden="true"></span>
           <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
-        </div>
-        <div class="vss-improve-row" id="vss-improve-row" ${
-          state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
-        }>
-          <button class="vss-improve${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${
-            state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
-          } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
         </div>
       </div>
     </div>
@@ -1531,6 +1590,11 @@
       <div class="vss-recent-popover" data-menu-panel="${escapeHtml(item.id)}">
         ${
           asset.available
+            ? `<button class="vss-recent-popover-action" type="button" data-open-id="${escapeHtml(item.id)}">Open</button>`
+            : `<button class="vss-recent-popover-action" type="button" disabled aria-disabled="true">Open unavailable</button>`
+        }
+        ${
+          asset.available
             ? `<button class="vss-recent-popover-action" type="button" data-download-id="${escapeHtml(item.id)}">Download</button>`
             : `<button class="vss-recent-popover-action" type="button" disabled aria-disabled="true">Download unavailable</button>`
         }
@@ -1543,8 +1607,11 @@
     <aside class="vss-rail">
       <div class="vss-rail-inner">
         <div class="vss-rail-head">
-          <div class="vss-rail-kicker">Recents</div>
-          <button class="vss-view-all" type="button">View all →</button>
+          <div>
+            <div class="vss-rail-kicker">Recents</div>
+            <p class="vss-rail-subtitle">Latest generated outputs from this Studio session.</p>
+          </div>
+          <span class="vss-rail-count">${state.recents.length} saved</span>
         </div>
         ${
           state.recents.length
@@ -1560,25 +1627,34 @@
                       hasAsset
                         ? item.kind === "video"
                           ? `<video src="${escapeHtml(assetUrl)}" muted loop playsinline autoplay></video>`
-                          : `<img src="${escapeHtml(assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`
+                          : `<img src="${escapeHtml(assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still", 46))}" />`
                         : `<div class="vss-recent-missing">${assetMissing ? "Source unavailable" : "Checking source..."}</div>`;
                     return `
-                      <article class="vss-recent-card${isSelected ? " is-selected" : ""}">
+                      <article class="vss-recent-card${isSelected ? " is-selected" : ""}${assetMissing ? " is-stale" : ""}">
                         <button class="vss-recent-select" type="button" data-recent-id="${escapeHtml(item.id)}" ${hasAsset ? "" : "disabled aria-disabled=\"true\""}>
                           <div class="vss-recent-thumb">
                             ${media}
                             <span class="vss-recent-duration">${item.kind === "video" ? "Video" : "Image"}</span>
                             <span class="vss-recent-overlay" aria-hidden="true"></span>
                           </div>
-                          <div class="vss-recent-meta">
-                            <div>
-                              <p class="vss-recent-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still"))}</p>
-                              <span class="vss-recent-date">${escapeHtml(`${formatDate(item.createdAt)} · ${formatTime(item.createdAt)}`)}</span>
-                              ${assetMissing ? '<span class="vss-recent-date">Source unavailable</span>' : ""}
-                            </div>
-                            <button class="vss-recent-menu-button" type="button" data-menu-id="${escapeHtml(item.id)}" aria-label="More actions">•••</button>
-                          </div>
                         </button>
+                        <div class="vss-recent-meta">
+                          <div class="vss-recent-topline">
+                            <span class="vss-recent-type">${escapeHtml(item.kind === "video" ? "Video" : "Image")}</span>
+                            <span class="vss-recent-date">${escapeHtml(`${formatDate(item.createdAt)} · ${formatTime(item.createdAt)}`)}</span>
+                          </div>
+                          <p class="vss-recent-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still", 46))}</p>
+                          <div class="vss-recent-bottomline">
+                            <div class="vss-recent-statuses">
+                              ${isSelected && hasAsset ? '<span class="vss-recent-status is-selected">Current</span>' : ""}
+                              ${assetMissing ? '<span class="vss-recent-status is-stale">Source unavailable</span>' : ""}
+                            </div>
+                            <div class="vss-recent-toolbar">
+                              ${assetMissing ? `<button class="vss-recent-dismiss" type="button" data-delete-id="${escapeHtml(item.id)}">Dismiss</button>` : ""}
+                              <button class="vss-recent-menu-button" type="button" data-menu-id="${escapeHtml(item.id)}" aria-label="More actions">•••</button>
+                            </div>
+                          </div>
+                        </div>
                         ${renderRecentMenu(item)}
                       </article>
                     `;
@@ -1602,26 +1678,34 @@
     const counts = getCreditCounts();
     const signedIn = hasAccountContext();
     const showAccount = signedIn && state.authStep !== "code";
+    const emailLabel = shortenEmail(state.user.email);
 
     return `
-      <div class="vss-modal-backdrop" id="vss-modal-backdrop">
-        <div class="vss-modal-panel" role="dialog" aria-modal="true" aria-labelledby="vss-account-title">
-          <button class="vss-modal-close" id="vss-modal-close" type="button" aria-label="Close panel">Close</button>
-          <div class="vss-modal-kicker">${showAccount ? "Vision / Account" : "Vision / Access"}</div>
-          <h2 class="vss-modal-title" id="vss-account-title">${showAccount ? "Your Vision account." : "Access your Vision pack."}</h2>
-          <p class="vss-modal-copy">
-            ${
-              showAccount
-                ? "See your remaining credits and return to your Studio from any device."
-                : "Enter your email and Vision will send a one-time access code, or open secure checkout for a new pack."
-            }
-          </p>
+      <div class="vss-account-overlay" id="vss-account-overlay">
+        <div class="vss-account-panel" role="dialog" aria-modal="true" aria-labelledby="vss-account-title">
+          <div class="vss-account-panel-head">
+            <div>
+              <div class="vss-account-panel-kicker">${showAccount ? "Account" : "Access"}</div>
+              <h2 class="vss-account-panel-title" id="vss-account-title">${showAccount ? "Vision account and credits" : "Access your Vision pack"}</h2>
+              <p class="vss-account-panel-copy">
+                ${
+                  showAccount
+                    ? "See your credits, manage access and jump back into Vision."
+                    : "Enter your email for a one-time access code, or open secure checkout for a new pack."
+                }
+              </p>
+            </div>
+            <button class="vss-account-panel-close" id="vss-account-panel-close" type="button" aria-label="Close account panel">Close</button>
+          </div>
           ${
             showAccount
-              ? `<div class="vss-account-panel">
-                  <div class="vss-account-row">
-                    <span class="vss-account-label">Email</span>
-                    <strong>${escapeHtml(state.user.email || "Vision account")}</strong>
+              ? `<div class="vss-account-summary">
+                  <div class="vss-account-summary-head">
+                    <span class="vss-account-avatar">${escapeHtml((state.user.email || "A").charAt(0).toUpperCase())}</span>
+                    <div class="vss-account-summary-copy">
+                      <strong>${escapeHtml(emailLabel)}</strong>
+                      <span>${escapeHtml(state.access.admin ? "Unlimited Vision access" : `${counts.video} videos · ${counts.image} images available`)}</span>
+                    </div>
                   </div>
                   <div class="vss-account-grid">
                     <div class="vss-account-tile">
@@ -1633,9 +1717,9 @@
                       <strong>${state.access.admin ? "∞" : counts.image}</strong>
                     </div>
                   </div>
-                  <div class="vss-modal-actions">
-                    ${state.access.admin ? "" : `<button class="vss-modal-primary" id="vss-buy-pack" type="button">${state.checkoutLoading ? "Opening..." : `Buy ${escapeHtml(state.currentPack.name || "Vision pack")}`}</button>`}
-                    <button class="vss-modal-secondary" id="vss-logout" type="button">${state.authLoading ? "Logging out..." : "Log out"}</button>
+                  <div class="vss-account-actions">
+                    ${state.access.admin ? "" : `<button class="vss-account-primary" id="vss-buy-pack" type="button">${state.checkoutLoading ? "Opening..." : `Buy ${escapeHtml(state.currentPack.name || "Vision pack")}`}</button>`}
+                    <button class="vss-account-secondary" id="vss-logout" type="button">${state.authLoading ? "Logging out..." : "Log out"}</button>
                   </div>
                 </div>`
               : `<form class="vss-access-form" id="vss-auth-form">
@@ -1647,13 +1731,13 @@
                          <input class="vss-form-input" id="vss-auth-code" type="text" value="${escapeHtml(state.authPendingCode)}" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" />`
                       : ""
                   }
-                  <div class="vss-modal-actions">
-                    <button class="vss-modal-primary" id="vss-auth-submit" type="submit">${state.authLoading ? "Please wait..." : state.authStep === "code" ? "Continue to Vision" : "Send access code"}</button>
-                    <button class="vss-modal-secondary" id="vss-buy-pack" type="button">${state.checkoutLoading ? "Opening..." : `Buy ${escapeHtml(state.currentPack.name || "Vision pack")}`}</button>
+                  <div class="vss-account-actions">
+                    <button class="vss-account-primary" id="vss-auth-submit" type="submit">${state.authLoading ? "Please wait..." : state.authStep === "code" ? "Continue to Vision" : "Send access code"}</button>
+                    <button class="vss-account-secondary" id="vss-buy-pack" type="button">${state.checkoutLoading ? "Opening..." : `Buy ${escapeHtml(state.currentPack.name || "Vision pack")}`}</button>
                   </div>
                 </form>`
           }
-          <p class="vss-modal-note">${escapeHtml(state.authNote || (showAccount ? "Your pack follows you anywhere you sign into Vision." : "We’ll send a one-time access code so your pack follows you when you come back."))}</p>
+          <p class="vss-account-panel-note">${escapeHtml(state.authNote || (showAccount ? "Your pack follows you anywhere you sign into Vision." : "We’ll send a one-time access code so your pack follows you when you come back."))}</p>
         </div>
       </div>
     `;
@@ -1758,17 +1842,12 @@
     root.querySelectorAll("[data-recent-id]").forEach((button) => {
       button.addEventListener("click", () => {
         const nextId = button.getAttribute("data-recent-id") || "";
-        const nextItem = state.recents.find((item) => item.id === nextId) || null;
-        const nextAsset = nextItem ? getAssetAvailability(nextItem.src) : null;
-        if (!nextAsset || !nextAsset.available) {
-          return;
-        }
-        state.selectedId = nextId;
-        state.menuOpenFor = "";
-        state.currentError = "";
-        syncScene();
-        render();
+        selectRecent(nextId, { openViewer: true });
       });
+    });
+
+    root.querySelector("[data-open-current-preview]")?.addEventListener("click", () => {
+      openViewerForItem(getSelectedRecent());
     });
 
     root.querySelector("[data-open-current]")?.addEventListener("click", () => {
@@ -1802,8 +1881,17 @@
         event.stopPropagation();
         const buttonNode = event.currentTarget;
         const itemId = buttonNode.getAttribute("data-download-id") || "";
-        const item = state.recents.find((entry) => entry.id === itemId) || null;
+        const item = getRecentById(itemId);
         await withDownloadFeedback(buttonNode, item);
+      });
+    });
+
+    root.querySelectorAll("[data-open-id]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const itemId = event.currentTarget.getAttribute("data-open-id") || "";
+        selectRecent(itemId, { openViewer: true });
       });
     });
 
@@ -1819,20 +1907,22 @@
     });
 
     root.querySelector("#vss-account-pill")?.addEventListener("click", () => {
-      state.accountPanelOpen = true;
-      state.authStep = hasAccountContext() ? "account" : "email";
-      state.authPendingEmail = state.user.email || state.authPendingEmail || "";
+      state.accountPanelOpen = !state.accountPanelOpen;
+      if (state.accountPanelOpen) {
+        state.authStep = hasAccountContext() ? "account" : "email";
+        state.authPendingEmail = state.user.email || state.authPendingEmail || "";
+      }
       render();
     });
 
-    root.querySelector("#vss-modal-close")?.addEventListener("click", () => {
+    root.querySelector("#vss-account-panel-close")?.addEventListener("click", () => {
       state.accountPanelOpen = false;
       state.menuOpenFor = "";
       render();
     });
 
-    root.querySelector("#vss-modal-backdrop")?.addEventListener("click", (event) => {
-      if (event.target && event.target.id === "vss-modal-backdrop") {
+    root.querySelector("#vss-account-overlay")?.addEventListener("click", (event) => {
+      if (event.target && event.target.id === "vss-account-overlay") {
         state.accountPanelOpen = false;
         render();
       }
