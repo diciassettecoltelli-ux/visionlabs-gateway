@@ -31,3 +31,4 @@ if [ -d assets ]; then
 fi
 
 cp assets/candle.mp4 public/generated/smoke/candle-proof.mp4
+cp assets/burgundy-editorial-portrait.jpg public/generated/smoke/editorial-proof.jpg

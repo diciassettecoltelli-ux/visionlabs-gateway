@@ -55,6 +55,15 @@
     currency: "EUR",
   };
 
+  const defaultViewer = {
+    open: false,
+    kind: "image",
+    assetPath: "",
+    assetUrl: "",
+    title: "",
+    caption: "",
+  };
+
   const generationPhases = ["Queued", "Preparing", "Generating", "Finishing", "Ready"];
 
   const state = {
@@ -80,6 +89,7 @@
     checkoutLoading: false,
     menuOpenFor: "",
     assetStatusByPath: {},
+    viewer: { ...defaultViewer },
   };
 
   let pollHandle = null;
@@ -363,6 +373,125 @@
     const shortId = String(item.id || "").slice(0, 8);
     const extension = inferDownloadExtension(item.src, outputType);
     return `vision-${outputType}-${base}${shortId ? `-${shortId}` : ""}.${extension}`;
+  };
+
+  const closeViewer = () => {
+    if (!state.viewer.open) {
+      return;
+    }
+    state.viewer = { ...defaultViewer };
+    render();
+  };
+
+  const openViewerForItem = (item) => {
+    if (!item) {
+      return;
+    }
+    const asset = getAssetAvailability(item.src);
+    if (!asset.available || !asset.assetUrl) {
+      return;
+    }
+    state.viewer = {
+      open: true,
+      kind: item.kind === "video" ? "video" : "image",
+      assetPath: asset.assetPath,
+      assetUrl: asset.assetUrl,
+      title: summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still"),
+      caption: item.prompt || "Generated inside Vision.",
+    };
+    render();
+  };
+
+  const markAssetMissing = (path) => {
+    const asset = getAssetAvailability(path);
+    if (!asset.assetPath) {
+      return;
+    }
+    state.assetStatusByPath[asset.assetPath] = {
+      state: "missing",
+      assetUrl: asset.assetUrl,
+      checkedAt: Date.now(),
+    };
+    if (state.viewer.assetPath === asset.assetPath) {
+      state.viewer = { ...defaultViewer };
+    }
+    reconcileSelectedRecent();
+    syncScene();
+    render();
+  };
+
+  const downloadItemAsset = async (item) => {
+    if (!item) {
+      return false;
+    }
+    const asset = getAssetAvailability(item.src);
+    if (!asset.available || !asset.assetUrl) {
+      return false;
+    }
+
+    let objectUrl = "";
+    try {
+      const response = await fetch(asset.assetUrl, {
+        cache: "no-store",
+        mode: "cors",
+        credentials: "omit",
+      });
+      if (!response.ok) {
+        markAssetMissing(item.src);
+        return false;
+      }
+      const blob = await response.blob();
+      objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = buildDownloadFilename({
+        ...item,
+        type: item.kind === "image" ? "image" : "video",
+        src: asset.assetUrl,
+      });
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return true;
+    } catch (error) {
+      return false;
+    } finally {
+      if (objectUrl) {
+        window.setTimeout(() => {
+          try {
+            window.URL.revokeObjectURL(objectUrl);
+          } catch (error) {
+            // Ignore object URL cleanup failures.
+          }
+        }, 1000);
+      }
+    }
+  };
+
+  const withDownloadFeedback = async (button, item) => {
+    if (!button || !item) {
+      return;
+    }
+    const originalLabel = button.textContent || "Download";
+    button.disabled = true;
+    button.setAttribute("aria-disabled", "true");
+    button.textContent = "Preparing download...";
+
+    const succeeded = await downloadItemAsset(item);
+    if (!document.body.contains(button)) {
+      return;
+    }
+
+    const asset = getAssetAvailability(item.src);
+    if (!succeeded && !asset.available) {
+      button.textContent = "Download unavailable";
+      return;
+    }
+
+    button.disabled = false;
+    button.removeAttribute("aria-disabled");
+    button.textContent = originalLabel;
   };
 
   const formatFileSize = (bytes) => {
@@ -1193,26 +1322,26 @@
     if (state.scene === "result" && getSelectedRecent()) {
       const item = getSelectedRecent();
       const asset = getAssetAvailability(item.src);
-      const assetUrl = asset.assetUrl;
       const hasAsset = asset.available;
       const assetMissing = asset.state === "missing" || asset.state === "invalid";
-      const fullscreenLabel = item.kind === "video" ? "Open full screen" : "Open image";
+      const openLabel = item.kind === "video" ? "Open video" : "Open image";
+      const downloadLabel = assetMissing ? "Download unavailable" : "Download";
       const media =
         hasAsset
           ? item.kind === "video"
-            ? `<video class="vss-canvas-video" src="${escapeHtml(assetUrl)}" autoplay muted loop playsinline></video>`
-            : `<img class="vss-canvas-image" src="${escapeHtml(assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`
+            ? `<video class="vss-canvas-video" src="${escapeHtml(asset.assetUrl)}" autoplay muted loop playsinline></video>`
+            : `<img class="vss-canvas-image" src="${escapeHtml(asset.assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`
           : `<div class="vss-canvas-missing">${assetMissing ? "Source unavailable" : "Checking source..."}</div>`;
       return `
         <div class="vss-canvas-media">
           ${media}
           <div class="vss-canvas-scrim"></div>
           <div class="vss-canvas-actions" aria-label="Current result actions">
-            <button class="vss-canvas-action" type="button" data-open-current ${hasAsset ? `data-asset-url="${escapeHtml(assetUrl)}"` : "disabled aria-disabled=\"true\""}>${escapeHtml(fullscreenLabel)}</button>
+            <button class="vss-canvas-action" type="button" data-open-current="${escapeHtml(item.id)}" ${hasAsset ? "" : "disabled aria-disabled=\"true\""}>${escapeHtml(openLabel)}</button>
             ${
               hasAsset
-                ? `<a class="vss-canvas-action" href="${escapeHtml(assetUrl)}" download="${escapeHtml(buildDownloadFilename({ ...item, src: assetUrl }))}">Download</a>`
-                : `<button class="vss-canvas-action" type="button" disabled aria-disabled="true">Download</button>`
+                ? `<button class="vss-canvas-action" type="button" data-download-current="${escapeHtml(item.id)}">Download</button>`
+                : `<button class="vss-canvas-action" type="button" disabled aria-disabled="true">${escapeHtml(downloadLabel)}</button>`
             }
           </div>
           <div class="vss-canvas-result-meta">
@@ -1349,12 +1478,48 @@
           <span class="vss-mode-separator" aria-hidden="true"></span>
           <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
         </div>
-        <button class="vss-improve${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${
+        <div class="vss-improve-row" id="vss-improve-row" ${
           state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
-        } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
+        }>
+          <button class="vss-improve${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${
+            state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
+          } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
+        </div>
       </div>
     </div>
   `;
+
+  const renderViewer = () => {
+    if (!state.viewer.open || !state.viewer.assetUrl) {
+      return "";
+    }
+    const viewerTitle = state.viewer.title || (state.viewer.kind === "video" ? "Vision video" : "Vision image");
+    const viewerMedia =
+      state.viewer.kind === "video"
+        ? `<video class="vss-viewer-video" src="${escapeHtml(state.viewer.assetUrl)}" controls autoplay playsinline></video>`
+        : `<img class="vss-viewer-image" src="${escapeHtml(state.viewer.assetUrl)}" alt="${escapeHtml(viewerTitle)}" />`;
+    return `
+      <div class="vss-viewer-backdrop" id="vss-viewer-backdrop" aria-hidden="false">
+        <div class="vss-viewer-panel" role="dialog" aria-modal="true" aria-labelledby="vss-viewer-title">
+          <button class="vss-viewer-close" id="vss-viewer-close" type="button" aria-label="Close viewer">Close</button>
+          <div class="vss-viewer-media">
+            ${viewerMedia}
+          </div>
+          <div class="vss-viewer-meta">
+            <div>
+              <div class="vss-viewer-kicker">Studio / Viewer</div>
+              <h2 class="vss-viewer-title" id="vss-viewer-title">${escapeHtml(viewerTitle)}</h2>
+              <p class="vss-viewer-caption">${escapeHtml(state.viewer.caption || "Generated inside Vision.")}</p>
+            </div>
+            <div class="vss-viewer-actions">
+              <button class="vss-viewer-action" type="button" data-viewer-download>Download</button>
+              <a class="vss-viewer-link" href="${escapeHtml(state.viewer.assetUrl)}" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  };
 
   const renderRecentMenu = (item) => {
     const isOpen = state.menuOpenFor === item.id;
@@ -1362,12 +1527,11 @@
       return "";
     }
     const asset = getAssetAvailability(item.src);
-    const assetUrl = asset.assetUrl;
     return `
       <div class="vss-recent-popover" data-menu-panel="${escapeHtml(item.id)}">
         ${
           asset.available
-            ? `<a href="${escapeHtml(assetUrl)}" download="${escapeHtml(buildDownloadFilename({ ...item, src: assetUrl }))}" class="vss-recent-popover-action">Download</a>`
+            ? `<button class="vss-recent-popover-action" type="button" data-download-id="${escapeHtml(item.id)}">Download</button>`
             : `<button class="vss-recent-popover-action" type="button" disabled aria-disabled="true">Download unavailable</button>`
         }
         <button class="vss-recent-popover-action vss-recent-popover-action--danger" type="button" data-delete-id="${escapeHtml(item.id)}">Delete</button>
@@ -1496,6 +1660,7 @@
   };
 
   const render = () => {
+    document.body.classList.toggle("vss-viewer-open", state.viewer.open);
     root.innerHTML = `
       <div class="vss-shell">
         <div class="vss-app">
@@ -1504,6 +1669,7 @@
             ${renderCanvas()}
             ${renderRecents()}
           </main>
+          ${renderViewer()}
           ${renderAccountPanel()}
         </div>
       </div>
@@ -1514,6 +1680,7 @@
   const bind = () => {
     const promptInput = root.querySelector("#vss-prompt-input");
     const promptForm = root.querySelector("#vss-prompt-form");
+    const improveRow = root.querySelector("#vss-improve-row");
     const improveButton = root.querySelector("#vss-improve-button");
     const referenceInput = root.querySelector("#vss-reference-input");
     const addReferenceButton = root.querySelector(".vss-add-ref");
@@ -1525,6 +1692,10 @@
       }
       const hasPrompt = !!String(promptInput && promptInput.value ? promptInput.value : state.prompt || "").trim();
       const hasContext = hasPrompt || !!state.referenceAsset;
+      if (improveRow) {
+        improveRow.hidden = !hasContext;
+        improveRow.setAttribute("aria-hidden", hasContext ? "false" : "true");
+      }
       improveButton.hidden = !hasContext;
       improveButton.setAttribute("aria-hidden", hasContext ? "false" : "true");
       improveButton.disabled = state.improveLoading || !hasPrompt;
@@ -1601,12 +1772,18 @@
     });
 
     root.querySelector("[data-open-current]")?.addEventListener("click", () => {
+      openViewerForItem(getSelectedRecent());
+    });
+
+    root.querySelector("[data-download-current]")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      await withDownloadFeedback(button, getSelectedRecent());
+    });
+
+    root.querySelector("[data-viewer-download]")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
       const selected = getSelectedRecent();
-      const asset = getAssetAvailability(selected && selected.src);
-      if (!asset.available || !asset.assetUrl) {
-        return;
-      }
-      window.open(asset.assetUrl, "_blank", "noopener,noreferrer");
+      await withDownloadFeedback(button, selected);
     });
 
     root.querySelectorAll("[data-menu-id]").forEach((button) => {
@@ -1616,6 +1793,17 @@
         const menuId = button.getAttribute("data-menu-id") || "";
         state.menuOpenFor = state.menuOpenFor === menuId ? "" : menuId;
         render();
+      });
+    });
+
+    root.querySelectorAll("[data-download-id]").forEach((button) => {
+      button.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const buttonNode = event.currentTarget;
+        const itemId = buttonNode.getAttribute("data-download-id") || "";
+        const item = state.recents.find((entry) => entry.id === itemId) || null;
+        await withDownloadFeedback(buttonNode, item);
       });
     });
 
@@ -1650,6 +1838,16 @@
       }
     });
 
+    root.querySelector("#vss-viewer-close")?.addEventListener("click", () => {
+      closeViewer();
+    });
+
+    root.querySelector("#vss-viewer-backdrop")?.addEventListener("click", (event) => {
+      if (event.target && event.target.id === "vss-viewer-backdrop") {
+        closeViewer();
+      }
+    });
+
     root.querySelector("#vss-auth-email")?.addEventListener("input", (event) => {
       state.authPendingEmail = String(event.target.value || "");
     });
@@ -1675,6 +1873,21 @@
       logout();
     });
   };
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+    if (state.viewer.open) {
+      event.preventDefault();
+      closeViewer();
+      return;
+    }
+    if (state.accountPanelOpen) {
+      state.accountPanelOpen = false;
+      render();
+    }
+  });
 
   const init = async () => {
     render();
