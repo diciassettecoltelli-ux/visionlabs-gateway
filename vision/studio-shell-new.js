@@ -79,10 +79,12 @@
     improveLoading: false,
     checkoutLoading: false,
     menuOpenFor: "",
+    assetStatusByPath: {},
   };
 
   let pollHandle = null;
   let pendingPollJobId = "";
+  const pendingAssetChecks = new Map();
 
   const escapeHtml = (value) =>
     String(value ?? "")
@@ -128,6 +130,126 @@
       return "";
     }
     return `${DEFAULT_API_BASE}${assetPath}`;
+  };
+
+  const getAssetCandidateUrls = (assetPath) => {
+    const candidates = [];
+    const currentOrigin = String(window.location.origin || "").replace(/\/$/, "");
+    if (currentOrigin && /^https?:\/\//i.test(currentOrigin)) {
+      candidates.push(`${currentOrigin}${assetPath}`);
+    }
+    if (DEFAULT_API_BASE) {
+      candidates.push(`${DEFAULT_API_BASE}${assetPath}`);
+    }
+    return Array.from(new Set(candidates.filter(Boolean)));
+  };
+
+  const verifyAssetWithHead = async (assetUrl) => {
+    if (!assetUrl) {
+      return false;
+    }
+    const response = await fetch(assetUrl, {
+      method: "HEAD",
+      cache: "no-store",
+      mode: "cors",
+      credentials: "omit",
+    });
+    return response.ok;
+  };
+
+  const getAssetAvailability = (path) => {
+    const assetPath = normalizeGeneratedAssetPath(path);
+    if (!assetPath) {
+      return {
+        assetPath: "",
+        assetUrl: "",
+        state: "invalid",
+        available: false,
+      };
+    }
+    const record = state.assetStatusByPath[assetPath];
+    const status = record && record.state ? record.state : "unknown";
+    const candidateUrls = getAssetCandidateUrls(assetPath);
+    return {
+      assetPath,
+      assetUrl: record && record.assetUrl ? record.assetUrl : (candidateUrls[0] || visionAssetUrl(assetPath)),
+      state: status,
+      available: status === "available",
+    };
+  };
+
+  const verifyAssetAvailability = async (path, options) => {
+    const opts = options || {};
+    const asset = getAssetAvailability(path);
+    if (!asset.assetPath) {
+      return asset;
+    }
+
+    if (!opts.force && (asset.state === "available" || asset.state === "missing")) {
+      return asset;
+    }
+
+    const pending = pendingAssetChecks.get(asset.assetPath);
+    if (!opts.force && pending) {
+      return pending;
+    }
+
+    state.assetStatusByPath[asset.assetPath] = {
+      state: "checking",
+      checkedAt: Date.now(),
+    };
+    if (opts.renderOnStart) {
+      render();
+    }
+
+    const request = (async () => {
+      let nextState = "unknown";
+      let resolvedAssetUrl = asset.assetUrl;
+      const candidateUrls = getAssetCandidateUrls(asset.assetPath);
+      try {
+        for (const candidateUrl of candidateUrls) {
+          if (await verifyAssetWithHead(candidateUrl)) {
+            nextState = "available";
+            resolvedAssetUrl = candidateUrl;
+            break;
+          }
+        }
+        if (nextState !== "available") {
+          const response = await visionFetch(`/api/assets/status?path=${encodeURIComponent(asset.assetPath)}`, {
+            cache: "no-store",
+          });
+          const payload = await parseJsonSafely(response);
+          if (response.ok && payload && typeof payload.available === "boolean") {
+            nextState = payload.available ? "available" : "missing";
+            if (payload.available) {
+              resolvedAssetUrl = `${DEFAULT_API_BASE}${String(payload.path || asset.assetPath)}`;
+            }
+          } else {
+            nextState = "missing";
+          }
+        }
+      } catch (error) {
+        nextState = nextState === "available" ? "available" : "missing";
+      } finally {
+        pendingAssetChecks.delete(asset.assetPath);
+      }
+
+      state.assetStatusByPath[asset.assetPath] = {
+        state: nextState,
+        assetUrl: resolvedAssetUrl,
+        checkedAt: Date.now(),
+      };
+      render();
+      return {
+        assetPath: asset.assetPath,
+        assetUrl: resolvedAssetUrl,
+        state: nextState,
+        available: nextState === "available",
+      };
+    })();
+
+    pendingAssetChecks.set(asset.assetPath, request);
+    return request;
   };
 
   const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
@@ -425,6 +547,16 @@
         createdAt: item.created_at || "",
       }));
 
+    const assetPaths = new Set();
+    state.recents.forEach((item) => {
+      const asset = getAssetAvailability(item.src);
+      if (!asset.assetPath || assetPaths.has(asset.assetPath)) {
+        return;
+      }
+      assetPaths.add(asset.assetPath);
+      verifyAssetAvailability(asset.assetPath);
+    });
+
     if (state.selectedId && state.recents.some((item) => item.id === state.selectedId)) {
       return;
     }
@@ -653,16 +785,16 @@
     render();
   };
 
-  const saveGeneratedResult = async (job) => {
-    const outputUrl = visionAssetUrl(job.output_url);
-    if (!outputUrl) {
+  const saveGeneratedResult = async (job, verifiedAsset) => {
+    const asset = verifiedAsset && verifiedAsset.available ? verifiedAsset : await verifyAssetAvailability(job.output_url, { force: true });
+    if (!asset.available || !asset.assetUrl) {
       state.currentJob = null;
-      state.currentError = "Vision finished the job, but the generated media URL was missing or invalid.";
+      state.currentError = "Vision finished the job, but the generated file could not be found on the gateway.";
       syncScene();
       render();
       return;
     }
-    saveHistoryItem(job, outputUrl);
+    saveHistoryItem(job, asset.assetUrl);
     state.currentJob = null;
     state.currentError = "";
     syncScene();
@@ -695,15 +827,18 @@
       render();
 
       const status = String(job.status || "").toLowerCase();
-      if (visionAssetUrl(job.output_url)) {
-        stopPolling();
-        await saveGeneratedResult(job);
-        return;
+      if (job.output_url) {
+        const verifiedAsset = await verifyAssetAvailability(job.output_url, { force: true });
+        if (verifiedAsset.available) {
+          stopPolling();
+          await saveGeneratedResult(job, verifiedAsset);
+          return;
+        }
       }
       if (status === "ready") {
         stopPolling();
         handleJobFailure({
-          message: "Vision finished the job, but the generated media URL was missing or invalid.",
+          message: "Vision finished the job, but the generated file could not be found on the gateway.",
         });
         return;
       }
@@ -994,15 +1129,17 @@
   const renderCanvasMedia = () => {
     if (state.scene === "result" && getSelectedRecent()) {
       const item = getSelectedRecent();
-      const assetUrl = visionAssetUrl(item.src);
-      const hasAsset = !!assetUrl;
+      const asset = getAssetAvailability(item.src);
+      const assetUrl = asset.assetUrl;
+      const hasAsset = asset.available;
+      const assetMissing = asset.state === "missing" || asset.state === "invalid";
       const fullscreenLabel = item.kind === "video" ? "Open full screen" : "Open image";
       const media =
         hasAsset
           ? item.kind === "video"
             ? `<video class="vss-canvas-video" src="${escapeHtml(assetUrl)}" autoplay muted loop playsinline></video>`
             : `<img class="vss-canvas-image" src="${escapeHtml(assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`
-          : `<div class="vss-canvas-missing">Generated media unavailable</div>`;
+          : `<div class="vss-canvas-missing">${assetMissing ? "Source unavailable" : "Checking source..."}</div>`;
       return `
         <div class="vss-canvas-media">
           ${media}
@@ -1016,9 +1153,17 @@
             }
           </div>
           <div class="vss-canvas-result-meta">
-            <p class="vss-result-label">${item.kind === "video" ? "Latest video" : "Latest image"}</p>
+            <p class="vss-result-label">${
+              hasAsset ? (item.kind === "video" ? "Latest video" : "Latest image") : (assetMissing ? "Source unavailable" : "Checking source")
+            }</p>
             <h2 class="vss-result-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still"))}</h2>
-            <p class="vss-result-caption">${escapeHtml(hasAsset ? item.prompt || "Generated inside Vision." : "The Studio result is saved, but the original media URL is missing or invalid.")}</p>
+            <p class="vss-result-caption">${escapeHtml(
+              hasAsset
+                ? item.prompt || "Generated inside Vision."
+                : assetMissing
+                  ? "This history item points to a generated file that no longer exists on Vision."
+                  : "Vision is verifying the generated source before enabling open and download.",
+            )}</p>
           </div>
         </div>
       `;
@@ -1153,11 +1298,12 @@
     if (!isOpen) {
       return "";
     }
-    const assetUrl = visionAssetUrl(item.src);
+    const asset = getAssetAvailability(item.src);
+    const assetUrl = asset.assetUrl;
     return `
       <div class="vss-recent-popover" data-menu-panel="${escapeHtml(item.id)}">
         ${
-          assetUrl
+          asset.available
             ? `<a href="${escapeHtml(assetUrl)}" download="${escapeHtml(buildDownloadFilename({ ...item, src: assetUrl }))}" class="vss-recent-popover-action">Download</a>`
             : `<button class="vss-recent-popover-action" type="button" disabled aria-disabled="true">Download unavailable</button>`
         }
@@ -1179,16 +1325,19 @@
                 ${state.recents
                   .map((item) => {
                     const isSelected = state.selectedId === item.id;
-                    const assetUrl = visionAssetUrl(item.src);
+                    const asset = getAssetAvailability(item.src);
+                    const assetUrl = asset.assetUrl;
+                    const hasAsset = asset.available;
+                    const assetMissing = asset.state === "missing" || asset.state === "invalid";
                     const media =
-                      assetUrl
+                      hasAsset
                         ? item.kind === "video"
                           ? `<video src="${escapeHtml(assetUrl)}" muted loop playsinline autoplay></video>`
                           : `<img src="${escapeHtml(assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still"))}" />`
-                        : `<div class="vss-recent-missing">Source unavailable</div>`;
+                        : `<div class="vss-recent-missing">${assetMissing ? "Source unavailable" : "Checking source..."}</div>`;
                     return `
                       <article class="vss-recent-card${isSelected ? " is-selected" : ""}">
-                        <button class="vss-recent-select" type="button" data-recent-id="${escapeHtml(item.id)}" ${assetUrl ? "" : "disabled aria-disabled=\"true\""}>
+                        <button class="vss-recent-select" type="button" data-recent-id="${escapeHtml(item.id)}">
                           <div class="vss-recent-thumb">
                             ${media}
                             <span class="vss-recent-duration">${item.kind === "video" ? "Video" : "Image"}</span>
@@ -1198,6 +1347,7 @@
                             <div>
                               <p class="vss-recent-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still"))}</p>
                               <span class="vss-recent-date">${escapeHtml(`${formatDate(item.createdAt)} · ${formatTime(item.createdAt)}`)}</span>
+                              ${assetMissing ? '<span class="vss-recent-date">Source unavailable</span>' : ""}
                             </div>
                             <button class="vss-recent-menu-button" type="button" data-menu-id="${escapeHtml(item.id)}" aria-label="More actions">•••</button>
                           </div>
@@ -1383,11 +1533,11 @@
 
     root.querySelector("[data-open-current]")?.addEventListener("click", () => {
       const selected = getSelectedRecent();
-      const assetUrl = visionAssetUrl(selected && selected.src);
-      if (!assetUrl) {
+      const asset = getAssetAvailability(selected && selected.src);
+      if (!asset.available || !asset.assetUrl) {
         return;
       }
-      window.open(assetUrl, "_blank", "noopener,noreferrer");
+      window.open(asset.assetUrl, "_blank", "noopener,noreferrer");
     });
 
     root.querySelectorAll("[data-menu-id]").forEach((button) => {

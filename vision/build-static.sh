@@ -3,6 +3,7 @@ set -eu
 
 rm -rf public
 mkdir -p public public/studio
+mkdir -p public/generated/smoke
 
 cp index.html public/index.html
 cp index.html public/studio/index.html
@@ -28,3 +29,5 @@ cp legal.html public/legal.html
 if [ -d assets ]; then
   cp -R assets public/assets
 fi
+
+cp assets/candle.mp4 public/generated/smoke/candle-proof.mp4

@@ -5,6 +5,7 @@ import copy
 import hashlib
 import hmac
 import json
+import mimetypes
 import os
 import queue
 import secrets
@@ -81,6 +82,39 @@ def _public_output_url(job_id: str, filename: str) -> str:
     if public_base:
         return f"{public_base}{relative_path}"
     return relative_path
+
+
+def _normalize_generated_asset_path(path: str | None) -> str:
+    raw = str(path or "").strip()
+    if not raw:
+        return ""
+    candidate = f"/{raw}" if raw.startswith("generated/") else raw
+    try:
+        parsed = urllib.parse.urlparse(candidate if "://" in candidate else f"http://vision.local{candidate}")
+    except Exception:
+        return ""
+    pathname = str(parsed.path or "")
+    while "//" in pathname:
+        pathname = pathname.replace("//", "/")
+    if not pathname.startswith("/generated/") or pathname == "/generated/":
+        return ""
+    return pathname
+
+
+def _resolve_generated_asset_file(path: str | None) -> tuple[str, Path] | None:
+    asset_path = _normalize_generated_asset_path(path)
+    if not asset_path:
+        return None
+    relative_path = asset_path.removeprefix("/generated/").lstrip("/")
+    if not relative_path:
+        return None
+    candidate = (OUTPUT_ROOT / relative_path).resolve()
+    output_root = OUTPUT_ROOT.resolve()
+    try:
+        candidate.relative_to(output_root)
+    except ValueError:
+        return None
+    return asset_path, candidate
 
 
 def _default_generation_quality() -> str:
@@ -1990,6 +2024,27 @@ def get_job(job_id: str) -> dict[str, Any]:
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
     return job
+
+
+@APP.get("/api/assets/status")
+def get_asset_status(path: str) -> JSONResponse:
+    resolved = _resolve_generated_asset_file(path)
+    if not resolved:
+        raise HTTPException(status_code=400, detail="Asset path must point to /generated/...")
+
+    asset_path, asset_file = resolved
+    available = asset_file.is_file()
+    payload: dict[str, Any] = {
+        "path": asset_path,
+        "available": available,
+        "missing": not available,
+    }
+    if available:
+        stat_result = asset_file.stat()
+        payload["size_bytes"] = stat_result.st_size
+        payload["filename"] = asset_file.name
+        payload["content_type"] = mimetypes.guess_type(asset_file.name)[0] or "application/octet-stream"
+    return JSONResponse(payload)
 
 
 if (VISION_ROOT / "assets").exists():
