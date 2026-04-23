@@ -1054,7 +1054,7 @@ body.vss-viewer-open {
 
 .vss-prompt-bar {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 78px;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
   align-items: center;
   width: 100%;
   min-height: 72px;
@@ -1119,6 +1119,13 @@ body.vss-viewer-open {
   color: rgba(227, 221, 213, 0.56);
 }
 
+.vss-prompt-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 10px;
+}
+
 .vss-submit {
   display: grid;
   place-items: center;
@@ -1147,13 +1154,6 @@ body.vss-viewer-open {
     0 0 0 1px rgba(255, 255, 255, 0.16) inset;
 }
 
-.vss-dock-footer {
-  width: 100%;
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-}
-
 .vss-mode-row {
   display: inline-flex;
   align-items: center;
@@ -1180,22 +1180,17 @@ body.vss-viewer-open {
   gap: 16px;
 }
 
-.vss-improve-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.045);
-  border-radius: 20px;
-  background: rgba(15, 16, 19, 0.48);
-}
-
 .vss-improve-note {
   color: rgba(228, 221, 213, 0.7);
   font-size: 0.78rem;
   letter-spacing: 0.08em;
+}
+
+.vss-improve-note--inline {
+  width: 100%;
+  margin: -2px 0 0;
+  padding-right: 84px;
+  text-align: right;
 }
 
 .vss-improve {
@@ -1219,6 +1214,13 @@ body.vss-viewer-open {
   border-color: rgba(255, 255, 255, 0.12);
   background: rgba(24, 25, 29, 0.92);
   outline: none;
+}
+
+.vss-improve--inline {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 0.64rem;
+  white-space: nowrap;
 }
 
 .vss-improve.is-disabled,
@@ -1790,16 +1792,12 @@ body.vss-viewer-open {
     flex-wrap: wrap;
   }
 
-  .vss-dock-footer {
-    gap: 12px;
-  }
-
   .vss-reference-hint {
     text-align: center;
   }
 
   .vss-prompt-bar {
-    grid-template-columns: 52px minmax(0, 1fr) 58px;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
     min-height: 66px;
   }
 
@@ -1817,17 +1815,27 @@ body.vss-viewer-open {
     font-size: 1.02rem;
   }
 
+  .vss-prompt-actions {
+    gap: 8px;
+  }
+
+  .vss-improve--inline {
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+  }
+
+  .vss-improve-note--inline {
+    padding-right: 0;
+    text-align: center;
+  }
+
   .vss-mode-row {
     width: 100%;
     flex-wrap: wrap;
     row-gap: 10px;
     padding: 10px 14px;
-  }
-
-  .vss-improve-row {
-    justify-content: center;
-    flex-wrap: wrap;
-    padding: 12px;
   }
 
   .vss-improve-note {

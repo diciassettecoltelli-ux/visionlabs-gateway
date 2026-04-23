@@ -31,6 +31,8 @@
   const VISION_HISTORY_STORAGE_KEY = "vision_generation_history_v1";
   const VISION_ACCESS_STORAGE_KEY = "vision_access_token";
   const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
+  const VISION_ASSET_CACHE_DB = "vision_asset_cache_v1";
+  const VISION_ASSET_CACHE_STORE = "assets";
   const DEFAULT_PACK_ID = "pro";
 
   const defaultAccess = {
@@ -90,6 +92,7 @@
     menuOpenFor: "",
     menuAnchor: null,
     assetStatusByPath: {},
+    assetObjectUrlsByPath: {},
     selectionSource: "auto",
     recentValidationPending: false,
     viewer: { ...defaultViewer },
@@ -99,6 +102,7 @@
   let pendingPollJobId = "";
   const pendingAssetChecks = new Map();
   let recentsValidationToken = 0;
+  let assetCacheDbPromise = null;
 
   const escapeHtml = (value) =>
     String(value ?? "")
@@ -210,38 +214,44 @@
       return pending;
     }
 
-    state.assetStatusByPath[asset.assetPath] = {
-      state: "checking",
-      checkedAt: Date.now(),
-    };
-    if (opts.renderOnStart) {
-      render();
-    }
-
     const request = (async () => {
       let nextState = "unknown";
       let resolvedAssetUrl = asset.assetUrl;
       const candidateUrls = getAssetCandidateUrls(asset.assetPath);
       try {
-        for (const candidateUrl of candidateUrls) {
-          if (await verifyAssetWithHead(candidateUrl)) {
-            nextState = "available";
-            resolvedAssetUrl = candidateUrl;
-            break;
+        const cachedAsset = await hydrateAssetFromCache(asset.assetPath);
+        if (cachedAsset) {
+          nextState = "available";
+          resolvedAssetUrl = cachedAsset.assetUrl;
+        } else {
+          state.assetStatusByPath[asset.assetPath] = {
+            state: "checking",
+            checkedAt: Date.now(),
+          };
+          if (opts.renderOnStart) {
+            render();
           }
-        }
-        if (nextState !== "available") {
-          const response = await visionFetch(`/api/assets/status?path=${encodeURIComponent(asset.assetPath)}`, {
-            cache: "no-store",
-          });
-          const payload = await parseJsonSafely(response);
-          if (response.ok && payload && typeof payload.available === "boolean") {
-            nextState = payload.available ? "available" : "missing";
-            if (payload.available) {
-              resolvedAssetUrl = `${DEFAULT_API_BASE}${String(payload.path || asset.assetPath)}`;
+
+          for (const candidateUrl of candidateUrls) {
+            if (await verifyAssetWithHead(candidateUrl)) {
+              nextState = "available";
+              resolvedAssetUrl = candidateUrl;
+              break;
             }
-          } else {
-            nextState = "missing";
+          }
+          if (nextState !== "available") {
+            const response = await visionFetch(`/api/assets/status?path=${encodeURIComponent(asset.assetPath)}`, {
+              cache: "no-store",
+            });
+            const payload = await parseJsonSafely(response);
+            if (response.ok && payload && typeof payload.available === "boolean") {
+              nextState = payload.available ? "available" : "missing";
+              if (payload.available) {
+                resolvedAssetUrl = `${DEFAULT_API_BASE}${String(payload.path || asset.assetPath)}`;
+              }
+            } else {
+              nextState = "missing";
+            }
           }
         }
       } catch (error) {
@@ -255,6 +265,9 @@
         assetUrl: resolvedAssetUrl,
         checkedAt: Date.now(),
       };
+      if (nextState === "available" && resolvedAssetUrl) {
+        void cacheAssetFromUrl(asset.assetPath, resolvedAssetUrl);
+      }
       refreshRecentValidationState();
       reconcileSelectedRecent();
       syncScene();
@@ -306,6 +319,189 @@
       headers,
     });
   };
+
+  const openAssetCacheDb = () => {
+    if (!window.indexedDB) {
+      return Promise.resolve(null);
+    }
+    if (assetCacheDbPromise) {
+      return assetCacheDbPromise;
+    }
+    assetCacheDbPromise = new Promise((resolve) => {
+      try {
+        const request = window.indexedDB.open(VISION_ASSET_CACHE_DB, 1);
+        request.onupgradeneeded = () => {
+          const database = request.result;
+          if (!database.objectStoreNames.contains(VISION_ASSET_CACHE_STORE)) {
+            database.createObjectStore(VISION_ASSET_CACHE_STORE, { keyPath: "assetPath" });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(null);
+        request.onblocked = () => resolve(null);
+      } catch (error) {
+        resolve(null);
+      }
+    });
+    return assetCacheDbPromise;
+  };
+
+  const readCachedAssetRecord = async (assetPath) => {
+    if (!assetPath) {
+      return null;
+    }
+    const database = await openAssetCacheDb();
+    if (!database) {
+      return null;
+    }
+    return new Promise((resolve) => {
+      try {
+        const transaction = database.transaction(VISION_ASSET_CACHE_STORE, "readonly");
+        const request = transaction.objectStore(VISION_ASSET_CACHE_STORE).get(assetPath);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => resolve(null);
+      } catch (error) {
+        resolve(null);
+      }
+    });
+  };
+
+  const writeCachedAssetRecord = async (assetPath, blob) => {
+    if (!assetPath || !blob) {
+      return false;
+    }
+    const database = await openAssetCacheDb();
+    if (!database) {
+      return false;
+    }
+    return new Promise((resolve) => {
+      try {
+        const transaction = database.transaction(VISION_ASSET_CACHE_STORE, "readwrite");
+        transaction.objectStore(VISION_ASSET_CACHE_STORE).put({
+          assetPath,
+          blob,
+          cachedAt: Date.now(),
+        });
+        transaction.oncomplete = () => resolve(true);
+        transaction.onerror = () => resolve(false);
+        transaction.onabort = () => resolve(false);
+      } catch (error) {
+        resolve(false);
+      }
+    });
+  };
+
+  const removeCachedAssetRecord = async (assetPath) => {
+    if (!assetPath) {
+      return false;
+    }
+    const existingObjectUrl = state.assetObjectUrlsByPath[assetPath];
+    if (existingObjectUrl) {
+      try {
+        window.URL.revokeObjectURL(existingObjectUrl);
+      } catch (error) {
+        // Ignore object URL cleanup failures.
+      }
+      delete state.assetObjectUrlsByPath[assetPath];
+    }
+    const database = await openAssetCacheDb();
+    if (!database) {
+      return false;
+    }
+    return new Promise((resolve) => {
+      try {
+        const transaction = database.transaction(VISION_ASSET_CACHE_STORE, "readwrite");
+        transaction.objectStore(VISION_ASSET_CACHE_STORE).delete(assetPath);
+        transaction.oncomplete = () => resolve(true);
+        transaction.onerror = () => resolve(false);
+        transaction.onabort = () => resolve(false);
+      } catch (error) {
+        resolve(false);
+      }
+    });
+  };
+
+  const setAssetObjectUrl = (assetPath, blob) => {
+    if (!assetPath || !blob) {
+      return "";
+    }
+    const previousObjectUrl = state.assetObjectUrlsByPath[assetPath];
+    if (previousObjectUrl) {
+      try {
+        window.URL.revokeObjectURL(previousObjectUrl);
+      } catch (error) {
+        // Ignore object URL cleanup failures.
+      }
+    }
+    const objectUrl = window.URL.createObjectURL(blob);
+    state.assetObjectUrlsByPath[assetPath] = objectUrl;
+    return objectUrl;
+  };
+
+  const hydrateAssetFromCache = async (assetPath) => {
+    const cached = await readCachedAssetRecord(assetPath);
+    if (!cached || !cached.blob) {
+      return null;
+    }
+    const assetUrl = setAssetObjectUrl(assetPath, cached.blob);
+    const availability = {
+      assetPath,
+      assetUrl,
+      state: "available",
+      available: true,
+    };
+    state.assetStatusByPath[assetPath] = {
+      state: "available",
+      assetUrl,
+      checkedAt: Date.now(),
+      source: "cache",
+    };
+    return availability;
+  };
+
+  const cacheAssetFromUrl = async (assetPath, assetUrl) => {
+    if (!assetPath || !assetUrl) {
+      return null;
+    }
+    const cached = await hydrateAssetFromCache(assetPath);
+    if (cached) {
+      return cached;
+    }
+    try {
+      const response = await fetch(assetUrl, {
+        cache: "no-store",
+        mode: "cors",
+        credentials: "omit",
+      });
+      if (!response.ok) {
+        return null;
+      }
+      const blob = await response.blob();
+      if (!(blob instanceof Blob) || !blob.size) {
+        return null;
+      }
+      const stored = await writeCachedAssetRecord(assetPath, blob);
+      if (!stored) {
+        return null;
+      }
+      return hydrateAssetFromCache(assetPath);
+    } catch (error) {
+      return null;
+    }
+  };
+
+  window.addEventListener("beforeunload", () => {
+    Object.values(state.assetObjectUrlsByPath).forEach((objectUrl) => {
+      if (!objectUrl) {
+        return;
+      }
+      try {
+        window.URL.revokeObjectURL(objectUrl);
+      } catch (error) {
+        // Ignore object URL cleanup failures.
+      }
+    });
+  });
 
   const savePendingPrompt = (prompt, mode) => {
     try {
@@ -893,8 +1089,15 @@
     if (!normalizedId) {
       return;
     }
-    const items = readStudioHistory().filter((entry) => String(entry.id || "") !== normalizedId);
+    const existingItems = readStudioHistory();
+    const removedItem = existingItems.find((entry) => String(entry.id || "") === normalizedId) || null;
+    const items = existingItems.filter((entry) => String(entry.id || "") !== normalizedId);
     writeStudioHistory(items);
+    const removedAssetPath = removedItem ? normalizeGeneratedAssetPath(removedItem.src) : "";
+    const stillReferenced = removedAssetPath && items.some((entry) => normalizeGeneratedAssetPath(entry.src) === removedAssetPath);
+    if (removedAssetPath && !stillReferenced) {
+      void removeCachedAssetRecord(removedAssetPath);
+    }
     syncRecents();
     if (!state.recents.length) {
       state.scene = state.currentJob ? "generating" : "idle";
@@ -1100,7 +1303,10 @@
       render();
       return;
     }
-    saveHistoryItem(job, asset.assetUrl);
+    if (asset.assetPath && asset.assetUrl) {
+      await cacheAssetFromUrl(asset.assetPath, asset.assetUrl);
+    }
+    saveHistoryItem(job, asset.assetPath || asset.assetUrl);
     state.currentJob = null;
     state.currentError = "";
     syncScene();
@@ -1590,12 +1796,17 @@
           placeholder="Describe your video or image, or add a reference..."
           value="${escapeHtml(state.prompt)}"
         />
-        <button class="vss-submit" type="submit" aria-label="Generate">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M7 12h10"></path>
-            <path d="m13 6 6 6-6 6"></path>
-          </svg>
-        </button>
+        <div class="vss-prompt-actions">
+          <button class="vss-improve vss-improve--inline${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${
+            state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
+          } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
+          <button class="vss-submit" type="submit" aria-label="Generate">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 12h10"></path>
+              <path d="m13 6 6 6-6 6"></path>
+            </svg>
+          </button>
+        </div>
       </form>
       <div class="vss-mode-row vss-mode-row--elevated">
         <div class="vss-mode-switch" role="tablist" aria-label="Mode switch">
@@ -1617,16 +1828,9 @@
             </div>`
           : `<p class="vss-reference-hint">Use + to add an image or short video reference.</p>`
       }
-      <div class="vss-dock-footer">
-        <div class="vss-improve-row" id="vss-improve-row" ${
-          state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
-        }>
-          <span class="vss-improve-note">Refine your prompt before you generate.</span>
-          <button class="vss-improve${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${
-            state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
-          } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
-        </div>
-      </div>
+      <p class="vss-improve-note vss-improve-note--inline" id="vss-improve-note" ${
+        state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
+      }>Refine your prompt before you generate.</p>
     </div>
   `;
 
@@ -1854,8 +2058,8 @@
   const bind = () => {
     const promptInput = root.querySelector("#vss-prompt-input");
     const promptForm = root.querySelector("#vss-prompt-form");
-    const improveRow = root.querySelector("#vss-improve-row");
     const improveButton = root.querySelector("#vss-improve-button");
+    const improveNote = root.querySelector("#vss-improve-note");
     const referenceInput = root.querySelector("#vss-reference-input");
     const addReferenceButton = root.querySelector(".vss-add-ref");
     const clearReferenceButton = root.querySelector("#vss-reference-clear");
@@ -1867,9 +2071,9 @@
       }
       const hasPrompt = !!String(promptInput && promptInput.value ? promptInput.value : state.prompt || "").trim();
       const hasContext = hasPrompt || !!state.referenceAsset;
-      if (improveRow) {
-        improveRow.hidden = !hasContext;
-        improveRow.setAttribute("aria-hidden", hasContext ? "false" : "true");
+      if (improveNote) {
+        improveNote.hidden = !hasContext;
+        improveNote.setAttribute("aria-hidden", hasContext ? "false" : "true");
       }
       improveButton.hidden = !hasContext;
       improveButton.setAttribute("aria-hidden", hasContext ? "false" : "true");
