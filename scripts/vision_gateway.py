@@ -8,6 +8,7 @@ import json
 import mimetypes
 import os
 import queue
+import re
 import secrets
 import sqlite3
 import smtplib
@@ -1321,6 +1322,15 @@ def _tracking_database_url() -> str:
     return os.environ.get("TRACKING_DATABASE_URL", "").strip() or os.environ.get("DATABASE_URL", "").strip()
 
 
+def _safe_tracking_error(value: str) -> str:
+    text = str(value or "")
+    database_url = _tracking_database_url()
+    if database_url:
+        text = text.replace(database_url, "[database-url]")
+    text = re.sub(r"(postgres(?:ql)?://)[^@\s]+@", r"\1[credentials]@", text)
+    return text[:500]
+
+
 def _tracking_cookie_session_name() -> str:
     return os.environ.get("VISION_TRACKING_SESSION_COOKIE", "vision_tracking_session_id").strip() or "vision_tracking_session_id"
 
@@ -1591,6 +1601,12 @@ class PostgresTrackingEventStore(TrackingEventStore):
     def _connect(self):
         return self.psycopg.connect(self.database_url, autocommit=True)
 
+    def _execute_optional(self, cursor: Any, statement: str, label: str) -> None:
+        try:
+            cursor.execute(statement)
+        except Exception as exc:
+            print(f"[vision] optional tracking schema step failed ({label}): {exc}")
+
     def _ensure_schema(self) -> None:
         with self._connect() as connection:
             with connection.cursor() as cursor:
@@ -1671,15 +1687,18 @@ class PostgresTrackingEventStore(TrackingEventStore):
                     "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS user_agent TEXT",
                     "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
                 ):
-                    cursor.execute(statement)
-                cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_vision_tracking_events_event_id_unique ON vision_tracking_events(event_id)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_time ON vision_tracking_events(event_time)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_name_time ON vision_tracking_events(event_name, event_time)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_session ON vision_tracking_events(session_id)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_anonymous ON vision_tracking_events(anonymous_id)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_checkout ON vision_tracking_events(checkout_session_id)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_user ON vision_tracking_events(user_id)")
-                cursor.execute(
+                    self._execute_optional(cursor, statement, "events column migration")
+                for statement in (
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_vision_tracking_events_event_id_unique ON vision_tracking_events(event_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_time ON vision_tracking_events(event_time)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_name_time ON vision_tracking_events(event_name, event_time)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_session ON vision_tracking_events(session_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_anonymous ON vision_tracking_events(anonymous_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_checkout ON vision_tracking_events(checkout_session_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_user ON vision_tracking_events(user_id)",
+                ):
+                    self._execute_optional(cursor, statement, "events index migration")
+                for statement in (
                     """
                     CREATE TABLE IF NOT EXISTS vision_attribution (
                         attribution_key TEXT PRIMARY KEY,
@@ -1692,9 +1711,7 @@ class PostgresTrackingEventStore(TrackingEventStore):
                         last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
-                    """
-                )
-                for statement in (
+                    """,
                     "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS attribution_key TEXT",
                     "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS session_id TEXT",
                     "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS anonymous_id TEXT",
@@ -1704,68 +1721,73 @@ class PostgresTrackingEventStore(TrackingEventStore):
                     "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
                     "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
                     "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_vision_attribution_key_unique ON vision_attribution(attribution_key)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_attribution_session ON vision_attribution(session_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_attribution_anonymous ON vision_attribution(anonymous_id)",
                 ):
-                    cursor.execute(statement)
-                cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_vision_attribution_key_unique ON vision_attribution(attribution_key)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_attribution_session ON vision_attribution(session_id)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_attribution_anonymous ON vision_attribution(anonymous_id)")
+                    self._execute_optional(cursor, statement, "attribution schema migration")
 
     def append(self, event: dict[str, Any]) -> bool:
         clean = _scrub_tracking_event(event)
         with self.lock, self._connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    """
-                    INSERT INTO vision_tracking_events (
-                        event_id, event_name, event_time, received_at, session_id, anonymous_id, user_id,
-                        page_path, page_url, referrer, utm_source, utm_medium, utm_campaign, utm_content,
-                        utm_term, gclid, fbclid, ttclid, plan_id, currency, value, job_id, asset_id,
-                        media_type, platform_context, checkout_session_id, customer_email_hash,
-                        first_touch, last_touch, payload, event_json, ip, user_agent
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                    )
-                    ON CONFLICT (event_id) DO NOTHING
-                    RETURNING event_id
-                    """,
-                    (
-                        clean.get("event_id"),
-                        clean.get("event_name"),
-                        clean.get("event_time"),
-                        clean.get("received_at"),
-                        clean.get("session_id"),
-                        clean.get("anonymous_id"),
-                        clean.get("user_id"),
-                        clean.get("page_path"),
-                        clean.get("page_url"),
-                        clean.get("referrer"),
-                        clean.get("utm_source"),
-                        clean.get("utm_medium"),
-                        clean.get("utm_campaign"),
-                        clean.get("utm_content"),
-                        clean.get("utm_term"),
-                        clean.get("gclid"),
-                        clean.get("fbclid"),
-                        clean.get("ttclid"),
-                        clean.get("plan_id"),
-                        clean.get("currency"),
-                        clean.get("value"),
-                        clean.get("job_id"),
-                        clean.get("asset_id"),
-                        clean.get("media_type"),
-                        clean.get("platform_context"),
-                        clean.get("checkout_session_id"),
-                        clean.get("customer_email_hash"),
-                        self.Jsonb(clean.get("first_touch") or {}),
-                        self.Jsonb(clean.get("last_touch") or {}),
-                        self.Jsonb(clean.get("payload") or {}),
-                        self.Jsonb(clean),
-                        clean.get("ip"),
-                        clean.get("user_agent"),
-                    ),
+                    "SELECT 1 FROM vision_tracking_events WHERE event_id = %s LIMIT 1",
+                    (clean.get("event_id"),),
                 )
-                stored = cursor.fetchone() is not None
+                if cursor.fetchone() is not None:
+                    stored = False
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO vision_tracking_events (
+                            event_id, event_name, event_time, received_at, session_id, anonymous_id, user_id,
+                            page_path, page_url, referrer, utm_source, utm_medium, utm_campaign, utm_content,
+                            utm_term, gclid, fbclid, ttclid, plan_id, currency, value, job_id, asset_id,
+                            media_type, platform_context, checkout_session_id, customer_email_hash,
+                            first_touch, last_touch, payload, event_json, ip, user_agent
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        )
+                        """,
+                        (
+                            clean.get("event_id"),
+                            clean.get("event_name"),
+                            clean.get("event_time"),
+                            clean.get("received_at"),
+                            clean.get("session_id"),
+                            clean.get("anonymous_id"),
+                            clean.get("user_id"),
+                            clean.get("page_path"),
+                            clean.get("page_url"),
+                            clean.get("referrer"),
+                            clean.get("utm_source"),
+                            clean.get("utm_medium"),
+                            clean.get("utm_campaign"),
+                            clean.get("utm_content"),
+                            clean.get("utm_term"),
+                            clean.get("gclid"),
+                            clean.get("fbclid"),
+                            clean.get("ttclid"),
+                            clean.get("plan_id"),
+                            clean.get("currency"),
+                            clean.get("value"),
+                            clean.get("job_id"),
+                            clean.get("asset_id"),
+                            clean.get("media_type"),
+                            clean.get("platform_context"),
+                            clean.get("checkout_session_id"),
+                            clean.get("customer_email_hash"),
+                            self.Jsonb(clean.get("first_touch") or {}),
+                            self.Jsonb(clean.get("last_touch") or {}),
+                            self.Jsonb(clean.get("payload") or {}),
+                            self.Jsonb(clean),
+                            clean.get("ip"),
+                            clean.get("user_agent"),
+                        ),
+                    )
+                    stored = True
                 try:
                     self._upsert_attribution(cursor, clean)
                 except Exception as exc:
@@ -1860,6 +1882,13 @@ def _tracking_storage_label() -> str:
 
 def _tracking_storage_ready() -> bool:
     return not isinstance(globals().get("TRACKING"), UnconfiguredTrackingEventStore)
+
+
+def _tracking_storage_error() -> str:
+    tracking = globals().get("TRACKING")
+    if isinstance(tracking, UnconfiguredTrackingEventStore):
+        return _safe_tracking_error(tracking.reason)
+    return ""
 
 
 class JobsStore:
@@ -2224,6 +2253,7 @@ def _tracking_config() -> dict[str, Any]:
         "tracking_enabled": _env_enabled("TRACKING_ENABLED", True),
         "tracking_storage": _tracking_storage_label(),
         "tracking_storage_ready": _tracking_storage_ready(),
+        "tracking_storage_error": _tracking_storage_error(),
         "meta_pixel_enabled": _env_enabled("META_PIXEL_ENABLED", False),
         "meta_capi_enabled": _env_enabled("META_CAPI_ENABLED", False),
         "meta_pixel_id": os.environ.get("META_PIXEL_ID", "").strip(),
