@@ -237,3 +237,129 @@ body.public-page-body {
     padding: 22px;
   }
 }
+
+/* Public page mobile polish v4 */
+@media (max-width: 720px) {
+  .public-page-shell {
+    overflow-x: hidden;
+  }
+
+  .public-page-topbar {
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: 14px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px 12px;
+    align-items: center;
+  }
+
+  .public-page-brand {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .public-page-brand .brand-mark {
+    width: 1.55rem;
+    height: 1.55rem;
+    flex-basis: 1.55rem;
+  }
+
+  .public-page-brand .brand-name {
+    font-size: 0.82rem;
+    letter-spacing: 0.24em;
+  }
+
+  .public-page-cta {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    min-height: 34px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.085);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 0.62rem;
+    letter-spacing: 0.13em;
+    white-space: nowrap;
+  }
+
+  .public-page-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: calc(100vw - 40px);
+    overflow-x: auto;
+    padding-bottom: 4px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 16px;
+    scrollbar-width: none;
+  }
+
+  .public-page-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .public-page-nav a {
+    flex: 0 0 auto;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.9rem;
+    color: rgba(224, 217, 207, 0.78);
+  }
+
+  .public-page-main {
+    padding-top: 4px;
+  }
+
+  .public-page-hero {
+    padding-top: 28px;
+    gap: 14px;
+  }
+
+  .public-page-kicker {
+    font-size: 0.68rem;
+    letter-spacing: 0.28em;
+  }
+
+  .public-page-title {
+    max-width: 9.6ch;
+    font-size: clamp(2.35rem, 15vw, 4rem);
+    line-height: 0.95;
+  }
+
+  .public-page-copy {
+    font-size: 0.98rem;
+    line-height: 1.64;
+  }
+
+  .public-page-grid {
+    gap: 18px;
+    padding-bottom: 56px;
+  }
+
+  .public-page-card,
+  .public-page-sidecard {
+    border-radius: 22px;
+  }
+
+  .public-page-card {
+    padding: 20px;
+  }
+
+  .public-page-sidecard {
+    padding: 20px;
+  }
+
+  .public-page-block p,
+  .public-page-block li,
+  .public-page-sidecard p,
+  .public-page-sidecard li {
+    font-size: 0.96rem;
+    line-height: 1.66;
+  }
+}

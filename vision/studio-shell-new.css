@@ -1916,3 +1916,411 @@ body.vss-viewer-open {
     align-items: flex-start;
   }
 }
+
+/* Studio mobile polish v123 */
+@media (max-width: 720px) {
+  html.vss-html,
+  html.vss-html body {
+    min-height: 100%;
+    overflow: auto;
+  }
+
+  body.vss-viewer-open {
+    overflow: hidden;
+  }
+
+  #studio-shell-new-root {
+    position: relative;
+    min-height: 100svh;
+    overflow: visible;
+  }
+
+  .vss-app {
+    min-height: 100svh;
+    padding: max(14px, env(safe-area-inset-top)) 14px 22px;
+  }
+
+  .vss-header {
+    position: sticky;
+    top: 0;
+    z-index: 14;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    margin: -2px 0 18px;
+    padding: 8px 0 10px;
+    background:
+      linear-gradient(180deg, rgba(13, 14, 17, 0.96), rgba(13, 14, 17, 0.74) 72%, rgba(13, 14, 17, 0));
+    backdrop-filter: blur(14px);
+  }
+
+  .vss-brand-cluster {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .vss-brand {
+    min-width: 0;
+    gap: 9px;
+  }
+
+  .vss-brand-mark {
+    width: 22px;
+    height: 22px;
+    flex-basis: 22px;
+  }
+
+  .vss-brand-name {
+    font-size: 0.8rem;
+    letter-spacing: 0.24em;
+  }
+
+  .vss-home-link {
+    display: none;
+  }
+
+  .vss-account-pill {
+    flex: 0 0 auto;
+    align-self: center;
+    width: auto;
+    max-width: 46vw;
+    min-height: 42px;
+    padding: 6px 9px 6px 6px;
+    gap: 8px;
+    border-color: rgba(255, 255, 255, 0.09);
+    background: rgba(16, 17, 20, 0.82);
+    box-shadow:
+      0 12px 26px rgba(0, 0, 0, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .vss-account-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 0.78rem;
+  }
+
+  .vss-account-copy {
+    min-width: 0;
+  }
+
+  .vss-account-label {
+    max-width: 118px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.72rem;
+  }
+
+  .vss-account-note,
+  .vss-account-chevron {
+    display: none;
+  }
+
+  .vss-account-panel {
+    top: max(68px, calc(env(safe-area-inset-top) + 58px));
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-height: calc(100svh - 86px);
+    overflow: auto;
+    border-radius: 24px;
+  }
+
+  .vss-main {
+    gap: 22px;
+  }
+
+  .vss-stage {
+    padding-bottom: 166px;
+  }
+
+  .vss-canvas {
+    height: min(58svh, 430px);
+    min-height: 330px;
+    border-radius: 26px;
+  }
+
+  .vss-canvas::before {
+    opacity: 0.58;
+  }
+
+  .vss-canvas-actions {
+    top: 14px;
+    right: 14px;
+    left: 14px;
+    max-width: none;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .vss-canvas-action {
+    flex: 1 1 0;
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+  }
+
+  .vss-canvas-result-meta,
+  .vss-canvas-reference-meta {
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+    gap: 6px;
+  }
+
+  .vss-result-title,
+  .vss-reference-title {
+    max-width: 100%;
+    font-size: clamp(1.18rem, 7vw, 1.85rem);
+    line-height: 1.03;
+  }
+
+  .vss-result-description,
+  .vss-reference-description {
+    max-width: 100%;
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .vss-canvas-empty-copy {
+    width: min(100%, 23rem);
+    padding: 0 18px;
+  }
+
+  .vss-canvas-empty-label {
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+  }
+
+  .vss-dock {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    z-index: 20;
+    width: auto;
+    transform: none;
+    gap: 8px;
+  }
+
+  .vss-prompt-bar {
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+    min-height: 60px;
+    padding: 7px;
+    border-radius: 28px;
+    background:
+      linear-gradient(180deg, rgba(27, 28, 32, 0.94), rgba(14, 15, 18, 0.98));
+    box-shadow:
+      0 18px 46px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.026);
+  }
+
+  .vss-add-ref {
+    width: 38px;
+    height: 38px;
+    font-size: 1.22rem;
+  }
+
+  .vss-prompt-input {
+    font-size: 0.95rem;
+    letter-spacing: -0.03em;
+  }
+
+  .vss-prompt-input::placeholder {
+    color: rgba(229, 223, 216, 0.58);
+  }
+
+  .vss-prompt-actions {
+    gap: 6px;
+  }
+
+  .vss-submit {
+    width: 46px;
+    height: 46px;
+  }
+
+  .vss-submit svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .vss-improve--inline {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 0;
+    letter-spacing: 0;
+  }
+
+  .vss-improve--inline::after {
+    content: "Refine";
+    font-size: 0.58rem;
+    letter-spacing: 0.13em;
+  }
+
+  .vss-mode-row {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 20px;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+  }
+
+  .vss-mode-switch {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .vss-mode-separator,
+  .vss-reference-hint {
+    display: none;
+  }
+
+  .vss-reference-row {
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .vss-reference-chip {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 18px;
+  }
+
+  .vss-reference-clear {
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  .vss-rail {
+    padding-top: 0;
+    padding-bottom: 146px;
+  }
+
+  .vss-rail-head {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .vss-rail-title {
+    font-size: 0.76rem;
+    letter-spacing: 0.28em;
+  }
+
+  .vss-rail-subtitle {
+    display: none;
+  }
+
+  .vss-recent-list {
+    grid-auto-columns: 82%;
+    gap: 12px;
+    padding-bottom: 8px;
+    scroll-padding-left: 2px;
+  }
+
+  .vss-recent-card {
+    border-radius: 24px;
+    padding: 10px;
+  }
+
+  .vss-recent-card.is-selected {
+    border-color: rgba(247, 242, 235, 0.34);
+    box-shadow:
+      0 18px 42px rgba(0, 0, 0, 0.22),
+      0 0 0 1px rgba(247, 242, 235, 0.13) inset;
+  }
+
+  .vss-recent-thumb {
+    border-radius: 20px;
+  }
+
+  .vss-recent-title {
+    font-size: 0.9rem;
+    line-height: 1.25;
+  }
+
+  .vss-recent-menu-button,
+  .vss-recent-dismiss {
+    min-height: 38px;
+  }
+
+  .vss-recent-menu-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .vss-recent-popover {
+    min-width: 178px;
+    padding: 8px;
+    border-radius: 18px;
+    background: rgba(20, 21, 25, 0.98);
+    box-shadow: 0 20px 46px rgba(0, 0, 0, 0.42);
+  }
+
+  .vss-recent-popover-action {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  .vss-viewer-backdrop {
+    align-items: center;
+    padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+  }
+
+  .vss-viewer-panel {
+    width: 100%;
+    max-height: calc(100svh - 20px);
+    padding: 12px;
+    border-radius: 24px;
+  }
+
+  .vss-viewer-close {
+    top: 12px;
+    right: 12px;
+    min-height: 38px;
+    padding: 0 13px;
+  }
+
+  .vss-viewer-media {
+    min-height: 46svh;
+    max-height: 58svh;
+    padding: 44px 10px 10px;
+    border-radius: 20px;
+  }
+
+  .vss-viewer-image,
+  .vss-viewer-video {
+    max-height: 52svh;
+  }
+
+  .vss-viewer-title {
+    font-size: 1.18rem;
+    line-height: 1.12;
+  }
+
+  .vss-viewer-caption {
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .vss-viewer-actions {
+    gap: 8px;
+  }
+
+  .vss-viewer-action,
+  .vss-viewer-link {
+    min-height: 48px;
+    border-radius: 16px;
+  }
+}

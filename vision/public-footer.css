@@ -240,3 +240,80 @@
     gap: 10px 16px;
   }
 }
+
+/* Public footer mobile polish v7 */
+@media (max-width: 760px) {
+  .public-footer {
+    padding-top: 56px;
+    background:
+      radial-gradient(circle at 10% 4%, rgba(124, 118, 144, 0.1), transparent 32%),
+      linear-gradient(180deg, rgba(9, 10, 13, 0.98), #07080a 64%);
+  }
+
+  .public-footer__inner {
+    padding: 30px 20px max(20px, env(safe-area-inset-bottom));
+  }
+
+  .public-footer__primary {
+    gap: 26px;
+    padding-bottom: 26px;
+  }
+
+  .public-footer__brand {
+    gap: 14px;
+  }
+
+  .public-footer__brand-link {
+    gap: 10px;
+  }
+
+  .public-footer__brand-link .brand-mark {
+    width: 1.55rem;
+    height: 1.55rem;
+    flex-basis: 1.55rem;
+  }
+
+  .public-footer__brand-link .brand-name {
+    font-size: 0.82rem;
+    letter-spacing: 0.24em;
+  }
+
+  .public-footer__brand-copy {
+    max-width: 28ch;
+    font-size: 0.94rem;
+    line-height: 1.58;
+  }
+
+  .public-footer__heading {
+    min-height: 42px;
+    font-size: 0.72rem;
+    letter-spacing: 0.24em;
+  }
+
+  .public-footer__links {
+    gap: 12px;
+  }
+
+  .public-footer__links a {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.98rem;
+  }
+
+  .public-footer__secondary {
+    gap: 18px;
+    padding-top: 20px;
+  }
+
+  .public-footer__meta,
+  .public-footer__trust {
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .public-footer__social a {
+    width: 42px;
+    height: 42px;
+  }
+}
