@@ -1318,8 +1318,23 @@ class TrackingStoreUnavailable(RuntimeError):
     pass
 
 
+def _is_usable_database_url(value: str) -> bool:
+    clean = value.strip()
+    if not clean:
+        return False
+    if clean.startswith("<") and clean.endswith(">"):
+        return False
+    if clean.startswith(("postgres://", "postgresql://", "sqlite:///")):
+        return True
+    return "=" in clean and any(part in clean for part in ("host=", "dbname=", "user="))
+
+
 def _tracking_database_url() -> str:
-    return os.environ.get("TRACKING_DATABASE_URL", "").strip() or os.environ.get("DATABASE_URL", "").strip()
+    for env_name in ("TRACKING_DATABASE_URL", "DATABASE_URL"):
+        value = os.environ.get(env_name, "").strip()
+        if _is_usable_database_url(value):
+            return value
+    return ""
 
 
 def _safe_tracking_error(value: str) -> str:
