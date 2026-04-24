@@ -1676,6 +1676,7 @@ class PostgresTrackingEventStore(TrackingEventStore):
                         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                     ON CONFLICT (event_id) DO NOTHING
+                    RETURNING event_id
                     """,
                     (
                         clean.get("event_id"),
@@ -1713,7 +1714,7 @@ class PostgresTrackingEventStore(TrackingEventStore):
                         clean.get("user_agent"),
                     ),
                 )
-                stored = cursor.rowcount > 0
+                stored = cursor.fetchone() is not None
                 self._upsert_attribution(cursor, clean)
                 return stored
 
