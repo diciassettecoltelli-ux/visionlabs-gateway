@@ -834,7 +834,13 @@ def _stripe_request(method: str, path: str, data: dict[str, Any] | None = None) 
         raise RuntimeError(f"Stripe API error ({exc.code}): {body}") from exc
 
 
-def _create_stripe_checkout_session(*, request: Request, email: str | None, pack_id: str | None) -> dict[str, Any]:
+def _create_stripe_checkout_session(
+    *,
+    request: Request,
+    email: str | None,
+    pack_id: str | None,
+    tracking: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     frontend_base = _frontend_base_url(request)
     pack = _pack_by_id(pack_id)
     payload: dict[str, Any] = {
@@ -853,6 +859,8 @@ def _create_stripe_checkout_session(*, request: Request, email: str | None, pack
         "metadata[vision_pack_video_credits]": str(pack.get("video_credits") or 1),
         "metadata[vision_pack_image_credits]": str(pack.get("image_credits") or 20),
     }
+    for key, value in _tracking_metadata(tracking).items():
+        payload[f"metadata[{key}]"] = value
     if email:
         payload["customer_email"] = email
     return _stripe_request("POST", "/v1/checkout/sessions", payload)
@@ -1124,6 +1132,7 @@ ACCESS_FILE = RUNTIME_ROOT / "access.json"
 OUTPUT_ROOT = VISION_ROOT / "generated"
 DISABLE_FILE = RUNTIME_ROOT / "gateway.disabled"
 USERS_FILE = RUNTIME_ROOT / "users.json"
+TRACKING_EVENTS_FILE = RUNTIME_ROOT / "tracking_events.jsonl"
 
 for path in (RUNTIME_ROOT, OUTPUT_ROOT):
     path.mkdir(parents=True, exist_ok=True)
@@ -1140,6 +1149,7 @@ class CreateJobRequest(BaseModel):
 class CreateCheckoutSessionRequest(BaseModel):
     email: str | None = Field(default=None, max_length=320)
     pack_id: str | None = Field(default=None, max_length=32)
+    tracking: dict[str, Any] | None = None
 
 
 class ConfirmCheckoutRequest(BaseModel):
@@ -1162,6 +1172,162 @@ class RequestAuthCodeRequest(BaseModel):
 class VerifyAuthCodeRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     code: str = Field(min_length=4, max_length=12)
+
+
+class TrackEventRequest(BaseModel):
+    event_name: str = Field(min_length=3, max_length=64)
+    event_id: str | None = Field(default=None, max_length=128)
+    event_time: str | None = Field(default=None, max_length=64)
+    session_id: str | None = Field(default=None, max_length=128)
+    anonymous_id: str | None = Field(default=None, max_length=128)
+    user_id: str | None = Field(default=None, max_length=128)
+    page_path: str | None = Field(default=None, max_length=512)
+    page_url: str | None = Field(default=None, max_length=2048)
+    referrer: str | None = Field(default=None, max_length=2048)
+    utm_source: str | None = Field(default=None, max_length=256)
+    utm_medium: str | None = Field(default=None, max_length=256)
+    utm_campaign: str | None = Field(default=None, max_length=256)
+    utm_content: str | None = Field(default=None, max_length=256)
+    utm_term: str | None = Field(default=None, max_length=256)
+    gclid: str | None = Field(default=None, max_length=512)
+    fbclid: str | None = Field(default=None, max_length=512)
+    ttclid: str | None = Field(default=None, max_length=512)
+    plan_id: str | None = Field(default=None, max_length=64)
+    currency: str | None = Field(default=None, max_length=16)
+    value: float | None = None
+    job_id: str | None = Field(default=None, max_length=128)
+    asset_id: str | None = Field(default=None, max_length=512)
+    media_type: str | None = Field(default=None, max_length=32)
+    platform_context: str | None = Field(default="web", max_length=64)
+    checkout_session_id: str | None = Field(default=None, max_length=255)
+    customer_email: str | None = Field(default=None, max_length=320)
+    first_touch: dict[str, Any] | None = None
+    last_touch: dict[str, Any] | None = None
+    payload: dict[str, Any] | None = None
+
+
+CANONICAL_TRACKING_EVENTS = {
+    "LandingViewed",
+    "StudioViewed",
+    "PackSelected",
+    "CheckoutStarted",
+    "PurchaseCompleted",
+    "PromptImproved",
+    "GenerateStarted",
+    "GenerateCompleted",
+    "AssetDownloaded",
+    "ViewerOpened",
+    "ReferenceUploaded",
+    "LoginStarted",
+    "AccessCodeRequested",
+    "AccessGranted",
+}
+
+TRACKING_CORE_FIELDS = [
+    "event_name",
+    "event_id",
+    "event_time",
+    "session_id",
+    "anonymous_id",
+    "user_id",
+    "page_path",
+    "page_url",
+    "referrer",
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_content",
+    "utm_term",
+    "gclid",
+    "fbclid",
+    "ttclid",
+    "plan_id",
+    "currency",
+    "value",
+    "job_id",
+    "asset_id",
+    "media_type",
+    "platform_context",
+    "checkout_session_id",
+    "customer_email",
+]
+
+
+def _env_enabled(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _safe_tracking_string(value: Any, max_length: int = 2048) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text[:max_length]
+
+
+def _safe_tracking_dict(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    safe: dict[str, Any] = {}
+    for key, raw_value in value.items():
+        if raw_value is None:
+            continue
+        key_text = str(key)[:80]
+        if isinstance(raw_value, (str, int, float, bool)):
+            safe[key_text] = raw_value
+        elif isinstance(raw_value, dict):
+            safe[key_text] = _safe_tracking_dict(raw_value)
+        elif isinstance(raw_value, list):
+            safe[key_text] = [item for item in raw_value if isinstance(item, (str, int, float, bool))][:20]
+    return safe
+
+
+def _sha256_normalized(value: str | None) -> str | None:
+    normalized = _normalize_email(value)
+    if not normalized:
+        return None
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+class TrackingEventStore:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.lock = threading.Lock()
+        self.seen_event_ids: set[str] = set()
+        self.load()
+
+    def load(self) -> None:
+        if not self.path.exists():
+            return
+        try:
+            with self.path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    event_id = str(event.get("event_id") or "").strip()
+                    if event_id:
+                        self.seen_event_ids.add(event_id)
+        except OSError:
+            return
+
+    def append(self, event: dict[str, Any]) -> bool:
+        event_id = str(event.get("event_id") or "").strip()
+        if not event_id:
+            return False
+        with self.lock:
+            if event_id in self.seen_event_ids:
+                return False
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+            self.seen_event_ids.add(event_id)
+            return True
 
 
 class JobsStore:
@@ -1517,7 +1683,276 @@ class UserStore:
 JOBS = JobsStore(JOBS_FILE)
 ACCESS = AccessStore(ACCESS_FILE)
 USERS = UserStore(USERS_FILE)
+TRACKING = TrackingEventStore(TRACKING_EVENTS_FILE)
 QUEUE: queue.Queue[str] = queue.Queue()
+
+
+def _tracking_config() -> dict[str, Any]:
+    return {
+        "tracking_enabled": _env_enabled("TRACKING_ENABLED", True),
+        "meta_pixel_enabled": _env_enabled("META_PIXEL_ENABLED", False),
+        "meta_capi_enabled": _env_enabled("META_CAPI_ENABLED", False),
+        "meta_pixel_id": os.environ.get("META_PIXEL_ID", "").strip(),
+        "tiktok_pixel_enabled": _env_enabled("TIKTOK_PIXEL_ENABLED", False),
+        "tiktok_events_api_enabled": _env_enabled("TIKTOK_EVENTS_API_ENABLED", False),
+        "tiktok_pixel_id": os.environ.get("TIKTOK_PIXEL_ID", "").strip(),
+        "google_tag_enabled": _env_enabled("GOOGLE_TAG_ENABLED", False),
+        "google_enhanced_conversions_enabled": _env_enabled("GOOGLE_ENHANCED_CONVERSIONS_ENABLED", False),
+        "google_tag_id": os.environ.get("GOOGLE_TAG_ID", "").strip(),
+        "google_ads_conversion_label": os.environ.get("GOOGLE_ADS_CONVERSION_LABEL", "").strip(),
+    }
+
+
+def _normalize_tracking_event(payload: TrackEventRequest | dict[str, Any], request: Request | None = None) -> dict[str, Any]:
+    if isinstance(payload, TrackEventRequest):
+        raw = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    else:
+        raw = dict(payload)
+    event_name = str(raw.get("event_name") or "").strip()
+    if event_name not in CANONICAL_TRACKING_EVENTS:
+        raise HTTPException(status_code=400, detail=f"Unsupported tracking event: {event_name}")
+
+    event: dict[str, Any] = {
+        "event_name": event_name,
+        "event_id": _safe_tracking_string(raw.get("event_id"), 128) or uuid.uuid4().hex,
+        "event_time": _safe_tracking_string(raw.get("event_time"), 64) or _now_iso(),
+        "received_at": _now_iso(),
+    }
+    for field in TRACKING_CORE_FIELDS:
+        if field in {"event_name", "event_id", "event_time"}:
+            continue
+        value = raw.get(field)
+        if field == "value":
+            try:
+                event[field] = float(value) if value is not None and value != "" else None
+            except (TypeError, ValueError):
+                event[field] = None
+        else:
+            event[field] = _safe_tracking_string(value, 2048)
+
+    user = _user_from_request(request) if request is not None else None
+    if user and not event.get("user_id"):
+        event["user_id"] = str(user.get("id") or user.get("user_id") or "")
+
+    if request is not None:
+        event["ip"] = request.client.host if request.client else None
+        event["user_agent"] = request.headers.get("user-agent")
+
+    event["first_touch"] = _safe_tracking_dict(raw.get("first_touch"))
+    event["last_touch"] = _safe_tracking_dict(raw.get("last_touch"))
+    event["payload"] = _safe_tracking_dict(raw.get("payload"))
+    return event
+
+
+def _request_json(url: str, payload: dict[str, Any], headers: dict[str, str] | None = None) -> None:
+    data = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", **(headers or {})},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=15) as response:
+        response.read()
+
+
+def _meta_event_name(event_name: str) -> str | None:
+    return {
+        "CheckoutStarted": "InitiateCheckout",
+        "PurchaseCompleted": "Purchase",
+    }.get(event_name)
+
+
+def _tiktok_event_name(event_name: str) -> str | None:
+    return {
+        "LandingViewed": "ViewContent",
+        "StudioViewed": "ViewContent",
+        "CheckoutStarted": "InitiateCheckout",
+        "PurchaseCompleted": "Purchase",
+    }.get(event_name)
+
+
+def _send_meta_capi_event(event: dict[str, Any]) -> None:
+    if not _env_enabled("META_CAPI_ENABLED", False):
+        return
+    pixel_id = os.environ.get("META_PIXEL_ID", "").strip()
+    access_token = os.environ.get("META_CAPI_ACCESS_TOKEN", "").strip()
+    meta_event = _meta_event_name(str(event.get("event_name") or ""))
+    if not pixel_id or not access_token or not meta_event:
+        return
+    user_data: dict[str, Any] = {
+        "client_ip_address": event.get("ip"),
+        "client_user_agent": event.get("user_agent"),
+    }
+    email_hash = _sha256_normalized(event.get("customer_email"))
+    if email_hash:
+        user_data["em"] = [email_hash]
+    if event.get("fbclid"):
+        user_data["fbc"] = event.get("fbclid")
+    payload = {
+        "data": [
+            {
+                "event_name": meta_event,
+                "event_time": int(datetime.now(timezone.utc).timestamp()),
+                "event_id": event.get("event_id"),
+                "action_source": "website",
+                "event_source_url": event.get("page_url"),
+                "user_data": {key: value for key, value in user_data.items() if value},
+                "custom_data": {
+                    "currency": event.get("currency"),
+                    "value": event.get("value"),
+                    "content_name": event.get("plan_id"),
+                    "order_id": event.get("checkout_session_id"),
+                },
+            }
+        ],
+    }
+    url = f"https://graph.facebook.com/v19.0/{urllib.parse.quote(pixel_id)}/events?access_token={urllib.parse.quote(access_token)}"
+    _request_json(url, payload)
+
+
+def _send_tiktok_events_api_event(event: dict[str, Any]) -> None:
+    if not _env_enabled("TIKTOK_EVENTS_API_ENABLED", False):
+        return
+    pixel_code = os.environ.get("TIKTOK_PIXEL_ID", "").strip()
+    access_token = os.environ.get("TIKTOK_EVENTS_API_ACCESS_TOKEN", "").strip()
+    tiktok_event = _tiktok_event_name(str(event.get("event_name") or ""))
+    if not pixel_code or not access_token or not tiktok_event:
+        return
+    payload = {
+        "event_source": "web",
+        "event_source_id": pixel_code,
+        "data": [
+            {
+                "event": tiktok_event,
+                "event_time": int(datetime.now(timezone.utc).timestamp()),
+                "event_id": event.get("event_id"),
+                "context": {
+                    "page": {"url": event.get("page_url"), "referrer": event.get("referrer")},
+                    "user": {
+                        "ip": event.get("ip"),
+                        "user_agent": event.get("user_agent"),
+                        "ttclid": event.get("ttclid"),
+                        "email": _sha256_normalized(event.get("customer_email")),
+                    },
+                },
+                "properties": {
+                    "currency": event.get("currency"),
+                    "value": event.get("value"),
+                    "content_id": event.get("plan_id"),
+                    "order_id": event.get("checkout_session_id"),
+                },
+            }
+        ],
+    }
+    _request_json("https://business-api.tiktok.com/open_api/v1.3/event/track/", payload, {"Access-Token": access_token})
+
+
+def _send_ads_events_async(event: dict[str, Any]) -> None:
+    def _worker() -> None:
+        for sender in (_send_meta_capi_event, _send_tiktok_events_api_event):
+            try:
+                sender(event)
+            except Exception as exc:
+                print(f"[vision] ads event delivery failed: {exc}")
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+
+def _record_tracking_event(event: dict[str, Any], *, dispatch_ads: bool = True) -> bool:
+    if not _env_enabled("TRACKING_ENABLED", True):
+        return False
+    stored = TRACKING.append(event)
+    if stored and dispatch_ads:
+        _send_ads_events_async(event)
+    return stored
+
+
+def _tracking_metadata(payload: dict[str, Any] | None, event_id: str | None = None) -> dict[str, str]:
+    raw = payload or {}
+    metadata_keys = [
+        "event_id",
+        "session_id",
+        "anonymous_id",
+        "page_path",
+        "page_url",
+        "referrer",
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "gclid",
+        "fbclid",
+        "ttclid",
+    ]
+    metadata: dict[str, str] = {}
+    for key in metadata_keys:
+        value = event_id if key == "event_id" and event_id else raw.get(key)
+        clean = _safe_tracking_string(value, 480)
+        if clean:
+            metadata[f"vision_tracking_{key}"] = clean
+    return metadata
+
+
+def _stripe_signature_is_valid(payload: bytes, signature_header: str, secret: str) -> bool:
+    parts: dict[str, list[str]] = {}
+    for item in signature_header.split(","):
+        if "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        parts.setdefault(key, []).append(value)
+    timestamp = parts.get("t", [""])[0]
+    signatures = parts.get("v1", [])
+    if not timestamp or not signatures:
+        return False
+    signed_payload = f"{timestamp}.".encode("utf-8") + payload
+    expected = hmac.new(secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
+    return any(hmac.compare_digest(expected, signature) for signature in signatures)
+
+
+def _purchase_tracking_event(*, session: dict[str, Any], entry: dict[str, Any], platform_context: str) -> dict[str, Any]:
+    metadata = session.get("metadata") or {}
+    session_pack = _pack_summary(metadata.get("vision_pack_id"))
+    customer_details = session.get("customer_details") or {}
+    checkout_session_id = str(session.get("id") or "")
+    customer_email = customer_details.get("email") or session.get("customer_email") or entry.get("email")
+    amount_total = session.get("amount_total")
+    try:
+        value = float(amount_total) / 100 if amount_total is not None else float(session_pack.get("price_cents") or 0) / 100
+    except (TypeError, ValueError):
+        value = None
+    payload = {
+        "event_name": "PurchaseCompleted",
+        "event_id": f"stripe:{checkout_session_id}:PurchaseCompleted",
+        "event_time": _now_iso(),
+        "session_id": metadata.get("vision_tracking_session_id"),
+        "anonymous_id": metadata.get("vision_tracking_anonymous_id"),
+        "user_id": entry.get("user_id"),
+        "page_path": metadata.get("vision_tracking_page_path"),
+        "page_url": metadata.get("vision_tracking_page_url"),
+        "referrer": metadata.get("vision_tracking_referrer"),
+        "utm_source": metadata.get("vision_tracking_utm_source"),
+        "utm_medium": metadata.get("vision_tracking_utm_medium"),
+        "utm_campaign": metadata.get("vision_tracking_utm_campaign"),
+        "utm_content": metadata.get("vision_tracking_utm_content"),
+        "utm_term": metadata.get("vision_tracking_utm_term"),
+        "gclid": metadata.get("vision_tracking_gclid"),
+        "fbclid": metadata.get("vision_tracking_fbclid"),
+        "ttclid": metadata.get("vision_tracking_ttclid"),
+        "plan_id": metadata.get("vision_pack_id") or session_pack.get("id"),
+        "currency": str(session.get("currency") or session_pack.get("currency") or _pack_currency()).upper(),
+        "value": value,
+        "checkout_session_id": checkout_session_id,
+        "customer_email": customer_email,
+        "platform_context": platform_context,
+        "payload": {
+            "stripe_payment_status": session.get("payment_status"),
+            "stripe_status": session.get("status"),
+            "checkout_event_id": metadata.get("vision_tracking_event_id"),
+        },
+    }
+    return _normalize_tracking_event(payload)
 
 
 def _refund_job_credit(job: dict[str, Any] | None) -> None:
@@ -1871,6 +2306,22 @@ def improve_prompt(payload: ImprovePromptRequest) -> dict[str, Any]:
     }
 
 
+@APP.get("/api/tracking/config")
+def tracking_config() -> dict[str, Any]:
+    return _tracking_config()
+
+
+@APP.post("/api/track")
+def track_event(payload: TrackEventRequest, request: Request) -> dict[str, Any]:
+    event = _normalize_tracking_event(payload, request)
+    stored = _record_tracking_event(event)
+    return {
+        "ok": True,
+        "stored": stored,
+        "event_id": event["event_id"],
+    }
+
+
 @APP.post("/api/admin/unlock")
 def admin_unlock(payload: AdminUnlockRequest, request: Request) -> JSONResponse:
     configured = os.environ.get("VISION_ADMIN_TOKEN", "").strip()
@@ -1903,7 +2354,12 @@ def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Requ
     resolved_email = (payload.email or "").strip() or (str(user.get("email") or "") if user else "")
     selected_pack = _pack_summary(payload.pack_id)
     try:
-        session = _create_stripe_checkout_session(request=request, email=resolved_email or None, pack_id=str(selected_pack.get("id") or "start"))
+        session = _create_stripe_checkout_session(
+            request=request,
+            email=resolved_email or None,
+            pack_id=str(selected_pack.get("id") or "start"),
+            tracking=payload.tracking,
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     checkout_url = session.get("url")
@@ -1958,6 +2414,61 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
     if current_user:
         _set_user_cookie(response, request, {"user_id": current_user["id"]})
     return response
+
+
+@APP.post("/api/stripe/webhook")
+async def stripe_webhook(request: Request) -> dict[str, Any]:
+    secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+    if not secret:
+        raise HTTPException(status_code=503, detail="Stripe webhook is not configured for this deployment.")
+
+    raw_body = await request.body()
+    signature = request.headers.get("stripe-signature", "")
+    if not _stripe_signature_is_valid(raw_body, signature, secret):
+        raise HTTPException(status_code=400, detail="Invalid Stripe webhook signature.")
+
+    try:
+        event = json.loads(raw_body.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid Stripe webhook payload.") from exc
+
+    event_type = str(event.get("type") or "")
+    if event_type not in {"checkout.session.completed", "checkout.session.async_payment_succeeded"}:
+        return {"ok": True, "handled": False}
+
+    session = ((event.get("data") or {}).get("object") or {})
+    if not isinstance(session, dict):
+        return {"ok": True, "handled": False}
+
+    session_id = str(session.get("id") or "").strip()
+    if not session_id:
+        return {"ok": True, "handled": False}
+
+    if event_type == "checkout.session.completed" and session.get("payment_status") not in {"paid", "no_payment_required"}:
+        return {"ok": True, "handled": False, "session_id": session_id}
+
+    customer_details = session.get("customer_details") or {}
+    email = customer_details.get("email") or session.get("customer_email")
+    known_user = USERS.find_by_email(email)
+    entry = ACCESS.apply_paid_session(
+        session_id=session_id,
+        email=email,
+        current_access_id=None,
+        current_user_id=str(known_user.get("id")) if known_user else None,
+        video_credits=_credits_from_session(session)[0],
+        image_credits=_credits_from_session(session)[1],
+    )
+    if ACCESS.claim_notification(session_id):
+        _notify_purchase_async(session=session, entry=entry)
+    tracking_event = _purchase_tracking_event(session=session, entry=entry, platform_context="stripe_webhook")
+    stored = _record_tracking_event(tracking_event)
+    return {
+        "ok": True,
+        "handled": True,
+        "stored": stored,
+        "event_id": tracking_event["event_id"],
+        "session_id": session_id,
+    }
 
 
 @APP.post("/api/jobs")

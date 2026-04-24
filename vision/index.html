@@ -846,15 +846,21 @@
           if (studioRoot) {
             studioRoot.hidden = false;
           }
-          appendStylesheet("/studio-shell-new.css?v=121");
-          appendScript("/studio-shell-new.js?v=121");
+          appendStylesheet("/studio-shell-new.css?v=122");
+          appendScript("/vision-config.js?v=41")
+            .catch(() => null)
+            .then(() => appendScript("/vision-tracking.js?v=1"))
+            .catch(() => null)
+            .then(() => appendScript("/studio-shell-new.js?v=122"));
           return;
         }
 
         appendScript("/public-footer.js?v=7")
-          .then(() => appendScript("/vision-config.js?v=40"))
+          .then(() => appendScript("/vision-config.js?v=41"))
           .catch(() => null)
-          .then(() => appendScript("/app.js?v=53"))
+          .then(() => appendScript("/vision-tracking.js?v=1"))
+          .catch(() => null)
+          .then(() => appendScript("/app.js?v=54"))
           .catch((error) => {
             console.error("Vision bootstrap failed", error);
           });

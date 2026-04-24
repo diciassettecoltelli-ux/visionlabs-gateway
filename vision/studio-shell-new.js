@@ -35,6 +35,16 @@
   const VISION_ASSET_CACHE_STORE = "assets";
   const DEFAULT_PACK_ID = "pro";
 
+  const trackVisionEvent = (name, payload = {}) =>
+    window.VisionTracking && typeof window.VisionTracking.trackEvent === "function"
+      ? window.VisionTracking.trackEvent(name, payload)
+      : null;
+
+  const getVisionTrackingContext = (overrides = {}) =>
+    window.VisionTracking && typeof window.VisionTracking.getContext === "function"
+      ? window.VisionTracking.getContext(overrides)
+      : { ...overrides };
+
   const defaultAccess = {
     has_access: false,
     admin: false,
@@ -603,6 +613,12 @@
       title: summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still", 52),
       caption: summarizeDescription(item.prompt, "Generated inside Vision.", 112),
     };
+    trackVisionEvent("ViewerOpened", {
+      job_id: item.id,
+      asset_id: asset.assetPath || asset.assetUrl,
+      media_type: state.viewer.kind,
+      platform_context: "web",
+    });
     render();
   };
 
@@ -692,6 +708,14 @@
     if (!succeeded && !asset.available) {
       button.textContent = "Download unavailable";
       return;
+    }
+    if (succeeded) {
+      trackVisionEvent("AssetDownloaded", {
+        job_id: item.id,
+        asset_id: asset.assetPath || asset.assetUrl,
+        media_type: item.kind === "video" ? "video" : "image",
+        platform_context: "web",
+      });
     }
 
     button.disabled = false;
@@ -1135,6 +1159,12 @@
     }
   };
 
+  const packTrackingPayload = (pack) => ({
+    plan_id: String((pack && pack.id) || DEFAULT_PACK_ID).toLowerCase(),
+    currency: String((pack && pack.currency) || "EUR").toUpperCase(),
+    value: Number((pack && pack.price_cents) || 0) / 100,
+  });
+
   const getJobMode = (job) => (((job && (job.output_type || job.mode)) || state.mode) === "image" ? "image" : "video");
 
   const getStageCopy = (job) => {
@@ -1271,6 +1301,13 @@
       if (!response.ok) {
         throw new Error((payload && (payload.detail || payload.message)) || "Payment confirmation failed.");
       }
+      trackVisionEvent("PurchaseCompleted", {
+        ads_only: true,
+        event_id: `stripe:${sessionId}:PurchaseCompleted`,
+        checkout_session_id: sessionId,
+        ...packTrackingPayload((payload && payload.pack) || state.currentPack),
+        platform_context: "web",
+      });
       if (payload && payload.access_token) {
         storeAccessToken(payload.access_token);
       }
@@ -1306,7 +1343,13 @@
     if (asset.assetPath && asset.assetUrl) {
       await cacheAssetFromUrl(asset.assetPath, asset.assetUrl);
     }
-    saveHistoryItem(job, asset.assetPath || asset.assetUrl);
+    const item = saveHistoryItem(job, asset.assetPath || asset.assetUrl);
+    trackVisionEvent("GenerateCompleted", {
+      job_id: job.id,
+      asset_id: asset.assetPath || asset.assetUrl,
+      media_type: item ? item.type : getJobMode(job),
+      platform_context: "web",
+    });
     state.currentJob = null;
     state.currentError = "";
     syncScene();
@@ -1406,6 +1449,10 @@
     state.selectedId = "";
     state.scene = "generating";
     render();
+    trackVisionEvent("GenerateStarted", {
+      media_type: state.mode,
+      platform_context: "web",
+    });
 
     try {
       const response = await visionFetch("/api/jobs", {
@@ -1556,6 +1603,17 @@
     state.authNote = "Opening secure checkout...";
     render();
     try {
+      const selectedPack = state.currentPack || getPackById(DEFAULT_PACK_ID);
+      const checkoutEvent = trackVisionEvent("CheckoutStarted", {
+        ...packTrackingPayload(selectedPack),
+        customer_email: email,
+        platform_context: "web",
+      });
+      const tracking = getVisionTrackingContext({
+        event_name: "CheckoutStarted",
+        event_id: checkoutEvent && checkoutEvent.event_id,
+        ...packTrackingPayload(selectedPack),
+      });
       const response = await visionFetch("/api/checkout/session", {
         method: "POST",
         headers: {
@@ -1563,7 +1621,8 @@
         },
         body: JSON.stringify({
           email,
-          pack_id: (state.currentPack && state.currentPack.id) || DEFAULT_PACK_ID,
+          pack_id: (selectedPack && selectedPack.id) || DEFAULT_PACK_ID,
+          tracking,
         }),
       });
       const payload = await parseJsonSafely(response);
@@ -1584,6 +1643,10 @@
       return;
     }
     state.improveLoading = true;
+    trackVisionEvent("PromptImproved", {
+      media_type: state.mode,
+      platform_context: "web",
+    });
     render();
     try {
       const response = await visionFetch("/api/prompt/improve", {
@@ -2118,6 +2181,14 @@
         return;
       }
       setReferenceAsset(file);
+      trackVisionEvent("ReferenceUploaded", {
+        media_type: String(file.type || "").startsWith("video/") ? "video" : "image",
+        platform_context: "web",
+        payload: {
+          mime_type: String(file.type || ""),
+          size: Number(file.size || 0),
+        },
+      });
       event.target.value = "";
       render();
     });
@@ -2321,6 +2392,7 @@
   });
 
   const init = async () => {
+    trackVisionEvent("StudioViewed", { platform_context: "web" });
     render();
     await maybeConfirmCheckout();
     await refreshAccess();

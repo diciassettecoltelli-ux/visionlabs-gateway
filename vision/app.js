@@ -97,13 +97,23 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "121";
+const STUDIO_SHELL_ASSET_VERSION = "122";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
 const VISION_ACCESS_STORAGE_KEY = "vision_access_token";
 const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
 const VISION_HISTORY_STORAGE_KEY = "vision_generation_history_v1";
+
+const trackVisionEvent = (name, payload = {}) =>
+  window.VisionTracking && typeof window.VisionTracking.trackEvent === "function"
+    ? window.VisionTracking.trackEvent(name, payload)
+    : null;
+
+const getVisionTrackingContext = (overrides = {}) =>
+  window.VisionTracking && typeof window.VisionTracking.getContext === "function"
+    ? window.VisionTracking.getContext(overrides)
+    : { ...overrides };
 
 const defaultPacks = [
   {
@@ -480,6 +490,15 @@ const normalizePackList = (packs) => {
 const findPackById = (packId, packs = defaultPacks) => {
   const normalizedId = String(packId || "").trim().toLowerCase();
   return normalizePackList(packs).find((pack) => pack.id === normalizedId) || normalizePackList(packs)[0];
+};
+
+const packTrackingPayload = (pack) => {
+  const normalizedPack = normalizePack(pack || currentPack || defaultPack);
+  return {
+    plan_id: normalizedPack.id,
+    currency: String(normalizedPack.currency || "EUR").toUpperCase(),
+    value: Number(normalizedPack.price_cents || 0) / 100,
+  };
 };
 
 const slugifyPrompt = (prompt) =>
@@ -1215,6 +1234,12 @@ const setGalleryLightboxState = (open, payload = {}) => {
 
   if (open) {
     const mediaType = payload.mediaType || "video";
+    trackVisionEvent("ViewerOpened", {
+      job_id: payload.jobId,
+      asset_id: normalizeGeneratedAssetPath(payload.src) || payload.src || "",
+      media_type: mediaType,
+      platform_context: "web",
+    });
     if (galleryLightboxTitle) galleryLightboxTitle.textContent = payload.title || "Untitled";
     if (galleryLightboxCaption) galleryLightboxCaption.textContent = payload.caption || "";
 
@@ -1259,6 +1284,7 @@ const openGenerationLightbox = () => {
     src: currentGenerationOutput.src,
     title: currentGenerationOutput.title,
     caption: currentGenerationOutput.caption,
+    jobId: currentGenerationOutput.jobId,
   });
 };
 
@@ -1418,10 +1444,17 @@ const presentGenerationJob = (job) => {
   currentGenerationOutput = {
     type: outputType,
     src: resolvedOutputUrl,
+    jobId: job.id,
     title: outputType === "image" ? "Latest Vision image" : "Latest Vision render",
     caption: job.prompt || "Generated inside Vision.",
   };
   saveStudioHistoryItem(job, resolvedOutputUrl);
+  trackVisionEvent("GenerateCompleted", {
+    job_id: job.id,
+    asset_id: normalizeGeneratedAssetPath(resolvedOutputUrl) || resolvedOutputUrl,
+    media_type: outputType,
+    platform_context: "web",
+  });
   currentStudioJob = null;
   renderStudioDashboard();
 
@@ -1629,6 +1662,7 @@ const renderSubscribePackOptions = () => {
     card.addEventListener("click", () => {
       selectedPackId = pack.id;
       currentPack = normalizePack(pack);
+      trackVisionEvent("PackSelected", packTrackingPayload(currentPack));
       renderSubscribePackOptions();
       updateSubscribeSubmitLabel();
     });
@@ -1960,12 +1994,23 @@ const beginCheckout = async (email) => {
   }
 
   try {
+    const selectedPack = findPackById(selectedPackId, currentPacks);
+    const checkoutEvent = trackVisionEvent("CheckoutStarted", {
+      ...packTrackingPayload(selectedPack),
+      customer_email: email,
+      platform_context: "web",
+    });
+    const tracking = getVisionTrackingContext({
+      event_name: "CheckoutStarted",
+      event_id: checkoutEvent && checkoutEvent.event_id,
+      ...packTrackingPayload(selectedPack),
+    });
     const response = await visionFetch("/api/checkout/session", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, pack_id: selectedPackId }),
+      body: JSON.stringify({ email, pack_id: selectedPackId, tracking }),
     });
     const payload = await parseJsonSafely(response);
     if (!response.ok || !payload?.url) {
@@ -2022,6 +2067,10 @@ const queueGeneration = async (prompt, mode) => {
     message: "The Vision engine is shaping your prompt into a stronger cinematic direction.",
     prompt,
     output_type: mode,
+  });
+  trackVisionEvent("GenerateStarted", {
+    media_type: mode,
+    platform_context: "web",
   });
 
   try {
@@ -2107,6 +2156,13 @@ const confirmCheckoutIfNeeded = async () => {
     if (!response.ok) {
       throw new Error(payload?.detail || "Payment confirmation failed.");
     }
+    trackVisionEvent("PurchaseCompleted", {
+      ads_only: true,
+      event_id: `stripe:${sessionId}:PurchaseCompleted`,
+      checkout_session_id: sessionId,
+      ...packTrackingPayload(payload?.pack || currentPack),
+      platform_context: "web",
+    });
     if (payload?.access_token) {
       storeAccessToken(payload.access_token);
     }
@@ -2138,6 +2194,10 @@ const improvePrompt = async () => {
       : "Vision is sharpening mood, motion, realism, and cinematic direction.",
     "pending",
   );
+  trackVisionEvent("PromptImproved", {
+    media_type: selectedMode,
+    platform_context: "web",
+  });
 
   try {
     const response = await visionFetch("/api/prompt/improve", {
@@ -2292,7 +2352,14 @@ generationDownload?.addEventListener("click", (event) => {
   const href = generationDownload.getAttribute("href");
   if (generationDownload.getAttribute("aria-disabled") === "true" || !href || href === "#") {
     event.preventDefault();
+    return;
   }
+  trackVisionEvent("AssetDownloaded", {
+    job_id: currentGenerationOutput && currentGenerationOutput.jobId,
+    asset_id: normalizeGeneratedAssetPath(href) || href,
+    media_type: currentGenerationOutput && currentGenerationOutput.type,
+    platform_context: "web",
+  });
 });
 
 galleryLightboxClose?.addEventListener("click", () => {
@@ -2489,6 +2556,9 @@ document.addEventListener("keydown", (event) => {
 
 const initializeVision = async () => {
   body.classList.toggle("is-studio-route", isStudioRoute);
+  if (!isStudioRoute) {
+    trackVisionEvent("LandingViewed", { platform_context: "web" });
+  }
   if (isStudioRoute) {
     body.classList.remove("studio-ready");
     setStudioLoaderState(true);

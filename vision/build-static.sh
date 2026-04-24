@@ -13,6 +13,7 @@ cp public-footer.css public/public-footer.css
 cp app.js public/app.js
 cp public-footer.js public/public-footer.js
 cp vision-config.js public/vision-config.js
+cp vision-tracking.js public/vision-tracking.js
 cp favicon.svg public/favicon.svg
 cp brand-logo.svg public/brand-logo.svg
 cp brand-logo-shared.css public/brand-logo-shared.css
