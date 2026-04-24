@@ -1429,10 +1429,12 @@ class SqliteTrackingEventStore(TrackingEventStore):
                 )
                 """
             )
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_time ON vision_tracking_events(event_time)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_name_time ON vision_tracking_events(event_name, event_time)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_session ON vision_tracking_events(session_id)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_anonymous ON vision_tracking_events(anonymous_id)")
             connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_checkout ON vision_tracking_events(checkout_session_id)")
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_user ON vision_tracking_events(user_id)")
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS vision_attribution (
@@ -1633,10 +1635,12 @@ class PostgresTrackingEventStore(TrackingEventStore):
                     )
                     """
                 )
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_time ON vision_tracking_events(event_time)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_name_time ON vision_tracking_events(event_name, event_time)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_session ON vision_tracking_events(session_id)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_anonymous ON vision_tracking_events(anonymous_id)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_checkout ON vision_tracking_events(checkout_session_id)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_user ON vision_tracking_events(user_id)")
                 cursor.execute(
                     """
                     CREATE TABLE IF NOT EXISTS vision_attribution (
@@ -2332,7 +2336,13 @@ def _send_ads_events_async(event: dict[str, Any]) -> None:
 def _record_tracking_event(event: dict[str, Any], *, dispatch_ads: bool = True) -> bool:
     if not _env_enabled("TRACKING_ENABLED", True):
         return False
-    stored = TRACKING.append(event)
+    try:
+        stored = TRACKING.append(event)
+    except Exception as exc:
+        print(f"[vision] first-party tracking storage failed: {exc}")
+        if _env_enabled("TRACKING_DEBUG_JSONL_ENABLED", False):
+            _append_tracking_debug_event(event)
+        return False
     if stored and _env_enabled("TRACKING_DEBUG_JSONL_ENABLED", False):
         _append_tracking_debug_event(event)
     if stored and dispatch_ads:
@@ -2828,10 +2838,7 @@ def tracking_config() -> dict[str, Any]:
 @APP.post("/api/track")
 def track_event(payload: TrackEventRequest, request: Request) -> JSONResponse:
     event = _normalize_tracking_event(payload, request)
-    try:
-        stored = _record_tracking_event(event)
-    except TrackingStoreUnavailable as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    stored = _record_tracking_event(event)
     response = JSONResponse(
         {
             "ok": True,
