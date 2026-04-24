@@ -1635,6 +1635,44 @@ class PostgresTrackingEventStore(TrackingEventStore):
                     )
                     """
                 )
+                for statement in (
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS event_id TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS event_name TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS event_time TIMESTAMPTZ",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS session_id TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS anonymous_id TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS user_id TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS page_path TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS page_url TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS referrer TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS utm_source TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS utm_medium TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS utm_campaign TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS utm_content TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS utm_term TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS gclid TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS fbclid TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS ttclid TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS plan_id TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS currency TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS value NUMERIC(12, 2)",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS job_id TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS asset_id TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS media_type TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS platform_context TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS checkout_session_id TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS customer_email_hash TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS first_touch JSONB NOT NULL DEFAULT '{}'::jsonb",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS last_touch JSONB NOT NULL DEFAULT '{}'::jsonb",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS event_json JSONB NOT NULL DEFAULT '{}'::jsonb",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS ip TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS user_agent TEXT",
+                    "ALTER TABLE vision_tracking_events ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                ):
+                    cursor.execute(statement)
+                cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_vision_tracking_events_event_id_unique ON vision_tracking_events(event_id)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_time ON vision_tracking_events(event_time)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_name_time ON vision_tracking_events(event_name, event_time)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_session ON vision_tracking_events(session_id)")
@@ -1656,6 +1694,19 @@ class PostgresTrackingEventStore(TrackingEventStore):
                     )
                     """
                 )
+                for statement in (
+                    "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS attribution_key TEXT",
+                    "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS session_id TEXT",
+                    "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS anonymous_id TEXT",
+                    "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS user_id TEXT",
+                    "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS first_touch JSONB NOT NULL DEFAULT '{}'::jsonb",
+                    "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS last_touch JSONB NOT NULL DEFAULT '{}'::jsonb",
+                    "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                    "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                    "ALTER TABLE vision_attribution ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                ):
+                    cursor.execute(statement)
+                cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_vision_attribution_key_unique ON vision_attribution(attribution_key)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_attribution_session ON vision_attribution(session_id)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_attribution_anonymous ON vision_attribution(anonymous_id)")
 
@@ -1715,7 +1766,10 @@ class PostgresTrackingEventStore(TrackingEventStore):
                     ),
                 )
                 stored = cursor.fetchone() is not None
-                self._upsert_attribution(cursor, clean)
+                try:
+                    self._upsert_attribution(cursor, clean)
+                except Exception as exc:
+                    print(f"[vision] attribution sidecar update failed: {exc}")
                 return stored
 
     def _upsert_attribution(self, cursor: Any, event: dict[str, Any]) -> None:
@@ -1789,12 +1843,23 @@ def _create_tracking_store() -> TrackingEventStore:
 
 
 def _tracking_storage_label() -> str:
+    tracking = globals().get("TRACKING")
+    if isinstance(tracking, PostgresTrackingEventStore):
+        return "postgres"
+    if isinstance(tracking, SqliteTrackingEventStore):
+        return "sqlite"
+    if isinstance(tracking, UnconfiguredTrackingEventStore):
+        return "unavailable"
     database_url = _tracking_database_url()
     if not database_url:
         return "unconfigured"
     if database_url.startswith("sqlite:///"):
         return "sqlite"
     return "postgres"
+
+
+def _tracking_storage_ready() -> bool:
+    return not isinstance(globals().get("TRACKING"), UnconfiguredTrackingEventStore)
 
 
 class JobsStore:
@@ -2158,6 +2223,7 @@ def _tracking_config() -> dict[str, Any]:
     return {
         "tracking_enabled": _env_enabled("TRACKING_ENABLED", True),
         "tracking_storage": _tracking_storage_label(),
+        "tracking_storage_ready": _tracking_storage_ready(),
         "meta_pixel_enabled": _env_enabled("META_PIXEL_ENABLED", False),
         "meta_capi_enabled": _env_enabled("META_CAPI_ENABLED", False),
         "meta_pixel_id": os.environ.get("META_PIXEL_ID", "").strip(),
