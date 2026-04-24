@@ -1,3 +1,15 @@
+.brand-mark,
+.vss-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.82rem;
+  height: 1.82rem;
+  flex: 0 0 1.82rem;
+  line-height: 0;
+  filter: drop-shadow(0 0 5px rgba(244, 247, 252, 0.08));
+}
+
 .brand-mark-image,
 .vss-brand-mark-image {
   display: block;

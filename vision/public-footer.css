@@ -36,6 +36,12 @@
   color: inherit;
 }
 
+.public-footer__brand-link .brand-mark {
+  width: 1.55rem;
+  height: 1.55rem;
+  flex-basis: 1.55rem;
+}
+
 .public-footer__brand-link .brand-name {
   text-transform: uppercase;
   letter-spacing: 0.32em;
