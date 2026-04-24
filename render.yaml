@@ -111,3 +111,35 @@ services:
         sync: false
       - key: VISION_FRONTEND_BASE_URL
         value: https://visionstudiolab.com
+      - key: TRACKING_ENABLED
+        value: true
+      - key: TRACKING_DATABASE_URL
+        sync: false
+      - key: TRACKING_DEBUG_JSONL_ENABLED
+        value: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: META_PIXEL_ENABLED
+        value: false
+      - key: META_PIXEL_ID
+        sync: false
+      - key: META_CAPI_ENABLED
+        value: false
+      - key: META_CAPI_ACCESS_TOKEN
+        sync: false
+      - key: TIKTOK_PIXEL_ENABLED
+        value: false
+      - key: TIKTOK_PIXEL_ID
+        sync: false
+      - key: TIKTOK_EVENTS_API_ENABLED
+        value: false
+      - key: TIKTOK_EVENTS_API_ACCESS_TOKEN
+        sync: false
+      - key: GOOGLE_TAG_ENABLED
+        value: false
+      - key: GOOGLE_TAG_ID
+        sync: false
+      - key: GOOGLE_ENHANCED_CONVERSIONS_ENABLED
+        value: false
+      - key: GOOGLE_ADS_CONVERSION_LABEL
+        sync: false

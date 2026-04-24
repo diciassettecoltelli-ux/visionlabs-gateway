@@ -158,6 +158,16 @@
     };
   };
 
+  const scrubFirstPartyEvent = (event) => {
+    const clean = { ...event };
+    delete clean.customer_email;
+    if (clean.payload && typeof clean.payload === "object") {
+      clean.payload = { ...clean.payload };
+      delete clean.payload.customer_email;
+    }
+    return clean;
+  };
+
   const loadScript = (src) =>
     new Promise((resolve, reject) => {
       const existing = Array.from(document.scripts).find((script) => script.src === src);
@@ -304,7 +314,7 @@
   };
 
   const sendFirstPartyEvent = async (event) => {
-    const body = JSON.stringify(event);
+    const body = JSON.stringify(scrubFirstPartyEvent(event));
     try {
       const response = await fetch(trackingApiUrl("/api/track"), {
         method: "POST",

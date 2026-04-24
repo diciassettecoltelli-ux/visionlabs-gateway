@@ -9,6 +9,7 @@ import mimetypes
 import os
 import queue
 import secrets
+import sqlite3
 import smtplib
 import ssl
 import threading
@@ -1132,7 +1133,7 @@ ACCESS_FILE = RUNTIME_ROOT / "access.json"
 OUTPUT_ROOT = VISION_ROOT / "generated"
 DISABLE_FILE = RUNTIME_ROOT / "gateway.disabled"
 USERS_FILE = RUNTIME_ROOT / "users.json"
-TRACKING_EVENTS_FILE = RUNTIME_ROOT / "tracking_events.jsonl"
+TRACKING_DEBUG_EVENTS_FILE = RUNTIME_ROOT / "tracking_events.debug.jsonl"
 
 for path in (RUNTIME_ROOT, OUTPUT_ROOT):
     path.mkdir(parents=True, exist_ok=True)
@@ -1252,6 +1253,22 @@ TRACKING_CORE_FIELDS = [
     "customer_email",
 ]
 
+TRACKING_ATTRIBUTION_FIELDS = [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_content",
+    "utm_term",
+    "gclid",
+    "fbclid",
+    "ttclid",
+    "page_path",
+    "page_url",
+    "referrer",
+]
+
+TRACKING_PII_FIELD_TOKENS = {"email", "phone", "name"}
+
 
 def _env_enabled(name: str, default: bool = False) -> bool:
     raw = os.environ.get(name, "").strip().lower()
@@ -1277,6 +1294,9 @@ def _safe_tracking_dict(value: Any) -> dict[str, Any]:
         if raw_value is None:
             continue
         key_text = str(key)[:80]
+        lowered_key = key_text.lower()
+        if any(token in lowered_key for token in TRACKING_PII_FIELD_TOKENS):
+            continue
         if isinstance(raw_value, (str, int, float, bool)):
             safe[key_text] = raw_value
         elif isinstance(raw_value, dict):
@@ -1293,41 +1313,483 @@ def _sha256_normalized(value: str | None) -> str | None:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
+class TrackingStoreUnavailable(RuntimeError):
+    pass
+
+
+def _tracking_database_url() -> str:
+    return os.environ.get("TRACKING_DATABASE_URL", "").strip() or os.environ.get("DATABASE_URL", "").strip()
+
+
+def _tracking_cookie_session_name() -> str:
+    return os.environ.get("VISION_TRACKING_SESSION_COOKIE", "vision_tracking_session_id").strip() or "vision_tracking_session_id"
+
+
+def _tracking_cookie_anonymous_name() -> str:
+    return os.environ.get("VISION_TRACKING_ANONYMOUS_COOKIE", "vision_tracking_anonymous_id").strip() or "vision_tracking_anonymous_id"
+
+
+def _tracking_attribution_key(event: dict[str, Any]) -> str | None:
+    anonymous_id = _safe_tracking_string(event.get("anonymous_id"), 128)
+    session_id = _safe_tracking_string(event.get("session_id"), 128)
+    if anonymous_id:
+        return f"anon:{anonymous_id}"
+    if session_id:
+        return f"session:{session_id}"
+    return None
+
+
+def _touch_from_event(event: dict[str, Any]) -> dict[str, Any]:
+    touch = {key: event.get(key) for key in TRACKING_ATTRIBUTION_FIELDS if event.get(key)}
+    if touch and not touch.get("captured_at"):
+        touch["captured_at"] = event.get("event_time") or _now_iso()
+    return touch
+
+
+def _scrub_tracking_event(event: dict[str, Any]) -> dict[str, Any]:
+    clean = dict(event)
+    raw_email = clean.pop("customer_email", None)
+    email_hash = clean.get("customer_email_hash") or _sha256_normalized(raw_email)
+    if email_hash:
+        clean["customer_email_hash"] = email_hash
+    clean["first_touch"] = _safe_tracking_dict(clean.get("first_touch"))
+    clean["last_touch"] = _safe_tracking_dict(clean.get("last_touch"))
+    clean["payload"] = _safe_tracking_dict(clean.get("payload"))
+    return clean
+
+
 class TrackingEventStore:
+    def append(self, event: dict[str, Any]) -> bool:
+        raise NotImplementedError
+
+    def get_attribution(self, *, session_id: str | None, anonymous_id: str | None) -> dict[str, Any] | None:
+        return None
+
+
+class UnconfiguredTrackingEventStore(TrackingEventStore):
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+
+    def append(self, event: dict[str, Any]) -> bool:
+        raise TrackingStoreUnavailable(self.reason)
+
+
+class SqliteTrackingEventStore(TrackingEventStore):
     def __init__(self, path: Path) -> None:
         self.path = path
         self.lock = threading.Lock()
-        self.seen_event_ids: set[str] = set()
-        self.load()
+        self._ensure_schema()
 
-    def load(self) -> None:
-        if not self.path.exists():
-            return
-        try:
-            with self.path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    event_id = str(event.get("event_id") or "").strip()
-                    if event_id:
-                        self.seen_event_ids.add(event_id)
-        except OSError:
-            return
+    def _connect(self) -> sqlite3.Connection:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        connection = sqlite3.connect(str(self.path), timeout=15)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+    def _ensure_schema(self) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS vision_tracking_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id TEXT NOT NULL UNIQUE,
+                    event_name TEXT NOT NULL,
+                    event_time TEXT,
+                    received_at TEXT,
+                    session_id TEXT,
+                    anonymous_id TEXT,
+                    user_id TEXT,
+                    page_path TEXT,
+                    page_url TEXT,
+                    referrer TEXT,
+                    utm_source TEXT,
+                    utm_medium TEXT,
+                    utm_campaign TEXT,
+                    utm_content TEXT,
+                    utm_term TEXT,
+                    gclid TEXT,
+                    fbclid TEXT,
+                    ttclid TEXT,
+                    plan_id TEXT,
+                    currency TEXT,
+                    value REAL,
+                    job_id TEXT,
+                    asset_id TEXT,
+                    media_type TEXT,
+                    platform_context TEXT,
+                    checkout_session_id TEXT,
+                    customer_email_hash TEXT,
+                    first_touch TEXT NOT NULL DEFAULT '{}',
+                    last_touch TEXT NOT NULL DEFAULT '{}',
+                    payload TEXT NOT NULL DEFAULT '{}',
+                    event_json TEXT NOT NULL DEFAULT '{}',
+                    ip TEXT,
+                    user_agent TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_name_time ON vision_tracking_events(event_name, event_time)")
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_session ON vision_tracking_events(session_id)")
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_anonymous ON vision_tracking_events(anonymous_id)")
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_checkout ON vision_tracking_events(checkout_session_id)")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS vision_attribution (
+                    attribution_key TEXT PRIMARY KEY,
+                    session_id TEXT,
+                    anonymous_id TEXT,
+                    user_id TEXT,
+                    first_touch TEXT NOT NULL DEFAULT '{}',
+                    last_touch TEXT NOT NULL DEFAULT '{}',
+                    first_seen_at TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_attribution_session ON vision_attribution(session_id)")
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_vision_attribution_anonymous ON vision_attribution(anonymous_id)")
 
     def append(self, event: dict[str, Any]) -> bool:
-        event_id = str(event.get("event_id") or "").strip()
-        if not event_id:
-            return False
-        with self.lock:
-            if event_id in self.seen_event_ids:
-                return False
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            with self.path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(event, ensure_ascii=False) + "\n")
-            self.seen_event_ids.add(event_id)
-            return True
+        clean = _scrub_tracking_event(event)
+        with self.lock, self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO vision_tracking_events (
+                    event_id, event_name, event_time, received_at, session_id, anonymous_id, user_id,
+                    page_path, page_url, referrer, utm_source, utm_medium, utm_campaign, utm_content,
+                    utm_term, gclid, fbclid, ttclid, plan_id, currency, value, job_id, asset_id,
+                    media_type, platform_context, checkout_session_id, customer_email_hash,
+                    first_touch, last_touch, payload, event_json, ip, user_agent
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    clean.get("event_id"),
+                    clean.get("event_name"),
+                    clean.get("event_time"),
+                    clean.get("received_at"),
+                    clean.get("session_id"),
+                    clean.get("anonymous_id"),
+                    clean.get("user_id"),
+                    clean.get("page_path"),
+                    clean.get("page_url"),
+                    clean.get("referrer"),
+                    clean.get("utm_source"),
+                    clean.get("utm_medium"),
+                    clean.get("utm_campaign"),
+                    clean.get("utm_content"),
+                    clean.get("utm_term"),
+                    clean.get("gclid"),
+                    clean.get("fbclid"),
+                    clean.get("ttclid"),
+                    clean.get("plan_id"),
+                    clean.get("currency"),
+                    clean.get("value"),
+                    clean.get("job_id"),
+                    clean.get("asset_id"),
+                    clean.get("media_type"),
+                    clean.get("platform_context"),
+                    clean.get("checkout_session_id"),
+                    clean.get("customer_email_hash"),
+                    json.dumps(clean.get("first_touch") or {}, ensure_ascii=False),
+                    json.dumps(clean.get("last_touch") or {}, ensure_ascii=False),
+                    json.dumps(clean.get("payload") or {}, ensure_ascii=False),
+                    json.dumps(clean, ensure_ascii=False),
+                    clean.get("ip"),
+                    clean.get("user_agent"),
+                ),
+            )
+            self._upsert_attribution(connection, clean)
+            return cursor.rowcount > 0
+
+    def _upsert_attribution(self, connection: sqlite3.Connection, event: dict[str, Any]) -> None:
+        attribution_key = _tracking_attribution_key(event)
+        if not attribution_key:
+            return
+        existing = connection.execute(
+            "SELECT first_touch FROM vision_attribution WHERE attribution_key = ?",
+            (attribution_key,),
+        ).fetchone()
+        current_touch = _touch_from_event(event)
+        first_touch = event.get("first_touch") or current_touch
+        if existing:
+            try:
+                first_touch = json.loads(existing["first_touch"] or "{}") or first_touch
+            except json.JSONDecodeError:
+                pass
+        last_touch = event.get("last_touch") or current_touch
+        now = _now_iso()
+        connection.execute(
+            """
+            INSERT INTO vision_attribution (
+                attribution_key, session_id, anonymous_id, user_id, first_touch, last_touch,
+                first_seen_at, last_seen_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(attribution_key) DO UPDATE SET
+                session_id = COALESCE(excluded.session_id, vision_attribution.session_id),
+                anonymous_id = COALESCE(excluded.anonymous_id, vision_attribution.anonymous_id),
+                user_id = COALESCE(excluded.user_id, vision_attribution.user_id),
+                last_touch = excluded.last_touch,
+                last_seen_at = excluded.last_seen_at,
+                updated_at = excluded.updated_at
+            """,
+            (
+                attribution_key,
+                event.get("session_id"),
+                event.get("anonymous_id"),
+                event.get("user_id"),
+                json.dumps(first_touch or {}, ensure_ascii=False),
+                json.dumps(last_touch or {}, ensure_ascii=False),
+                now,
+                now,
+                now,
+            ),
+        )
+
+    def get_attribution(self, *, session_id: str | None, anonymous_id: str | None) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT first_touch, last_touch
+                FROM vision_attribution
+                WHERE (? IS NOT NULL AND anonymous_id = ?)
+                   OR (? IS NOT NULL AND session_id = ?)
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """,
+                (anonymous_id, anonymous_id, session_id, session_id),
+            ).fetchone()
+        if not row:
+            return None
+        try:
+            first_touch = json.loads(row["first_touch"] or "{}")
+        except json.JSONDecodeError:
+            first_touch = {}
+        try:
+            last_touch = json.loads(row["last_touch"] or "{}")
+        except json.JSONDecodeError:
+            last_touch = {}
+        return {"first_touch": first_touch, "last_touch": last_touch}
+
+
+class PostgresTrackingEventStore(TrackingEventStore):
+    def __init__(self, database_url: str) -> None:
+        try:
+            import psycopg
+            from psycopg.types.json import Jsonb
+        except ImportError as exc:
+            raise TrackingStoreUnavailable("psycopg is required for Postgres tracking storage.") from exc
+        self.database_url = database_url
+        self.psycopg = psycopg
+        self.Jsonb = Jsonb
+        self.lock = threading.Lock()
+        self._ensure_schema()
+
+    def _connect(self):
+        return self.psycopg.connect(self.database_url, autocommit=True)
+
+    def _ensure_schema(self) -> None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS vision_tracking_events (
+                        id BIGSERIAL PRIMARY KEY,
+                        event_id TEXT NOT NULL UNIQUE,
+                        event_name TEXT NOT NULL,
+                        event_time TIMESTAMPTZ,
+                        received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        session_id TEXT,
+                        anonymous_id TEXT,
+                        user_id TEXT,
+                        page_path TEXT,
+                        page_url TEXT,
+                        referrer TEXT,
+                        utm_source TEXT,
+                        utm_medium TEXT,
+                        utm_campaign TEXT,
+                        utm_content TEXT,
+                        utm_term TEXT,
+                        gclid TEXT,
+                        fbclid TEXT,
+                        ttclid TEXT,
+                        plan_id TEXT,
+                        currency TEXT,
+                        value NUMERIC(12, 2),
+                        job_id TEXT,
+                        asset_id TEXT,
+                        media_type TEXT,
+                        platform_context TEXT,
+                        checkout_session_id TEXT,
+                        customer_email_hash TEXT,
+                        first_touch JSONB NOT NULL DEFAULT '{}'::jsonb,
+                        last_touch JSONB NOT NULL DEFAULT '{}'::jsonb,
+                        payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+                        event_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+                        ip TEXT,
+                        user_agent TEXT,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_name_time ON vision_tracking_events(event_name, event_time)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_session ON vision_tracking_events(session_id)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_anonymous ON vision_tracking_events(anonymous_id)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_tracking_events_checkout ON vision_tracking_events(checkout_session_id)")
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS vision_attribution (
+                        attribution_key TEXT PRIMARY KEY,
+                        session_id TEXT,
+                        anonymous_id TEXT,
+                        user_id TEXT,
+                        first_touch JSONB NOT NULL DEFAULT '{}'::jsonb,
+                        last_touch JSONB NOT NULL DEFAULT '{}'::jsonb,
+                        first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_attribution_session ON vision_attribution(session_id)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_vision_attribution_anonymous ON vision_attribution(anonymous_id)")
+
+    def append(self, event: dict[str, Any]) -> bool:
+        clean = _scrub_tracking_event(event)
+        with self.lock, self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO vision_tracking_events (
+                        event_id, event_name, event_time, received_at, session_id, anonymous_id, user_id,
+                        page_path, page_url, referrer, utm_source, utm_medium, utm_campaign, utm_content,
+                        utm_term, gclid, fbclid, ttclid, plan_id, currency, value, job_id, asset_id,
+                        media_type, platform_context, checkout_session_id, customer_email_hash,
+                        first_touch, last_touch, payload, event_json, ip, user_agent
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    )
+                    ON CONFLICT (event_id) DO NOTHING
+                    """,
+                    (
+                        clean.get("event_id"),
+                        clean.get("event_name"),
+                        clean.get("event_time"),
+                        clean.get("received_at"),
+                        clean.get("session_id"),
+                        clean.get("anonymous_id"),
+                        clean.get("user_id"),
+                        clean.get("page_path"),
+                        clean.get("page_url"),
+                        clean.get("referrer"),
+                        clean.get("utm_source"),
+                        clean.get("utm_medium"),
+                        clean.get("utm_campaign"),
+                        clean.get("utm_content"),
+                        clean.get("utm_term"),
+                        clean.get("gclid"),
+                        clean.get("fbclid"),
+                        clean.get("ttclid"),
+                        clean.get("plan_id"),
+                        clean.get("currency"),
+                        clean.get("value"),
+                        clean.get("job_id"),
+                        clean.get("asset_id"),
+                        clean.get("media_type"),
+                        clean.get("platform_context"),
+                        clean.get("checkout_session_id"),
+                        clean.get("customer_email_hash"),
+                        self.Jsonb(clean.get("first_touch") or {}),
+                        self.Jsonb(clean.get("last_touch") or {}),
+                        self.Jsonb(clean.get("payload") or {}),
+                        self.Jsonb(clean),
+                        clean.get("ip"),
+                        clean.get("user_agent"),
+                    ),
+                )
+                stored = cursor.rowcount > 0
+                self._upsert_attribution(cursor, clean)
+                return stored
+
+    def _upsert_attribution(self, cursor: Any, event: dict[str, Any]) -> None:
+        attribution_key = _tracking_attribution_key(event)
+        if not attribution_key:
+            return
+        cursor.execute(
+            "SELECT first_touch FROM vision_attribution WHERE attribution_key = %s",
+            (attribution_key,),
+        )
+        row = cursor.fetchone()
+        current_touch = _touch_from_event(event)
+        first_touch = event.get("first_touch") or current_touch
+        if row and row[0]:
+            first_touch = row[0]
+        last_touch = event.get("last_touch") or current_touch
+        cursor.execute(
+            """
+            INSERT INTO vision_attribution (
+                attribution_key, session_id, anonymous_id, user_id, first_touch, last_touch,
+                first_seen_at, last_seen_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW(), NOW())
+            ON CONFLICT (attribution_key) DO UPDATE SET
+                session_id = COALESCE(EXCLUDED.session_id, vision_attribution.session_id),
+                anonymous_id = COALESCE(EXCLUDED.anonymous_id, vision_attribution.anonymous_id),
+                user_id = COALESCE(EXCLUDED.user_id, vision_attribution.user_id),
+                last_touch = EXCLUDED.last_touch,
+                last_seen_at = EXCLUDED.last_seen_at,
+                updated_at = EXCLUDED.updated_at
+            """,
+            (
+                attribution_key,
+                event.get("session_id"),
+                event.get("anonymous_id"),
+                event.get("user_id"),
+                self.Jsonb(first_touch or {}),
+                self.Jsonb(last_touch or {}),
+            ),
+        )
+
+    def get_attribution(self, *, session_id: str | None, anonymous_id: str | None) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT first_touch, last_touch
+                    FROM vision_attribution
+                    WHERE (%s IS NOT NULL AND anonymous_id = %s)
+                       OR (%s IS NOT NULL AND session_id = %s)
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    (anonymous_id, anonymous_id, session_id, session_id),
+                )
+                row = cursor.fetchone()
+        if not row:
+            return None
+        return {"first_touch": row[0] or {}, "last_touch": row[1] or {}}
+
+
+def _create_tracking_store() -> TrackingEventStore:
+    database_url = _tracking_database_url()
+    if not database_url:
+        return UnconfiguredTrackingEventStore("TRACKING_DATABASE_URL or DATABASE_URL is required for first-party tracking.")
+    try:
+        if database_url.startswith("sqlite:///"):
+            return SqliteTrackingEventStore(Path(database_url.removeprefix("sqlite:///")).expanduser())
+        return PostgresTrackingEventStore(database_url)
+    except Exception as exc:
+        return UnconfiguredTrackingEventStore(f"Tracking storage is unavailable: {exc}")
+
+
+def _tracking_storage_label() -> str:
+    database_url = _tracking_database_url()
+    if not database_url:
+        return "unconfigured"
+    if database_url.startswith("sqlite:///"):
+        return "sqlite"
+    return "postgres"
 
 
 class JobsStore:
@@ -1683,13 +2145,14 @@ class UserStore:
 JOBS = JobsStore(JOBS_FILE)
 ACCESS = AccessStore(ACCESS_FILE)
 USERS = UserStore(USERS_FILE)
-TRACKING = TrackingEventStore(TRACKING_EVENTS_FILE)
+TRACKING = _create_tracking_store()
 QUEUE: queue.Queue[str] = queue.Queue()
 
 
 def _tracking_config() -> dict[str, Any]:
     return {
         "tracking_enabled": _env_enabled("TRACKING_ENABLED", True),
+        "tracking_storage": _tracking_storage_label(),
         "meta_pixel_enabled": _env_enabled("META_PIXEL_ENABLED", False),
         "meta_capi_enabled": _env_enabled("META_CAPI_ENABLED", False),
         "meta_pixel_id": os.environ.get("META_PIXEL_ID", "").strip(),
@@ -1730,6 +2193,10 @@ def _normalize_tracking_event(payload: TrackEventRequest | dict[str, Any], reque
         else:
             event[field] = _safe_tracking_string(value, 2048)
 
+    if request is not None:
+        event["session_id"] = event.get("session_id") or _safe_tracking_string(request.cookies.get(_tracking_cookie_session_name()), 128) or uuid.uuid4().hex
+        event["anonymous_id"] = event.get("anonymous_id") or _safe_tracking_string(request.cookies.get(_tracking_cookie_anonymous_name()), 128) or uuid.uuid4().hex
+
     user = _user_from_request(request) if request is not None else None
     if user and not event.get("user_id"):
         event["user_id"] = str(user.get("id") or user.get("user_id") or "")
@@ -1741,6 +2208,9 @@ def _normalize_tracking_event(payload: TrackEventRequest | dict[str, Any], reque
     event["first_touch"] = _safe_tracking_dict(raw.get("first_touch"))
     event["last_touch"] = _safe_tracking_dict(raw.get("last_touch"))
     event["payload"] = _safe_tracking_dict(raw.get("payload"))
+    email_hash = event.get("customer_email_hash") or _sha256_normalized(event.get("customer_email"))
+    if email_hash:
+        event["customer_email_hash"] = email_hash
     return event
 
 
@@ -1833,7 +2303,7 @@ def _send_tiktok_events_api_event(event: dict[str, Any]) -> None:
                         "ip": event.get("ip"),
                         "user_agent": event.get("user_agent"),
                         "ttclid": event.get("ttclid"),
-                        "email": _sha256_normalized(event.get("customer_email")),
+                        "email": event.get("customer_email_hash") or _sha256_normalized(event.get("customer_email")),
                     },
                 },
                 "properties": {
@@ -1863,9 +2333,20 @@ def _record_tracking_event(event: dict[str, Any], *, dispatch_ads: bool = True) 
     if not _env_enabled("TRACKING_ENABLED", True):
         return False
     stored = TRACKING.append(event)
+    if stored and _env_enabled("TRACKING_DEBUG_JSONL_ENABLED", False):
+        _append_tracking_debug_event(event)
     if stored and dispatch_ads:
         _send_ads_events_async(event)
     return stored
+
+
+def _append_tracking_debug_event(event: dict[str, Any]) -> None:
+    try:
+        TRACKING_DEBUG_EVENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with TRACKING_DEBUG_EVENTS_FILE.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(_scrub_tracking_event(event), ensure_ascii=False) + "\n")
+    except OSError:
+        return
 
 
 def _tracking_metadata(payload: dict[str, Any] | None, event_id: str | None = None) -> dict[str, str]:
@@ -1893,6 +2374,39 @@ def _tracking_metadata(payload: dict[str, Any] | None, event_id: str | None = No
         if clean:
             metadata[f"vision_tracking_{key}"] = clean
     return metadata
+
+
+def _tracking_context_from_request(payload: dict[str, Any] | None, request: Request) -> dict[str, Any]:
+    context = dict(payload or {})
+    session_id = _safe_tracking_string(context.get("session_id"), 128) or _safe_tracking_string(request.cookies.get(_tracking_cookie_session_name()), 128)
+    anonymous_id = _safe_tracking_string(context.get("anonymous_id"), 128) or _safe_tracking_string(request.cookies.get(_tracking_cookie_anonymous_name()), 128)
+    if session_id:
+        context["session_id"] = session_id
+    if anonymous_id:
+        context["anonymous_id"] = anonymous_id
+    try:
+        server_attribution = TRACKING.get_attribution(session_id=session_id, anonymous_id=anonymous_id)
+    except Exception:
+        server_attribution = None
+    if server_attribution:
+        first_touch = server_attribution.get("first_touch") or {}
+        last_touch = server_attribution.get("last_touch") or {}
+        context.setdefault("first_touch", first_touch)
+        context.setdefault("last_touch", last_touch)
+        for key in TRACKING_ATTRIBUTION_FIELDS:
+            if not context.get(key) and last_touch.get(key):
+                context[key] = last_touch.get(key)
+    return context
+
+
+def _set_tracking_cookies(response: Response, request: Request, event: dict[str, Any]) -> None:
+    settings = _cookie_settings(request)
+    session_id = _safe_tracking_string(event.get("session_id"), 128)
+    anonymous_id = _safe_tracking_string(event.get("anonymous_id"), 128)
+    if session_id:
+        response.set_cookie(key=_tracking_cookie_session_name(), value=session_id, **settings)
+    if anonymous_id:
+        response.set_cookie(key=_tracking_cookie_anonymous_name(), value=anonymous_id, **settings)
 
 
 def _stripe_signature_is_valid(payload: bytes, signature_header: str, secret: str) -> bool:
@@ -2312,14 +2826,21 @@ def tracking_config() -> dict[str, Any]:
 
 
 @APP.post("/api/track")
-def track_event(payload: TrackEventRequest, request: Request) -> dict[str, Any]:
+def track_event(payload: TrackEventRequest, request: Request) -> JSONResponse:
     event = _normalize_tracking_event(payload, request)
-    stored = _record_tracking_event(event)
-    return {
-        "ok": True,
-        "stored": stored,
-        "event_id": event["event_id"],
-    }
+    try:
+        stored = _record_tracking_event(event)
+    except TrackingStoreUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    response = JSONResponse(
+        {
+            "ok": True,
+            "stored": stored,
+            "event_id": event["event_id"],
+        }
+    )
+    _set_tracking_cookies(response, request, event)
+    return response
 
 
 @APP.post("/api/admin/unlock")
@@ -2358,7 +2879,7 @@ def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Requ
             request=request,
             email=resolved_email or None,
             pack_id=str(selected_pack.get("id") or "start"),
-            tracking=payload.tracking,
+            tracking=_tracking_context_from_request(payload.tracking, request),
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
