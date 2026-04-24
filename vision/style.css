@@ -11294,3 +11294,27 @@ body.is-studio-route .studio-loader.is-open .studio-loader-progress-bar {
     min-height: 48px;
   }
 }
+
+/* Mobile home clean entry v41 */
+@media (max-width: 760px) {
+  body:not(.is-studio-route) .topbar {
+    display: none !important;
+  }
+
+  body:not(.is-studio-route) .hero {
+    min-height: 100svh;
+    padding-top: 0;
+  }
+
+  body:not(.is-studio-route) .atom-trigger {
+    top: 48svh !important;
+  }
+
+  body:not(.is-studio-route) .atom-guide {
+    top: calc(48svh + 3.45rem) !important;
+  }
+
+  body:not(.is-studio-route) .search-cluster {
+    top: calc(48svh + 5.15rem) !important;
+  }
+}
