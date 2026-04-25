@@ -1995,6 +1995,17 @@
   const renderDock = () => `
     <div class="vss-dock">
       <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" />
+      <div class="vss-dock-settings" aria-label="Studio generation controls">
+        <div class="vss-mode-row vss-mode-row--elevated">
+          <div class="vss-mode-switch" role="tablist" aria-label="Mode switch">
+            <button type="button" data-mode="video" class="${state.mode === "video" ? "is-active" : ""}">Video</button>
+            <button type="button" data-mode="image" class="${state.mode === "image" ? "is-active" : ""}">Image</button>
+          </div>
+          <span class="vss-mode-separator" aria-hidden="true"></span>
+          <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
+        </div>
+        ${renderGenerationControls()}
+      </div>
       <form class="vss-prompt-bar" id="vss-prompt-form">
         <button class="vss-add-ref" type="button" aria-label="Upload image or short video reference" title="Add image or short video reference">
           <span class="vss-add-ref-symbol" aria-hidden="true">+</span>
@@ -2018,15 +2029,6 @@
           </button>
         </div>
       </form>
-      <div class="vss-mode-row vss-mode-row--elevated">
-        <div class="vss-mode-switch" role="tablist" aria-label="Mode switch">
-          <button type="button" data-mode="video" class="${state.mode === "video" ? "is-active" : ""}">Video</button>
-          <button type="button" data-mode="image" class="${state.mode === "image" ? "is-active" : ""}">Image</button>
-        </div>
-        <span class="vss-mode-separator" aria-hidden="true"></span>
-        <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
-      </div>
-      ${renderGenerationControls()}
       ${
         state.referenceAsset
           ? `<div class="vss-reference-row">
