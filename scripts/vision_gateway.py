@@ -143,6 +143,78 @@ def _normalize_mode(value: str | None) -> str:
     return normalized if normalized in {"video", "image"} else "video"
 
 
+def _normalize_duration_seconds(value: int | None) -> int:
+    try:
+        requested = int(value) if value is not None else 5
+    except (TypeError, ValueError):
+        requested = 5
+    if requested <= 3:
+        return 3
+    if requested <= 5:
+        return 5
+    if requested <= 10:
+        return 10
+    return 15
+
+
+def _normalize_resolution(value: str | None) -> str:
+    normalized = str(value or "").strip().lower().replace(" ", "")
+    if normalized in {"480", "480p"}:
+        return "480p"
+    if normalized in {"720", "720p", "hd"}:
+        return "720p"
+    if normalized in {"1080", "1080p", "fullhd", "fhd"}:
+        return "1080p"
+    if normalized in {"4k", "2160", "2160p", "uhd"}:
+        return "4k"
+    return "720p"
+
+
+def _quality_from_generation_settings(mode: str, resolution: str, sound_enabled: bool) -> str:
+    if mode == "image":
+        return "director" if resolution == "4k" else "studio"
+    if resolution == "4k":
+        return "director"
+    if resolution == "1080p" or sound_enabled:
+        return "director"
+    if resolution == "480p":
+        return "fast"
+    return "studio"
+
+
+def _vision_credit_cost(mode: str, *, duration_seconds: int, resolution: str, sound_enabled: bool) -> dict[str, Any]:
+    normalized_mode = _normalize_mode(mode)
+    normalized_duration = _normalize_duration_seconds(duration_seconds)
+    normalized_resolution = _normalize_resolution(resolution)
+    if normalized_mode == "image":
+        premium_image = normalized_resolution == "4k"
+        amount = 25000 if premium_image else 10000
+        tier = "premium_image" if premium_image else "standard_image"
+        label = "Premium image" if premium_image else "Standard image"
+    elif normalized_resolution == "4k":
+        amount = normalized_duration * 200000
+        tier = "premium_video"
+        label = f"4K video · {normalized_duration}s"
+    elif sound_enabled or normalized_resolution == "1080p":
+        amount = normalized_duration * 50000
+        tier = "pro_video"
+        label = f"Full HD video · {normalized_duration}s"
+    else:
+        amount = normalized_duration * 20000
+        tier = "standard_video"
+        label = f"Standard video · {normalized_duration}s"
+    return {
+        "amount": int(amount),
+        "currency": "vision_credits",
+        "tier": tier,
+        "label": label,
+        "mode": normalized_mode,
+        "duration_seconds": normalized_duration if normalized_mode == "video" else None,
+        "resolution": normalized_resolution,
+        "sound_enabled": bool(sound_enabled) if normalized_mode == "video" else False,
+    }
+
+
 def _seedance_model_for_quality(quality: str) -> str | None:
     env_map = {
         "fast": os.environ.get("BYTEPLUS_SEEDANCE_FAST_MODEL", "").strip(),
@@ -535,6 +607,10 @@ def _pack_image_credits() -> int:
     return max(int(_pack_summary().get("image_credits") or 50), 0)
 
 
+def _pack_vision_credits() -> int:
+    return max(int(_pack_summary().get("vision_credits") or 0), 0)
+
+
 def _pack_name() -> str:
     return str(_pack_summary().get("name") or "Vision Starter").strip() or "Vision Starter"
 
@@ -909,9 +985,13 @@ def _list_stripe_checkout_sessions_by_email(email: str, *, limit: int = 100) -> 
     return [item for item in items if isinstance(item, dict)]
 
 
-def _credits_from_session(session: dict[str, Any]) -> tuple[int, int]:
+def _credits_from_session(session: dict[str, Any]) -> tuple[int, int, int]:
     metadata = session.get("metadata") or {}
     session_pack = _pack_by_id(metadata.get("vision_pack_id"))
+    try:
+        vision_credits = int(metadata.get("vision_pack_vision_credits") or session_pack.get("vision_credits") or _pack_vision_credits())
+    except (TypeError, ValueError):
+        vision_credits = int(session_pack.get("vision_credits") or _pack_vision_credits())
     try:
         video_credits = int(metadata.get("vision_pack_video_credits") or session_pack.get("video_credits") or _pack_video_credits())
     except (TypeError, ValueError):
@@ -920,7 +1000,7 @@ def _credits_from_session(session: dict[str, Any]) -> tuple[int, int]:
         image_credits = int(metadata.get("vision_pack_image_credits") or session_pack.get("image_credits") or _pack_image_credits())
     except (TypeError, ValueError):
         image_credits = int(session_pack.get("image_credits") or _pack_image_credits())
-    return max(video_credits, 0), max(image_credits, 0)
+    return max(vision_credits, 0), max(video_credits, 0), max(image_credits, 0)
 
 
 def _restore_access_for_email(*, email: str, current_access_id: str | None, current_user_id: str | None) -> dict[str, Any] | None:
@@ -932,14 +1012,15 @@ def _restore_access_for_email(*, email: str, current_access_id: str | None, curr
         session_id = str(session.get("id") or "").strip()
         if not session_id:
             continue
-        video_credits, image_credits = _credits_from_session(session)
-        if video_credits <= 0 and image_credits <= 0:
+        vision_credits, video_credits, image_credits = _credits_from_session(session)
+        if vision_credits <= 0 and video_credits <= 0 and image_credits <= 0:
             continue
         restored_entry = ACCESS.apply_paid_session(
             session_id=session_id,
             email=email,
             current_access_id=current_access_id,
             current_user_id=current_user_id,
+            vision_credits=vision_credits,
             video_credits=video_credits,
             image_credits=image_credits,
         )
@@ -951,16 +1032,22 @@ def _access_summary(entry: dict[str, Any] | None) -> dict[str, Any]:
         return {
             "has_access": False,
             "admin": False,
+            "vision_credits_remaining": 0,
+            "vision_credits_purchased": 0,
             "video_remaining": 0,
             "image_remaining": 0,
             "access_id": None,
         }
     is_admin = bool(entry.get("admin"))
+    vision_remaining = None if is_admin else int(entry.get("vision_credits_remaining", 0))
+    vision_purchased = None if is_admin else int(entry.get("vision_credits_purchased", 0))
     video_remaining = None if is_admin else int(entry.get("video_remaining", 0))
     image_remaining = None if is_admin else int(entry.get("image_remaining", 0))
     return {
-        "has_access": is_admin or (video_remaining or 0) > 0 or (image_remaining or 0) > 0,
+        "has_access": is_admin or (vision_remaining or 0) > 0 or (video_remaining or 0) > 0 or (image_remaining or 0) > 0,
         "admin": is_admin,
+        "vision_credits_remaining": vision_remaining,
+        "vision_credits_purchased": vision_purchased,
         "video_remaining": video_remaining,
         "image_remaining": image_remaining,
         "access_id": entry.get("id"),
@@ -1035,6 +1122,8 @@ def _access_from_request(request: Request) -> dict[str, Any] | None:
             return {
                 "id": "admin",
                 "admin": True,
+                "vision_credits_remaining": None,
+                "vision_credits_purchased": None,
                 "video_remaining": None,
                 "image_remaining": None,
             }
@@ -1062,12 +1151,17 @@ def _access_from_request(request: Request) -> dict[str, Any] | None:
 
 
 
-def _candidate_generation_routes(prompt: str, quality: str, job_id: str) -> list[dict[str, str]]:
+def _candidate_generation_routes(prompt: str, quality: str, job_id: str, settings: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     seedance_state = seedance_status()
     google_state = _google_status()
     kling_state = kling_session_bridge_status()
     default_provider = _default_generation_provider()
     quality_candidates = _quality_candidates_for_prompt(quality)
+    generation_settings = settings or {}
+    selected_duration = _normalize_duration_seconds(generation_settings.get("duration_seconds"))
+    selected_resolution = _normalize_resolution(generation_settings.get("resolution"))
+    google_resolution = selected_resolution if selected_resolution in {"720p", "1080p", "4k"} else "720p"
+    seedance_resolution = selected_resolution if selected_resolution in {"480p", "720p", "1080p"} else "1080p"
     allowed_providers = {
         "auto": {"google", "seedance", "kling"},
         "google": {"google"},
@@ -1081,6 +1175,14 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str) -> list
         for provider_name in _provider_priority_for_prompt(prompt, candidate_quality):
             if provider_name not in allowed_providers:
                 continue
+            if (
+                default_provider == "auto"
+                and provider_name == "google"
+                and selected_resolution != "4k"
+                and selected_duration not in {4, 6, 8}
+                and seedance_state.get("ready")
+            ):
+                continue
             if provider_name == "google" and google_state["video"].get("ready"):
                 model_name = _google_video_model_for_quality(candidate_quality)
                 if model_name:
@@ -1090,8 +1192,8 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str) -> list
                         "model": model_name,
                         "fallback_models": _google_fallback_models_for_quality(candidate_quality),
                         "aspect_ratio": "16:9",
-                        "resolution": _google_resolution_for_quality(candidate_quality),
-                        "duration": _google_duration_for_quality(candidate_quality),
+                        "resolution": google_resolution or _google_resolution_for_quality(candidate_quality),
+                        "duration": selected_duration or _google_duration_for_quality(candidate_quality),
                     }
                     route_key = (route["provider"], route["quality"], route["model"])
                     if route_key not in seen:
@@ -1104,7 +1206,8 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str) -> list
                         "provider": "byteplus_seedance",
                         "quality": candidate_quality,
                         "model": model_name,
-                        "resolution": _seedance_resolution_for_quality(candidate_quality),
+                        "resolution": seedance_resolution or _seedance_resolution_for_quality(candidate_quality),
+                        "duration": selected_duration,
                     }
                     route_key = (route["provider"], route["quality"], route["model"])
                     if route_key not in seen:
@@ -1166,6 +1269,9 @@ class CreateJobRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=5000)
     quality: str | None = Field(default=None, min_length=4, max_length=16)
     mode: str | None = Field(default="video", min_length=5, max_length=16)
+    duration_seconds: int | None = Field(default=None, ge=3, le=15)
+    resolution: str | None = Field(default=None, min_length=2, max_length=8)
+    sound_enabled: bool | None = False
 
 
 class CreateCheckoutSessionRequest(BaseModel):
@@ -1953,6 +2059,10 @@ class JobsStore:
         mode: str,
         charged_access_id: str | None,
         charged_mode: str | None,
+        charged_amount: int | None = None,
+        charged_credit_type: str | None = None,
+        credit_cost: dict[str, Any] | None = None,
+        generation_settings: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         with self.lock:
             job_id = uuid.uuid4().hex[:12]
@@ -1973,6 +2083,10 @@ class JobsStore:
                 "error": None,
                 "charged_access_id": charged_access_id,
                 "charged_mode": charged_mode,
+                "charged_amount": charged_amount,
+                "charged_credit_type": charged_credit_type,
+                "credit_cost": credit_cost or {},
+                "generation_settings": generation_settings or {},
                 "credit_refunded": False,
             }
             self.jobs[job_id] = job
@@ -2070,6 +2184,7 @@ class AccessStore:
         email: str | None,
         current_access_id: str | None,
         current_user_id: str | None,
+        vision_credits: int | None = None,
         video_credits: int | None = None,
         image_credits: int | None = None,
     ) -> dict[str, Any]:
@@ -2103,6 +2218,8 @@ class AccessStore:
                     "admin": False,
                     "email": _normalize_email(email) if email else None,
                     "user_id": current_user_id,
+                    "vision_credits_remaining": 0,
+                    "vision_credits_purchased": 0,
                     "video_remaining": 0,
                     "image_remaining": 0,
                     "created_at": _now_iso(),
@@ -2111,8 +2228,16 @@ class AccessStore:
                 }
                 self.entries[access_id] = entry
 
-            entry["video_remaining"] = int(entry.get("video_remaining", 0)) + max(int(video_credits if video_credits is not None else _pack_video_credits()), 0)
-            entry["image_remaining"] = int(entry.get("image_remaining", 0)) + max(int(image_credits if image_credits is not None else _pack_image_credits()), 0)
+            resolved_vision_credits = max(int(vision_credits if vision_credits is not None else _pack_vision_credits()), 0)
+            resolved_video_credits = max(int(video_credits if video_credits is not None else _pack_video_credits()), 0)
+            resolved_image_credits = max(int(image_credits if image_credits is not None else _pack_image_credits()), 0)
+            if resolved_vision_credits > 0:
+                resolved_video_credits = 0
+                resolved_image_credits = 0
+            entry["vision_credits_remaining"] = int(entry.get("vision_credits_remaining", 0)) + resolved_vision_credits
+            entry["vision_credits_purchased"] = int(entry.get("vision_credits_purchased", 0)) + resolved_vision_credits
+            entry["video_remaining"] = int(entry.get("video_remaining", 0)) + resolved_video_credits
+            entry["image_remaining"] = int(entry.get("image_remaining", 0)) + resolved_image_credits
             entry["updated_at"] = _now_iso()
             if email:
                 entry["email"] = _normalize_email(email)
@@ -2125,11 +2250,26 @@ class AccessStore:
             self.save()
             return dict(entry)
 
-    def consume(self, access_id: str, mode: str) -> dict[str, Any] | None:
+    def consume(self, access_id: str, mode: str, *, amount: int = 1) -> dict[str, Any] | None:
         with self.lock:
             entry = self.entries.get(access_id)
             if not entry:
                 return None
+            requested_amount = max(int(amount or 1), 1)
+            if "vision_credits_remaining" in entry or int(entry.get("vision_credits_purchased", 0) or 0) > 0:
+                remaining_vision_credits = int(entry.get("vision_credits_remaining", 0))
+                if remaining_vision_credits < requested_amount:
+                    return None
+                entry["vision_credits_remaining"] = remaining_vision_credits - requested_amount
+                entry["updated_at"] = _now_iso()
+                self.save()
+                return {
+                    "entry": dict(entry),
+                    "charge": {
+                        "type": "vision_credits",
+                        "amount": requested_amount,
+                    },
+                }
             key = "image_remaining" if mode == "image" else "video_remaining"
             remaining = int(entry.get(key, 0))
             if remaining <= 0:
@@ -2137,15 +2277,24 @@ class AccessStore:
             entry[key] = remaining - 1
             entry["updated_at"] = _now_iso()
             self.save()
-            return dict(entry)
+            return {
+                "entry": dict(entry),
+                "charge": {
+                    "type": key,
+                    "amount": 1,
+                },
+            }
 
-    def refund(self, access_id: str, mode: str) -> dict[str, Any] | None:
+    def refund(self, access_id: str, mode: str, *, amount: int = 1, credit_type: str | None = None) -> dict[str, Any] | None:
         with self.lock:
             entry = self.entries.get(access_id)
             if not entry:
                 return None
-            key = "image_remaining" if mode == "image" else "video_remaining"
-            entry[key] = int(entry.get(key, 0)) + 1
+            if credit_type == "vision_credits":
+                entry["vision_credits_remaining"] = int(entry.get("vision_credits_remaining", 0)) + max(int(amount or 1), 1)
+            else:
+                key = "image_remaining" if mode == "image" else "video_remaining"
+                entry[key] = int(entry.get(key, 0)) + max(int(amount or 1), 1)
             entry["updated_at"] = _now_iso()
             self.save()
             return dict(entry)
@@ -2618,7 +2767,12 @@ def _refund_job_credit(job: dict[str, Any] | None) -> None:
     charged_mode = job.get("charged_mode")
     if not access_id or not charged_mode or job.get("credit_refunded"):
         return
-    refunded = ACCESS.refund(str(access_id), str(charged_mode))
+    refunded = ACCESS.refund(
+        str(access_id),
+        str(charged_mode),
+        amount=int(job.get("charged_amount") or 1),
+        credit_type=str(job.get("charged_credit_type") or ""),
+    )
     if refunded is not None:
         JOBS.update(job["id"], credit_refunded=True)
 
@@ -2662,7 +2816,8 @@ def _process_job(job_id: str) -> None:
             )
             return
 
-        routes = _candidate_generation_routes(str(job.get("prompt") or ""), str(job.get("quality") or "auto"), job_id)
+        generation_settings = job.get("generation_settings") if isinstance(job.get("generation_settings"), dict) else {}
+        routes = _candidate_generation_routes(str(job.get("prompt") or ""), str(job.get("quality") or "auto"), job_id, generation_settings)
         attempt_log: list[dict[str, Any]] = []
         output_video = None
         last_error: Exception | None = None
@@ -2682,7 +2837,7 @@ def _process_job(job_id: str) -> None:
                         prompt=job["prompt"],
                         output_dir=output_dir,
                         model=route["model"],
-                        duration=5,
+                        duration=int(route.get("duration", 5)),
                         aspect_ratio="16:9",
                         resolution=route["resolution"],
                     )
@@ -3050,13 +3205,15 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
     current_user = _user_from_request(request)
     current_access_id = current_access.get("id") if current_access and not current_access.get("admin") else None
     normalized_session_id = payload.session_id.strip()
+    vision_credits, video_credits, image_credits = _credits_from_session(session)
     entry = ACCESS.apply_paid_session(
         session_id=normalized_session_id,
         email=email,
         current_access_id=current_access_id,
         current_user_id=str(current_user.get("id")) if current_user else None,
-        video_credits=_credits_from_session(session)[0],
-        image_credits=_credits_from_session(session)[1],
+        vision_credits=vision_credits,
+        video_credits=video_credits,
+        image_credits=image_credits,
     )
     if ACCESS.claim_notification(normalized_session_id):
         _notify_purchase_async(session=session, entry=entry)
@@ -3110,13 +3267,15 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
     customer_details = session.get("customer_details") or {}
     email = customer_details.get("email") or session.get("customer_email")
     known_user = USERS.find_by_email(email)
+    vision_credits, video_credits, image_credits = _credits_from_session(session)
     entry = ACCESS.apply_paid_session(
         session_id=session_id,
         email=email,
         current_access_id=None,
         current_user_id=str(known_user.get("id")) if known_user else None,
-        video_credits=_credits_from_session(session)[0],
-        image_credits=_credits_from_session(session)[1],
+        vision_credits=vision_credits,
+        video_credits=video_credits,
+        image_credits=image_credits,
     )
     if ACCESS.claim_notification(session_id):
         _notify_purchase_async(session=session, entry=entry)
@@ -3134,8 +3293,25 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
 @APP.post("/api/jobs")
 def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
     mode = _normalize_mode(payload.mode)
+    duration_seconds = _normalize_duration_seconds(payload.duration_seconds)
+    resolution = _normalize_resolution(payload.resolution)
+    sound_enabled = bool(payload.sound_enabled) if mode == "video" else False
+    generation_settings = {
+        "duration_seconds": duration_seconds if mode == "video" else None,
+        "resolution": resolution,
+        "sound_enabled": sound_enabled,
+    }
+    credit_cost = _vision_credit_cost(
+        mode,
+        duration_seconds=duration_seconds,
+        resolution=resolution,
+        sound_enabled=sound_enabled,
+    )
     prompt_bundle = _auto_enhance_job_prompt(payload.prompt.strip(), mode)
-    requested_quality = _effective_job_quality(mode, _normalize_quality(payload.quality))
+    normalized_quality = _normalize_quality(payload.quality)
+    if normalized_quality == "auto":
+        normalized_quality = _quality_from_generation_settings(mode, resolution, sound_enabled)
+    requested_quality = _effective_job_quality(mode, normalized_quality)
     access = _access_from_request(request)
     summary = _access_summary(access)
     if not summary["has_access"]:
@@ -3147,27 +3323,34 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
                 "access": summary,
                 "pack": _pack_summary(),
                 "packs": _packs_summary(),
+                "credit_cost": credit_cost,
             },
         )
 
     charged_access_id: str | None = None
     charged_mode: str | None = None
+    charged_amount: int | None = None
+    charged_credit_type: str | None = None
     if not summary["admin"]:
         access_id = summary["access_id"]
-        consumed = ACCESS.consume(str(access_id), mode) if access_id else None
+        consumed = ACCESS.consume(str(access_id), mode, amount=int(credit_cost["amount"])) if access_id else None
         if consumed is None:
             raise HTTPException(
                 status_code=402,
                 detail={
                     "code": "insufficient_credits",
-                    "message": f"Unlock another Vision pack to keep creating more {mode}s inside Vision.",
+                    "message": "Buy more Vision credits to keep creating inside Vision.",
                     "access": summary,
                     "pack": _pack_summary(),
                     "packs": _packs_summary(),
+                    "credit_cost": credit_cost,
                 },
             )
         charged_access_id = str(access_id)
         charged_mode = mode
+        charge = consumed.get("charge") if isinstance(consumed, dict) else None
+        charged_amount = int(charge.get("amount") if isinstance(charge, dict) else credit_cost["amount"])
+        charged_credit_type = str(charge.get("type") if isinstance(charge, dict) else "vision_credits")
 
     job = JOBS.create(
         str(prompt_bundle["prompt"]),
@@ -3175,6 +3358,10 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
         mode=mode,
         charged_access_id=charged_access_id,
         charged_mode=charged_mode,
+        charged_amount=charged_amount,
+        charged_credit_type=charged_credit_type,
+        credit_cost=credit_cost,
+        generation_settings=generation_settings,
     )
     job = JOBS.update(
         job["id"],

@@ -97,7 +97,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "124";
+const STUDIO_SHELL_ASSET_VERSION = "125";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -180,6 +180,8 @@ const defaultPack = { ...defaultPacks[0] };
 const defaultAccess = {
   has_access: false,
   admin: false,
+  vision_credits_remaining: 0,
+  vision_credits_purchased: 0,
   video_remaining: 0,
   image_remaining: 0,
   access_id: null,
@@ -672,13 +674,25 @@ const deleteStudioHistoryItem = (id) => {
 };
 
 const getStudioCreditCounts = () => ({
+  vision: Math.max(0, Number(accessState.vision_credits_remaining ?? 0) || 0),
+  visionPurchased: Math.max(0, Number(accessState.vision_credits_purchased ?? 0) || 0),
   video: Math.max(0, Number(accessState.video_remaining ?? 0) || 0),
   image: Math.max(0, Number(accessState.image_remaining ?? 0) || 0),
 });
 
 const hasStudioCredits = () => {
   const counts = getStudioCreditCounts();
-  return counts.video > 0 || counts.image > 0;
+  return counts.vision > 0 || counts.video > 0 || counts.image > 0;
+};
+
+const formatVisionCredits = (value) => Math.max(0, Number(value || 0)).toLocaleString("it-IT");
+
+const getStudioCreditLabel = () => {
+  const counts = getStudioCreditCounts();
+  if (counts.vision > 0 || counts.visionPurchased > 0) {
+    return `${formatVisionCredits(counts.vision)} Vision credits`;
+  }
+  return `${counts.video} videos · ${counts.image} images`;
 };
 
 const hasStudioPackContext = () => !!accessState.admin || !!accessState.access_id || hasStudioCredits();
@@ -697,8 +711,7 @@ const syncTopbarCta = () => {
     } else if (accessState.admin) {
       topbarCta.textContent = "Studio unlocked";
     } else if (hasStudioPackContext()) {
-      const counts = getStudioCreditCounts();
-      topbarCta.textContent = `${counts.video} video · ${counts.image} images`;
+      topbarCta.textContent = getStudioCreditLabel();
     } else {
       topbarCta.textContent = "Access Vision";
     }
@@ -982,7 +995,7 @@ const renderStudioDashboard = () => {
     if (adminMode) {
       studioPackStatus.textContent = "Admin access is active. Vision engine is fully unlocked on this device.";
     } else if (hasPack) {
-      studioPackStatus.textContent = `${counts.video} video credits and ${counts.image} image credits are ready to use.`;
+      studioPackStatus.textContent = `${getStudioCreditLabel()} are ready to use.`;
     } else if (currentUser.authenticated || currentUser.email) {
       studioPackStatus.textContent = "No active pack yet. Unlock one and your credits will appear here instantly.";
     } else {
@@ -1720,7 +1733,7 @@ const renderAuthState = () => {
     if (accessState.admin) {
       authAccountCredits.textContent = "Vision engine unlocked";
     } else if (hasPack) {
-      authAccountCredits.textContent = `${counts.video} videos · ${counts.image} images remaining`;
+      authAccountCredits.textContent = `${getStudioCreditLabel()} remaining`;
     } else {
       authAccountCredits.textContent = "No active pack yet.";
     }
@@ -1769,8 +1782,7 @@ const renderAccessState = (access, pack, user, packs) => {
     if (accessState.admin) {
       accessPill.textContent = "Vision engine unlocked";
     } else if (hasStudioPackContext()) {
-      const counts = getStudioCreditCounts();
-      accessPill.textContent = `Vision access live · ${counts.video} videos · ${counts.image} images`;
+      accessPill.textContent = `Vision access live · ${getStudioCreditLabel()}`;
     } else {
       accessPill.textContent = "Vision access required";
     }

@@ -34,6 +34,8 @@
   const VISION_ASSET_CACHE_DB = "vision_asset_cache_v1";
   const VISION_ASSET_CACHE_STORE = "assets";
   const DEFAULT_PACK_ID = "creator";
+  const VISION_DURATION_OPTIONS = [3, 5, 10, 15];
+  const VISION_RESOLUTION_OPTIONS = ["480p", "720p", "1080p", "4k"];
 
   const trackVisionEvent = (name, payload = {}) =>
     window.VisionTracking && typeof window.VisionTracking.trackEvent === "function"
@@ -48,6 +50,8 @@
   const defaultAccess = {
     has_access: false,
     admin: false,
+    vision_credits_remaining: 0,
+    vision_credits_purchased: 0,
     video_remaining: 0,
     image_remaining: 0,
     access_id: null,
@@ -82,6 +86,9 @@
 
   const state = {
     mode: "video",
+    durationSeconds: 5,
+    resolution: "720p",
+    soundEnabled: false,
     scene: "idle",
     prompt: "",
     referenceAsset: null,
@@ -123,6 +130,73 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
+
+  const normalizeDurationSeconds = (value) => {
+    const requested = Number(value || 5);
+    if (requested <= 3) {
+      return 3;
+    }
+    if (requested <= 5) {
+      return 5;
+    }
+    if (requested <= 10) {
+      return 10;
+    }
+    return 15;
+  };
+
+  const normalizeResolution = (value) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    return VISION_RESOLUTION_OPTIONS.includes(normalized) ? normalized : "720p";
+  };
+
+  const formatVisionCredits = (value) => {
+    const amount = Math.max(0, Number(value || 0));
+    if (!Number.isFinite(amount)) {
+      return "0";
+    }
+    return Math.round(amount).toLocaleString("it-IT");
+  };
+
+  const getGenerationCost = () => {
+    const resolution = normalizeResolution(state.resolution);
+    const duration = normalizeDurationSeconds(state.durationSeconds);
+    if (state.mode === "image") {
+      const premiumImage = resolution === "4k";
+      return {
+        amount: premiumImage ? 25000 : 10000,
+        label: premiumImage ? "Premium image" : "Standard image",
+        duration_seconds: null,
+        resolution,
+        sound_enabled: false,
+      };
+    }
+    if (resolution === "4k") {
+      return {
+        amount: duration * 200000,
+        label: `4K video · ${duration}s`,
+        duration_seconds: duration,
+        resolution,
+        sound_enabled: Boolean(state.soundEnabled),
+      };
+    }
+    if (state.soundEnabled || resolution === "1080p") {
+      return {
+        amount: duration * 50000,
+        label: `Full HD video · ${duration}s`,
+        duration_seconds: duration,
+        resolution,
+        sound_enabled: Boolean(state.soundEnabled),
+      };
+    }
+    return {
+      amount: duration * 20000,
+      label: `Standard video · ${duration}s`,
+      duration_seconds: duration,
+      resolution,
+      sound_enabled: Boolean(state.soundEnabled),
+    };
+  };
 
   const parseJsonSafely = async (response) => {
     try {
@@ -932,19 +1006,27 @@
   };
 
   const getCreditCounts = () => ({
+    vision: Math.max(0, Number(state.access.vision_credits_remaining ?? 0) || 0),
+    visionPurchased: Math.max(0, Number(state.access.vision_credits_purchased ?? 0) || 0),
     video: Math.max(0, Number(state.access.video_remaining ?? 0) || 0),
     image: Math.max(0, Number(state.access.image_remaining ?? 0) || 0),
   });
 
-  const hasPackContext = () => !!state.access.admin || !!state.access.access_id || getCreditCounts().video > 0 || getCreditCounts().image > 0;
+  const hasPackContext = () => {
+    const counts = getCreditCounts();
+    return !!state.access.admin || !!state.access.access_id || counts.vision > 0 || counts.video > 0 || counts.image > 0;
+  };
   const hasAccountContext = () => !!state.user.authenticated || !!state.user.email || hasPackContext();
 
   const getAccessLabel = () => {
     if (state.access.admin) {
-      return "Unlimited access";
+      return "Unlimited Vision";
     }
     if (hasPackContext()) {
       const counts = getCreditCounts();
+      if (counts.vision > 0 || counts.visionPurchased > 0) {
+        return `${formatVisionCredits(counts.vision)} Vision credits`;
+      }
       return `${counts.video} videos · ${counts.image} images`;
     }
     return "Access required";
@@ -964,7 +1046,11 @@
       variant: "account",
       avatar,
       label: shortenEmail(state.user.email),
-      subtitle: state.access.admin ? "Unlimited access" : `${counts.video} videos · ${counts.image} images`,
+      subtitle: state.access.admin
+        ? "Unlimited Vision"
+        : counts.vision > 0 || counts.visionPurchased > 0
+          ? `${formatVisionCredits(counts.vision)} Vision credits`
+          : `${counts.video} videos · ${counts.image} images`,
     };
   };
 
@@ -1438,6 +1524,7 @@
       return;
     }
 
+    const generationCost = getGenerationCost();
     savePendingPrompt(prompt, state.mode);
     state.currentError = "";
     state.currentJob = {
@@ -1455,7 +1542,14 @@
     render();
     trackVisionEvent("GenerateStarted", {
       media_type: state.mode,
+      value: generationCost.amount,
       platform_context: "web",
+      payload: {
+        credit_cost: generationCost.amount,
+        duration_seconds: generationCost.duration_seconds,
+        resolution: generationCost.resolution,
+        sound_enabled: generationCost.sound_enabled,
+      },
     });
 
     try {
@@ -1467,6 +1561,9 @@
         body: JSON.stringify({
           prompt,
           mode: state.mode,
+          duration_seconds: generationCost.duration_seconds,
+          resolution: generationCost.resolution,
+          sound_enabled: generationCost.sound_enabled,
         }),
       });
       const payload = await parseJsonSafely(response);
@@ -1856,6 +1953,45 @@
     </section>
   `;
 
+  const renderGenerationControls = () => {
+    const cost = getGenerationCost();
+    const resolutionButtons = VISION_RESOLUTION_OPTIONS.map((resolution) => {
+      const label = resolution === "4k" ? "4K" : resolution;
+      return `<button class="vss-control-pill${normalizeResolution(state.resolution) === resolution ? " is-active" : ""}" type="button" data-resolution="${resolution}">${label}</button>`;
+    }).join("");
+    const durationButtons = VISION_DURATION_OPTIONS.map((duration) => (
+      `<button class="vss-control-pill${normalizeDurationSeconds(state.durationSeconds) === duration ? " is-active" : ""}" type="button" data-duration="${duration}">${duration}s</button>`
+    )).join("");
+    return `
+      <div class="vss-generation-controls" aria-label="Generation settings">
+        ${
+          state.mode === "video"
+            ? `<div class="vss-control-group" aria-label="Video duration">
+                <span>Duration</span>
+                <div class="vss-control-pills">${durationButtons}</div>
+              </div>`
+            : ""
+        }
+        <div class="vss-control-group" aria-label="Output resolution">
+          <span>${state.mode === "video" ? "Resolution" : "Image output"}</span>
+          <div class="vss-control-pills">${resolutionButtons}</div>
+        </div>
+        ${
+          state.mode === "video"
+            ? `<button class="vss-sound-toggle${state.soundEnabled ? " is-active" : ""}" type="button" data-sound-toggle aria-pressed="${state.soundEnabled ? "true" : "false"}">
+                <span>Sound</span>
+                <strong>${state.soundEnabled ? "On" : "Off"}</strong>
+              </button>`
+            : ""
+        }
+        <div class="vss-credit-cost" title="${escapeHtml(cost.label)}">
+          <span>${escapeHtml(cost.label)}</span>
+          <strong>${formatVisionCredits(cost.amount)} credits</strong>
+        </div>
+      </div>
+    `;
+  };
+
   const renderDock = () => `
     <div class="vss-dock">
       <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" />
@@ -1890,6 +2026,7 @@
         <span class="vss-mode-separator" aria-hidden="true"></span>
         <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
       </div>
+      ${renderGenerationControls()}
       ${
         state.referenceAsset
           ? `<div class="vss-reference-row">
@@ -2069,19 +2206,19 @@
               ? `<div class="vss-account-summary">
                   <div class="vss-account-summary-head">
                     <span class="vss-account-avatar">${escapeHtml((state.user.email || "A").charAt(0).toUpperCase())}</span>
-                    <div class="vss-account-summary-copy">
-                      <strong>${escapeHtml(emailLabel)}</strong>
-                      <span>${escapeHtml(state.access.admin ? "Unlimited Vision access" : `${counts.video} videos · ${counts.image} images available`)}</span>
-                    </div>
+                  <div class="vss-account-summary-copy">
+                    <strong>${escapeHtml(emailLabel)}</strong>
+                    <span>${escapeHtml(state.access.admin ? "Unlimited Vision access" : getAccessLabel())}</span>
                   </div>
+                </div>
                   <div class="vss-account-grid">
                     <div class="vss-account-tile">
-                      <span>Video credits</span>
-                      <strong>${state.access.admin ? "∞" : counts.video}</strong>
+                      <span>${counts.vision > 0 || counts.visionPurchased > 0 ? "Vision credits" : "Available credits"}</span>
+                      <strong>${state.access.admin ? "∞" : counts.vision > 0 || counts.visionPurchased > 0 ? formatVisionCredits(counts.vision) : `${counts.video} video · ${counts.image} image`}</strong>
                     </div>
                     <div class="vss-account-tile">
-                      <span>Image credits</span>
-                      <strong>${state.access.admin ? "∞" : counts.image}</strong>
+                      <span>Current output cost</span>
+                      <strong>${state.access.admin ? "Included" : `${formatVisionCredits(getGenerationCost().amount)} credits`}</strong>
                     </div>
                   </div>
                   <div class="vss-account-actions">
@@ -2214,6 +2351,25 @@
         state.mode = button.getAttribute("data-mode") === "image" ? "image" : "video";
         render();
       });
+    });
+
+    root.querySelectorAll("[data-duration]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.durationSeconds = normalizeDurationSeconds(button.getAttribute("data-duration"));
+        render();
+      });
+    });
+
+    root.querySelectorAll("[data-resolution]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.resolution = normalizeResolution(button.getAttribute("data-resolution"));
+        render();
+      });
+    });
+
+    root.querySelector("[data-sound-toggle]")?.addEventListener("click", () => {
+      state.soundEnabled = !state.soundEnabled;
+      render();
     });
 
     root.querySelectorAll("[data-recent-id]").forEach((button) => {

@@ -1303,6 +1303,114 @@ body.vss-viewer-open {
   color: rgba(221, 214, 205, 0.68);
 }
 
+.vss-generation-controls {
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.vss-control-group,
+.vss-sound-toggle,
+.vss-credit-cost {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 18px;
+  background: rgba(14, 15, 18, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.vss-control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 12px;
+}
+
+.vss-control-group > span,
+.vss-sound-toggle span,
+.vss-credit-cost span {
+  color: rgba(221, 214, 205, 0.5);
+  font-size: 0.58rem;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.vss-control-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.vss-control-pill,
+.vss-sound-toggle {
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.vss-control-pill {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(235, 229, 221, 0.66);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.vss-control-pill:hover,
+.vss-control-pill:focus-visible,
+.vss-sound-toggle:hover,
+.vss-sound-toggle:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.vss-control-pill.is-active {
+  background: rgba(246, 241, 234, 0.92);
+  color: #17181b;
+}
+
+.vss-sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  color: rgba(236, 230, 222, 0.72);
+}
+
+.vss-sound-toggle strong {
+  min-width: 34px;
+  color: rgba(246, 241, 234, 0.88);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.vss-sound-toggle.is-active {
+  border-color: rgba(246, 241, 234, 0.18);
+  background: rgba(246, 241, 234, 0.1);
+}
+
+.vss-credit-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 13px;
+}
+
+.vss-credit-cost strong {
+  color: rgba(246, 241, 234, 0.92);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
 .vss-rail {
   min-height: 0;
   padding-top: 18px;
@@ -2238,6 +2346,29 @@ body.vss-viewer-open {
   .vss-mode-switch {
     width: 100%;
     justify-content: center;
+  }
+
+  .vss-generation-controls {
+    gap: 6px;
+  }
+
+  .vss-control-group,
+  .vss-sound-toggle,
+  .vss-credit-cost {
+    width: 100%;
+    justify-content: space-between;
+    min-height: 38px;
+    border-radius: 18px;
+  }
+
+  .vss-control-pills {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .vss-control-pill {
+    min-height: 30px;
+    padding: 0 9px;
   }
 
   .vss-mode-separator,
