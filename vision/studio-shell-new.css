@@ -92,6 +92,14 @@ body.vss-viewer-open {
   min-width: 0;
 }
 
+.vss-header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+}
+
 .vss-brand {
   display: inline-flex;
   align-items: center;
@@ -147,6 +155,42 @@ body.vss-viewer-open {
   text-transform: uppercase;
   font-size: 1.02rem;
   font-weight: 500;
+}
+
+.vss-credit-topup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid rgba(238, 232, 220, 0.18);
+  border-radius: var(--vss-radius-pill);
+  background:
+    linear-gradient(180deg, rgba(244, 238, 224, 0.92), rgba(212, 203, 188, 0.88)),
+    rgba(244, 238, 224, 0.9);
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  color: rgba(18, 18, 18, 0.92);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    filter 220ms ease;
+}
+
+.vss-credit-topup:hover,
+.vss-credit-topup:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 18px 34px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
 }
 
 .vss-account-pill {
@@ -1741,6 +1785,11 @@ body.vss-viewer-open {
     gap: 10px;
   }
 
+  .vss-header-actions {
+    align-self: flex-start;
+    flex-wrap: wrap;
+  }
+
   .vss-account-pill {
     align-self: flex-start;
     width: min(100%, 320px);
@@ -1960,6 +2009,19 @@ body.vss-viewer-open {
     min-width: 0;
     flex-wrap: nowrap;
     gap: 8px;
+  }
+
+  .vss-header-actions {
+    flex: 0 1 auto;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .vss-credit-topup {
+    min-height: 42px;
+    padding: 0 11px;
+    font-size: 0.58rem;
+    letter-spacing: 0.12em;
   }
 
   .vss-brand {

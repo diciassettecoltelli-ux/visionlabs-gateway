@@ -33,7 +33,7 @@
   const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
   const VISION_ASSET_CACHE_DB = "vision_asset_cache_v1";
   const VISION_ASSET_CACHE_STORE = "assets";
-  const DEFAULT_PACK_ID = "pro";
+  const DEFAULT_PACK_ID = "creator";
 
   const trackVisionEvent = (name, payload = {}) =>
     window.VisionTracking && typeof window.VisionTracking.trackEvent === "function"
@@ -62,9 +62,11 @@
 
   const defaultPack = {
     id: DEFAULT_PACK_ID,
-    name: "Vision Pro",
-    price_cents: 999,
+    name: "Vision Creator",
+    price_cents: 3990,
     currency: "EUR",
+    vision_credits: 2000000,
+    credit_label: "2.000.000 Vision credits",
   };
 
   const defaultViewer = {
@@ -1136,9 +1138,11 @@
     }
     return packs.map((pack) => ({
       id: String(pack && pack.id ? pack.id : DEFAULT_PACK_ID).toLowerCase(),
-      name: String(pack && pack.name ? pack.name : "Vision Pro"),
-      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 999),
+      name: String(pack && pack.name ? pack.name : "Vision Creator"),
+      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 3990),
       currency: String(pack && pack.currency ? pack.currency : "EUR"),
+      vision_credits: Number(pack && pack.vision_credits ? pack.vision_credits : 0),
+      credit_label: String(pack && pack.credit_label ? pack.credit_label : ""),
     }));
   };
 
@@ -1683,21 +1687,28 @@
           </a>
           <a class="vss-home-link" href="/">Back home</a>
         </div>
-        <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Access Vision" : "Vision account and credits"}" aria-haspopup="dialog" aria-expanded="${state.accountPanelOpen ? "true" : "false"}">
+        <div class="vss-header-actions">
           ${
-            pill.variant === "guest"
-              ? `<span class="vss-account-guest-copy">
-                  <span class="vss-account-guest-label">${escapeHtml(pill.label)}</span>
-                  <span class="vss-account-guest-note">${escapeHtml(pill.subtitle)}</span>
-                </span>`
-              : `<span class="vss-account-avatar">${escapeHtml(pill.avatar)}</span>
-                 <span class="vss-account-copy">
-                   <span class="vss-account-label">${escapeHtml(pill.label)}</span>
-                   <span class="vss-account-note">${escapeHtml(pill.subtitle)}</span>
-                 </span>`
+            state.access.admin
+              ? ""
+              : `<button class="vss-credit-topup" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Buy more credits"}</button>`
           }
-          <span class="vss-account-chevron">⌄</span>
-        </button>
+          <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Access Vision" : "Vision account and credits"}" aria-haspopup="dialog" aria-expanded="${state.accountPanelOpen ? "true" : "false"}">
+            ${
+              pill.variant === "guest"
+                ? `<span class="vss-account-guest-copy">
+                    <span class="vss-account-guest-label">${escapeHtml(pill.label)}</span>
+                    <span class="vss-account-guest-note">${escapeHtml(pill.subtitle)}</span>
+                  </span>`
+                : `<span class="vss-account-avatar">${escapeHtml(pill.avatar)}</span>
+                   <span class="vss-account-copy">
+                     <span class="vss-account-label">${escapeHtml(pill.label)}</span>
+                     <span class="vss-account-note">${escapeHtml(pill.subtitle)}</span>
+                   </span>`
+            }
+            <span class="vss-account-chevron">⌄</span>
+          </button>
+        </div>
       </header>
     `;
   };
@@ -2074,7 +2085,7 @@
                     </div>
                   </div>
                   <div class="vss-account-actions">
-                    ${state.access.admin ? "" : `<button class="vss-account-primary" id="vss-buy-pack" type="button">${state.checkoutLoading ? "Opening..." : `Buy ${escapeHtml(state.currentPack.name || "Vision pack")}`}</button>`}
+                    ${state.access.admin ? "" : `<button class="vss-account-primary" id="vss-buy-pack" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Buy more credits"}</button>`}
                     <button class="vss-account-secondary" id="vss-logout" type="button">${state.authLoading ? "Logging out..." : "Log out"}</button>
                   </div>
                 </div>`
@@ -2089,7 +2100,7 @@
                   }
                   <div class="vss-account-actions">
                     <button class="vss-account-primary" id="vss-auth-submit" type="submit">${state.authLoading ? "Please wait..." : state.authStep === "code" ? "Continue to Vision" : "Send access code"}</button>
-                    <button class="vss-account-secondary" id="vss-buy-pack" type="button">${state.checkoutLoading ? "Opening..." : `Buy ${escapeHtml(state.currentPack.name || "Vision pack")}`}</button>
+                    <button class="vss-account-secondary" id="vss-buy-pack" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Buy Vision credits"}</button>
                   </div>
                 </form>`
           }
@@ -2353,8 +2364,18 @@
       requestAccessCode();
     });
 
-    root.querySelector("#vss-buy-pack")?.addEventListener("click", () => {
-      openCheckout();
+    root.querySelectorAll("[data-buy-credits]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const email = normalizeEmail(state.user.email || state.authPendingEmail);
+        if (!email || email.indexOf("@") === -1) {
+          state.accountPanelOpen = true;
+          state.authStep = hasAccountContext() ? "account" : "email";
+          state.authNote = "Enter your email to buy Vision credits.";
+          render();
+          return;
+        }
+        openCheckout();
+      });
     });
 
     root.querySelector("#vss-logout")?.addEventListener("click", () => {

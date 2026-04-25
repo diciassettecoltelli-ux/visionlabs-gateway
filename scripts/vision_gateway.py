@@ -420,58 +420,75 @@ def _now_iso() -> str:
 def _default_pack_catalog() -> list[dict[str, Any]]:
     return [
         {
-            "id": "start",
-            "name": "Vision Start",
-            "description": "Fast cinematic output for concepts, drops, and everyday releases.",
-            "price_cents": 499,
+            "id": "starter",
+            "name": "Vision Starter",
+            "subtitle": "Short videos + images",
+            "description": "Good for testing Vision with premium image and video creation.",
+            "price_cents": 1490,
             "currency": "eur",
-            "video_credits": 1,
-            "image_credits": 20,
-            "video_label": "1 HD video",
-            "duration_label": "Up to 4 seconds",
-            "image_label": "20 premium images",
+            "vision_credits": 500000,
+            "credit_label": "500.000 Vision credits",
+            "video_credits": 5,
+            "image_credits": 50,
+            "video_label": "Up to 5 videos",
+            "duration_label": "Videos up to 15 seconds",
+            "image_label": "Up to 50 images",
+            "example_label": "Examples: up to 5 short videos or 50 images.",
             "badge": "",
+            "cta_label": "Start creating",
             "features": [
-                "Prompt enhancement included",
-                "No watermark",
+                "Improve Prompt included",
+                "No watermark exports",
+                "480p, 720p, 1080p, or 4K-ready output",
                 "Private downloads",
+            ],
+        },
+        {
+            "id": "creator",
+            "name": "Vision Creator",
+            "subtitle": "Most popular for creators",
+            "description": "Best for creators, social clips, and prompt testing.",
+            "price_cents": 3990,
+            "currency": "eur",
+            "vision_credits": 2000000,
+            "credit_label": "2.000.000 Vision credits",
+            "video_credits": 20,
+            "image_credits": 200,
+            "video_label": "Up to 20 videos",
+            "duration_label": "Videos up to 15 seconds",
+            "image_label": "Up to 200 images",
+            "example_label": "Examples: up to 10 standard 10s videos or 200 images.",
+            "badge": "Most popular",
+            "cta_label": "Choose Creator",
+            "features": [
+                "Sound on/off control",
+                "Full HD video generation",
+                "Premium cinematic prompt refinement",
+                "No watermark exports",
             ],
         },
         {
             "id": "pro",
             "name": "Vision Pro",
-            "description": "Premium visual pack for creators, campaigns, and stronger cinematic content.",
-            "price_cents": 999,
+            "subtitle": "Premium generation for campaigns",
+            "description": "For heavier creation, longer clips, premium outputs, and campaign work.",
+            "price_cents": 8990,
             "currency": "eur",
-            "video_credits": 2,
-            "image_credits": 50,
-            "video_label": "2 Full HD videos",
-            "duration_label": "Up to 5 seconds each",
-            "image_label": "50 premium images",
-            "badge": "Most popular",
+            "vision_credits": 5000000,
+            "credit_label": "5.000.000 Vision credits",
+            "video_credits": 50,
+            "image_credits": 500,
+            "video_label": "Up to 50 videos",
+            "duration_label": "Videos up to 15 seconds",
+            "image_label": "Up to 500 images",
+            "example_label": "Examples: up to 25 standard 10s videos, premium clips, or 500 images.",
+            "badge": "Premium generation",
+            "cta_label": "Go Pro",
             "features": [
-                "Enhanced prompt direction",
-                "No watermark",
-                "Private downloads",
-            ],
-        },
-        {
-            "id": "director",
-            "name": "Vision Director",
-            "description": "Highest-end pack for hero launches, premium campaigns, and standout visual releases.",
-            "price_cents": 2499,
-            "currency": "eur",
-            "video_credits": 5,
-            "image_credits": 120,
-            "video_label": "5 4K hero videos",
-            "duration_label": "10–15 seconds",
-            "image_label": "120 premium images",
-            "badge": "",
-            "features": [
-                "Highest prompt enhancement",
-                "Priority processing",
-                "No watermark",
-                "Private downloads",
+                "480p, 720p, 1080p, and 4K-ready outputs",
+                "Sound on/off control",
+                "Advanced cinematic refinement",
+                "Campaign-ready no watermark exports",
             ],
         },
     ]
@@ -503,7 +520,7 @@ def _pack_by_id(pack_id: str | None) -> dict[str, Any]:
 
 
 def _pack_price_cents() -> int:
-    return int(_pack_summary().get("price_cents") or 499)
+    return int(_pack_summary().get("price_cents") or 1490)
 
 
 def _pack_currency() -> str:
@@ -511,15 +528,15 @@ def _pack_currency() -> str:
 
 
 def _pack_video_credits() -> int:
-    return max(int(_pack_summary().get("video_credits") or 1), 1)
+    return max(int(_pack_summary().get("video_credits") or 5), 1)
 
 
 def _pack_image_credits() -> int:
-    return max(int(_pack_summary().get("image_credits") or 20), 0)
+    return max(int(_pack_summary().get("image_credits") or 50), 0)
 
 
 def _pack_name() -> str:
-    return str(_pack_summary().get("name") or "Vision Start").strip() or "Vision Start"
+    return str(_pack_summary().get("name") or "Vision Starter").strip() or "Vision Starter"
 
 
 def _pack_description() -> str:
@@ -662,7 +679,8 @@ def _send_purchase_notification_email(record: dict[str, Any]) -> None:
         "",
         f"Email: {record.get('email') or 'not provided'}",
         f"Pack: {record.get('pack_name')}",
-        f"Credits: {record.get('video_credits')} videos + {record.get('image_credits')} images",
+        f"Credits: {record.get('vision_credits') or 'legacy'} Vision credits",
+        f"Legacy capacity: {record.get('video_credits')} videos + {record.get('image_credits')} images",
         f"Amount: {record.get('amount_total')} {str(record.get('currency') or '').upper()}",
         f"Access ID: {record.get('access_id')}",
         f"Checkout session: {record.get('session_id')}",
@@ -683,6 +701,7 @@ def _notify_purchase_async(*, session: dict[str, Any], entry: dict[str, Any]) ->
         "email": entry.get("email"),
         "access_id": entry.get("id"),
         "pack_name": metadata.get("vision_pack_name") or session_pack.get("name"),
+        "vision_credits": metadata.get("vision_pack_vision_credits") or session_pack.get("vision_credits"),
         "video_credits": metadata.get("vision_pack_video_credits") or session_pack.get("video_credits"),
         "image_credits": metadata.get("vision_pack_image_credits") or session_pack.get("image_credits"),
         "amount_total": (session.get("amount_total") or int(session_pack.get("price_cents") or _pack_price_cents())) / 100,
@@ -853,13 +872,14 @@ def _create_stripe_checkout_session(
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",
         "line_items[0][price_data][currency]": str(pack.get("currency") or "eur"),
-        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 499),
-        "line_items[0][price_data][product_data][name]": str(pack.get("name") or "Vision Start"),
+        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 1490),
+        "line_items[0][price_data][product_data][name]": str(pack.get("name") or "Vision Starter"),
         "line_items[0][price_data][product_data][description]": str(pack.get("description") or ""),
-        "metadata[vision_pack_id]": str(pack.get("id") or "start"),
-        "metadata[vision_pack_name]": str(pack.get("name") or "Vision Start"),
-        "metadata[vision_pack_video_credits]": str(pack.get("video_credits") or 1),
-        "metadata[vision_pack_image_credits]": str(pack.get("image_credits") or 20),
+        "metadata[vision_pack_id]": str(pack.get("id") or "starter"),
+        "metadata[vision_pack_name]": str(pack.get("name") or "Vision Starter"),
+        "metadata[vision_pack_vision_credits]": str(pack.get("vision_credits") or ""),
+        "metadata[vision_pack_video_credits]": str(pack.get("video_credits") or 5),
+        "metadata[vision_pack_image_credits]": str(pack.get("image_credits") or 50),
     }
     for key, value in _tracking_metadata(tracking).items():
         payload[f"metadata[{key}]"] = value
@@ -2997,7 +3017,7 @@ def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Requ
         session = _create_stripe_checkout_session(
             request=request,
             email=resolved_email or None,
-            pack_id=str(selected_pack.get("id") or "start"),
+            pack_id=str(selected_pack.get("id") or "starter"),
             tracking=_tracking_context_from_request(payload.tracking, request),
         )
     except RuntimeError as exc:

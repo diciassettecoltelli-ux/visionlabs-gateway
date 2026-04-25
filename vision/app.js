@@ -97,7 +97,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "123";
+const STUDIO_SHELL_ASSET_VERSION = "124";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -117,46 +117,61 @@ const getVisionTrackingContext = (overrides = {}) =>
 
 const defaultPacks = [
   {
-    id: "start",
-    name: "Vision Start",
-    description: "Fast cinematic output for concepts, drops, and everyday releases.",
-    price_cents: 499,
+    id: "starter",
+    name: "Vision Starter",
+    subtitle: "Short videos + images",
+    description: "Good for testing Vision with premium image and video creation.",
+    price_cents: 1490,
     currency: "eur",
-    video_credits: 1,
-    image_credits: 20,
-    video_label: "1 HD video",
-    duration_label: "Up to 4 seconds",
-    image_label: "20 premium images",
+    vision_credits: 500000,
+    credit_label: "500.000 Vision credits",
+    video_credits: 5,
+    image_credits: 50,
+    video_label: "Up to 5 videos",
+    duration_label: "Videos up to 15 seconds",
+    image_label: "Up to 50 images",
+    example_label: "Examples: up to 5 short videos or 50 images.",
     badge: "",
-    features: ["Prompt enhancement included", "No watermark", "Private downloads"],
+    cta_label: "Start creating",
+    features: ["Improve Prompt included", "No watermark exports", "480p, 720p, 1080p, or 4K-ready output", "Private downloads"],
+  },
+  {
+    id: "creator",
+    name: "Vision Creator",
+    subtitle: "Most popular for creators",
+    description: "Best for creators, social clips, and prompt testing.",
+    price_cents: 3990,
+    currency: "eur",
+    vision_credits: 2000000,
+    credit_label: "2.000.000 Vision credits",
+    video_credits: 20,
+    image_credits: 200,
+    video_label: "Up to 20 videos",
+    duration_label: "Videos up to 15 seconds",
+    image_label: "Up to 200 images",
+    example_label: "Examples: up to 10 standard 10s videos or 200 images.",
+    badge: "Most popular",
+    cta_label: "Choose Creator",
+    features: ["Sound on/off control", "Full HD video generation", "Premium cinematic prompt refinement", "No watermark exports"],
   },
   {
     id: "pro",
     name: "Vision Pro",
-    description: "Premium visual pack for creators, campaigns, and stronger cinematic content.",
-    price_cents: 999,
+    subtitle: "Premium generation for campaigns",
+    description: "For heavier creation, longer clips, premium outputs, and campaign work.",
+    price_cents: 8990,
     currency: "eur",
-    video_credits: 2,
-    image_credits: 50,
-    video_label: "2 Full HD videos",
-    duration_label: "Up to 5 seconds each",
-    image_label: "50 premium images",
-    badge: "Most popular",
-    features: ["Enhanced prompt direction", "No watermark", "Private downloads"],
-  },
-  {
-    id: "director",
-    name: "Vision Director",
-    description: "Highest-end pack for hero launches, premium campaigns, and standout visual releases.",
-    price_cents: 2499,
-    currency: "eur",
-    video_credits: 5,
-    image_credits: 120,
-    video_label: "5 4K hero videos",
-    duration_label: "10–15 seconds",
-    image_label: "120 premium images",
-    badge: "",
-    features: ["Highest prompt enhancement", "Priority processing", "No watermark", "Private downloads"],
+    vision_credits: 5000000,
+    credit_label: "5.000.000 Vision credits",
+    video_credits: 50,
+    image_credits: 500,
+    video_label: "Up to 50 videos",
+    duration_label: "Videos up to 15 seconds",
+    image_label: "Up to 500 images",
+    example_label: "Examples: up to 25 standard 10s videos, premium clips, or 500 images.",
+    badge: "Premium generation",
+    cta_label: "Go Pro",
+    features: ["480p, 720p, 1080p, and 4K-ready outputs", "Sound on/off control", "Advanced cinematic refinement", "Campaign-ready no watermark exports"],
   },
 ];
 
@@ -471,12 +486,12 @@ const formatPackPrice = (pack) => {
 };
 
 const formatPackLine = (pack) =>
-  `${formatPackPrice(pack)} · one-time unlock · ${pack.video_credits} videos + ${pack.image_credits} images`;
+  `${formatPackPrice(pack)} · one-time unlock · ${pack.credit_label || `${pack.video_credits} videos + ${pack.image_credits} images`}`;
 
 const normalizePack = (pack = {}) => ({
   ...defaultPack,
   ...pack,
-  id: String(pack?.id || defaultPack.id || "start").toLowerCase(),
+  id: String(pack?.id || defaultPack.id || "starter").toLowerCase(),
   features: Array.isArray(pack?.features) && pack.features.length ? pack.features : defaultPack.features,
 });
 
@@ -498,6 +513,7 @@ const packTrackingPayload = (pack) => {
     plan_id: normalizedPack.id,
     currency: String(normalizedPack.currency || "EUR").toUpperCase(),
     value: Number(normalizedPack.price_cents || 0) / 100,
+    plan_credits: normalizedPack.vision_credits || null,
   };
 };
 
@@ -542,7 +558,7 @@ let improvePromptInFlight = false;
 let accessState = { ...defaultAccess };
 let currentUser = { ...defaultUser };
 let currentPacks = normalizePackList(defaultPacks);
-let selectedPackId = "pro";
+let selectedPackId = "creator";
 let currentPack = { ...findPackById(selectedPackId, currentPacks) };
 let currentGenerationOutput = null;
 let currentStudioJob = null;
@@ -975,7 +991,7 @@ const renderStudioDashboard = () => {
   }
   if (studioTopupButton) {
     studioTopupButton.hidden = adminMode;
-    studioTopupButton.textContent = hasPack ? "Buy another pack" : "Buy a Vision pack";
+    studioTopupButton.textContent = hasPack ? "Buy more credits" : "Buy Vision credits";
   }
   renderStudioHistory();
 
@@ -1643,20 +1659,25 @@ const renderSubscribePackOptions = () => {
       .slice(0, 4)
       .map((feature) => `<li>${feature}</li>`)
       .join("");
+    const creditLabel =
+      pack.credit_label || (pack.vision_credits ? `${new Intl.NumberFormat("it-IT").format(pack.vision_credits)} Vision credits` : "");
     card.innerHTML = `
       <div class="subscribe-pack-head">
         <div>
           <span class="subscribe-pack-name">${pack.name}</span>
-          <strong class="subscribe-pack-price">${formatPackPrice(pack)}</strong>
+          <strong class="subscribe-pack-credit">${creditLabel}</strong>
+          <span class="subscribe-pack-price">${formatPackPrice(pack)} · one time</span>
         </div>
         ${pack.badge ? `<span class="subscribe-pack-badge">${pack.badge}</span>` : ""}
       </div>
+      ${pack.subtitle ? `<p class="subscribe-pack-subtitle">${pack.subtitle}</p>` : ""}
       <p class="subscribe-pack-description">${pack.description}</p>
       <div class="subscribe-pack-specs">
         <span>${pack.video_label}</span>
         <span>${pack.duration_label}</span>
         <span>${pack.image_label}</span>
       </div>
+      ${pack.example_label ? `<p class="subscribe-pack-example">${pack.example_label}</p>` : ""}
       <ul class="subscribe-pack-features">${featureMarkup}</ul>
     `;
     card.addEventListener("click", () => {
@@ -1712,7 +1733,7 @@ const renderAuthState = () => {
       authBuyPack.hidden = true;
     } else {
       authBuyPack.hidden = false;
-      authBuyPack.textContent = hasPack ? "Buy another pack" : "Buy a Vision pack";
+      authBuyPack.textContent = hasPack ? "Buy more credits" : "Buy Vision credits";
     }
   }
   if (authCodeRow) {
@@ -1763,7 +1784,7 @@ const renderAccessState = (access, pack, user, packs) => {
       trigger.textContent = "Vision unlocked";
       return;
     }
-    trigger.textContent = hasStudioPackContext() ? "Buy another pack" : "Unlock Vision";
+    trigger.textContent = hasStudioPackContext() ? "Buy more credits" : "Unlock Vision";
   });
 
   syncTopbarCta();
@@ -1787,8 +1808,8 @@ const setSubscribeContent = (context = {}) => {
   const pendingMode = context.mode === "image" ? "image" : "video";
   const title =
     reason === "insufficient_credits" || accessState.access_id
-      ? "Unlock another Vision pack."
-      : "Choose your Vision pack.";
+      ? "Buy more Vision credits."
+      : "Choose your Vision credits.";
   const copy = pendingPrompt
     ? `Choose the pack that fits this ${pendingMode} idea. Vision will resume your current prompt right after payment so you can keep creating without starting over.`
     : "Pick the pack that fits your release. Every option unlocks cinematic creation inside Vision with private access, cleaner prompt direction, and watermark-free exports.";
@@ -1827,7 +1848,7 @@ const setSubscribeState = (open, context = {}) => {
 
   lastSubscribeTrigger = context.trigger || null;
   currentPacks = normalizePackList(context.packs || currentPacks);
-  selectedPackId = context.packId || selectedPackId || "pro";
+  selectedPackId = context.packId || selectedPackId || "creator";
   currentPack = findPackById(selectedPackId, currentPacks);
   setSubscribeContent(context);
   window.setTimeout(() => subscribeEmail?.focus(), 220);

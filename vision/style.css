@@ -11295,7 +11295,127 @@ body.is-studio-route .studio-loader.is-open .studio-loader-progress-bar {
   }
 }
 
-/* Mobile home clean entry v41 */
+/* Vision credit packs v42 */
+.pricing-card {
+  align-content: start;
+}
+
+.pricing-credit {
+  font-size: clamp(1.55rem, 2.4vw, 2.28rem);
+  font-weight: 650;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  color: rgba(248, 251, 255, 0.98);
+}
+
+.pricing-price {
+  font-size: clamp(1.15rem, 1.7vw, 1.42rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: rgba(244, 240, 232, 0.82);
+}
+
+.pricing-price span {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(229, 224, 214, 0.52);
+}
+
+.pricing-volume {
+  color: rgba(244, 240, 232, 0.92);
+  font-weight: 700;
+}
+
+.pricing-example {
+  margin: -0.2rem 0 0;
+  color: rgba(214, 222, 235, 0.64);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.pricing-credit-info {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1.15rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(232, 239, 250, 0.08);
+  border-radius: 1rem;
+  background:
+    linear-gradient(90deg, rgba(240, 246, 255, 0.055), rgba(240, 246, 255, 0.018)),
+    rgba(8, 12, 22, 0.36);
+}
+
+.pricing-credit-info h3 {
+  margin: 0;
+  color: rgba(248, 245, 238, 0.92);
+  font-size: 0.86rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pricing-credit-info p {
+  margin: 0;
+  max-width: 70rem;
+  color: rgba(218, 226, 238, 0.7);
+  font-size: 0.9rem;
+  line-height: 1.62;
+}
+
+.subscribe-pack-card {
+  align-content: start;
+}
+
+.subscribe-pack-credit {
+  display: block;
+  margin-top: 0.28rem;
+  color: rgba(248, 251, 255, 0.98);
+  font-size: clamp(1.28rem, 2vw, 1.72rem);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+}
+
+.subscribe-pack-price {
+  display: block;
+  margin-top: 0.3rem;
+  color: rgba(244, 240, 232, 0.7);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.subscribe-pack-subtitle {
+  margin: -0.3rem 0 0;
+  color: rgba(245, 241, 233, 0.86);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.subscribe-pack-example {
+  margin: 0;
+  color: rgba(214, 225, 240, 0.66);
+  font-size: 0.76rem;
+  line-height: 1.48;
+}
+
+@media (max-width: 760px) {
+  body:not(.is-studio-route) .pricing-credit {
+    font-size: clamp(1.65rem, 8vw, 2.22rem);
+  }
+
+  body:not(.is-studio-route) .pricing-credit-info {
+    border-radius: 22px;
+  }
+
+  .subscribe-pack-credit {
+    font-size: clamp(1.3rem, 7vw, 1.72rem);
+  }
+}
+
+/* Mobile home clean entry v42 */
 @media (max-width: 760px) {
   body:not(.is-studio-route) .topbar {
     display: none !important;
