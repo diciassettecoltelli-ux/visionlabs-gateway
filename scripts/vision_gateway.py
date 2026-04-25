@@ -37,6 +37,8 @@ from run_google_prompt_enhancer import improve_prompt as improve_vision_prompt
 from run_google_prompt_enhancer import status as google_prompt_status
 from run_google_veo31 import generate_video as generate_google_veo_video
 from run_google_veo31 import status as google_video_status
+from run_kling_api import generate_video as generate_kling_api_video
+from run_kling_api import status as kling_api_status
 from run_seedance_modelark import generate_video as generate_seedance_video
 from run_seedance_modelark import status as seedance_status
 from vision_kling_session_bridge import SessionBridgeNotReadyError
@@ -359,6 +361,10 @@ def _provider_priority_for_prompt(prompt: str, quality: str) -> list[str]:
     if profile == "environment":
         return ["google", "seedance", "kling"]
     return ["google", "seedance", "kling"]
+
+
+def _kling_api_first_enabled() -> bool:
+    return os.environ.get("VISION_KLING_API_FIRST", "true").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def _quality_candidates_for_prompt(quality: str) -> list[str]:
@@ -1154,12 +1160,14 @@ def _access_from_request(request: Request) -> dict[str, Any] | None:
 def _candidate_generation_routes(prompt: str, quality: str, job_id: str, settings: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     seedance_state = seedance_status()
     google_state = _google_status()
+    kling_api_state = kling_api_status()
     kling_state = kling_session_bridge_status()
     default_provider = _default_generation_provider()
     quality_candidates = _quality_candidates_for_prompt(quality)
     generation_settings = settings or {}
     selected_duration = _normalize_duration_seconds(generation_settings.get("duration_seconds"))
     selected_resolution = _normalize_resolution(generation_settings.get("resolution"))
+    selected_sound = bool(generation_settings.get("sound_enabled"))
     google_resolution = selected_resolution if selected_resolution in {"720p", "1080p", "4k"} else "720p"
     seedance_resolution = selected_resolution if selected_resolution in {"480p", "720p", "1080p"} else "1080p"
     allowed_providers = {
@@ -1168,11 +1176,14 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str, setting
         "seedance": {"seedance"},
         "kling": {"kling"},
     }.get(default_provider, {"google", "seedance", "kling"})
-    routes: list[dict[str, str]] = []
+    routes: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str]] = set()
 
     for candidate_quality in quality_candidates:
-        for provider_name in _provider_priority_for_prompt(prompt, candidate_quality):
+        provider_priority = _provider_priority_for_prompt(prompt, candidate_quality)
+        if default_provider == "auto" and _kling_api_first_enabled() and kling_api_state.get("ready"):
+            provider_priority = ["kling", *[provider for provider in provider_priority if provider != "kling"]]
+        for provider_name in provider_priority:
             if provider_name not in allowed_providers:
                 continue
             if (
@@ -1213,12 +1224,28 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str, setting
                     if route_key not in seen:
                         seen.add(route_key)
                         routes.append(route)
+            if provider_name == "kling" and kling_api_state.get("ready"):
+                route = {
+                    "provider": "kling_api",
+                    "quality": candidate_quality,
+                    "model": os.environ.get("KLING_API_VIDEO_MODEL", "kling-v2-1"),
+                    "resolution": selected_resolution,
+                    "duration": selected_duration,
+                    "aspect_ratio": "16:9",
+                    "sound_enabled": selected_sound,
+                }
+                route_key = (route["provider"], route["quality"], route["model"])
+                if route_key not in seen:
+                    seen.add(route_key)
+                    routes.append(route)
             if provider_name == "kling" and kling_state.get("ready"):
                 route = {
                     "provider": "kling_web_session_bridge",
                     "quality": candidate_quality,
                     "model": os.environ.get("WORLDSIM_KLING_MODEL", "kling-2.6-pro"),
                     "resolution": "1080p",
+                    "duration": selected_duration,
+                    "sound_enabled": selected_sound,
                 }
                 route_key = (route["provider"], route["quality"], route["model"])
                 if route_key not in seen:
@@ -2851,6 +2878,17 @@ def _process_job(job_id: str) -> None:
                         resolution=route.get("resolution"),
                         fallback_models=route.get("fallback_models", ""),
                     )
+                elif route["provider"] == "kling_api":
+                    output_video = generate_kling_api_video(
+                        prompt=job["prompt"],
+                        output_dir=output_dir,
+                        model=route.get("model"),
+                        duration=int(route.get("duration", 5)),
+                        aspect_ratio=str(route.get("aspect_ratio") or "16:9"),
+                        resolution=str(route.get("resolution") or "720p"),
+                        sound_enabled=bool(route.get("sound_enabled")),
+                        quality=str(route.get("quality") or "studio"),
+                    )
                 else:
                     lane_state = kling_session_bridge_status()
                     if not lane_state.get("ready"):
@@ -2978,6 +3016,7 @@ def health() -> dict[str, str]:
 @APP.get("/api/engine/status")
 def engine_status() -> dict[str, Any]:
     return {
+        "kling_api": kling_api_status(),
         "kling_session_bridge": kling_session_bridge_status(),
         "kling_image_bridge": kling_image_status(),
         "seedance": seedance_status(),

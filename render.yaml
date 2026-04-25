@@ -29,6 +29,16 @@ services:
         value: auto
       - key: VISION_GATEWAY_DEFAULT_GENERATION_QUALITY
         value: auto
+      - key: VISION_KLING_API_FIRST
+        value: true
+      - key: KLING_ACCESS_KEY
+        sync: false
+      - key: KLING_SECRET_KEY
+        sync: false
+      - key: KLING_API_VIDEO_MODEL
+        value: kling-v2-1
+      - key: KLING_API_BASE_URL
+        value: https://api-singapore.klingai.com
       - key: VISION_KLING_COOKIE_HEADER
         sync: false
       - key: VISION_KLING_REQUEST_HEADERS_JSON
