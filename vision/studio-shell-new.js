@@ -1967,19 +1967,19 @@
         ${
           state.mode === "video"
             ? `<div class="vss-control-group" aria-label="Video duration">
-                <span>Duration</span>
+                <span>Length</span>
                 <div class="vss-control-pills">${durationButtons}</div>
               </div>`
             : ""
         }
         <div class="vss-control-group" aria-label="Output resolution">
-          <span>${state.mode === "video" ? "Resolution" : "Image output"}</span>
+          <span>${state.mode === "video" ? "Format" : "Image"}</span>
           <div class="vss-control-pills">${resolutionButtons}</div>
         </div>
         ${
           state.mode === "video"
             ? `<button class="vss-sound-toggle${state.soundEnabled ? " is-active" : ""}" type="button" data-sound-toggle aria-pressed="${state.soundEnabled ? "true" : "false"}">
-                <span>Sound</span>
+                <span>Audio</span>
                 <strong>${state.soundEnabled ? "On" : "Off"}</strong>
               </button>`
             : ""
@@ -2128,38 +2128,42 @@
                     const assetUrl = asset.assetUrl;
                     const hasAsset = asset.available;
                     const assetMissing = asset.state === "missing" || asset.state === "invalid";
+                    const mediaLabel = item.kind === "video" ? "Video" : "Image";
+                    const recentTitle = summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still", 46);
                     const media =
                       hasAsset
                         ? item.kind === "video"
                           ? `<video src="${escapeHtml(assetUrl)}" muted loop playsinline autoplay></video>`
-                          : `<img src="${escapeHtml(assetUrl)}" alt="${escapeHtml(summarizePrompt(item.prompt, "Vision still", 46))}" />`
+                          : `<img src="${escapeHtml(assetUrl)}" alt="${escapeHtml(recentTitle)}" />`
                         : `<div class="vss-recent-missing">${assetMissing ? "Source unavailable" : "Checking source..."}</div>`;
                     return `
-                      <article class="vss-recent-card${isSelected ? " is-selected" : ""}${assetMissing ? " is-stale" : ""}">
-                        <button class="vss-recent-select" type="button" data-recent-id="${escapeHtml(item.id)}" ${hasAsset ? "" : "disabled aria-disabled=\"true\""}>
+                      <article class="vss-recent-card${hasAsset ? " is-media-only" : ""}${isSelected ? " is-selected" : ""}${assetMissing ? " is-stale" : ""}">
+                        <button class="vss-recent-select" type="button" data-recent-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(`${mediaLabel}: ${recentTitle}`)}" ${hasAsset ? "" : "disabled aria-disabled=\"true\""}>
                           <div class="vss-recent-thumb">
                             ${media}
-                            <span class="vss-recent-duration">${item.kind === "video" ? "Video" : "Image"}</span>
                             <span class="vss-recent-overlay" aria-hidden="true"></span>
                           </div>
                         </button>
-                        <div class="vss-recent-meta">
-                          <div class="vss-recent-topline">
-                            <span class="vss-recent-type">${escapeHtml(item.kind === "video" ? "Video" : "Image")}</span>
-                            <span class="vss-recent-date">${escapeHtml(`${formatDate(item.createdAt)} · ${formatTime(item.createdAt)}`)}</span>
-                          </div>
-                          <p class="vss-recent-title">${escapeHtml(summarizePrompt(item.prompt, item.kind === "video" ? "Vision render" : "Vision still", 46))}</p>
-                          <div class="vss-recent-bottomline">
-                            <div class="vss-recent-statuses">
-                              ${isSelected && hasAsset ? '<span class="vss-recent-status is-selected">Current</span>' : ""}
-                              ${assetMissing ? '<span class="vss-recent-status is-stale">Source unavailable</span>' : ""}
-                            </div>
-                            <div class="vss-recent-toolbar">
-                              ${assetMissing ? `<button class="vss-recent-dismiss" type="button" data-delete-id="${escapeHtml(item.id)}">Dismiss</button>` : ""}
-                              <button class="vss-recent-menu-button" type="button" data-menu-id="${escapeHtml(item.id)}" aria-label="More actions" aria-haspopup="menu" aria-expanded="${state.menuOpenFor === item.id ? "true" : "false"}">•••</button>
-                            </div>
-                          </div>
-                        </div>
+                        ${
+                          hasAsset
+                            ? `<button class="vss-recent-menu-button" type="button" data-menu-id="${escapeHtml(item.id)}" aria-label="More actions" aria-haspopup="menu" aria-expanded="${state.menuOpenFor === item.id ? "true" : "false"}">•••</button>`
+                            : `<div class="vss-recent-meta">
+                                <div class="vss-recent-topline">
+                                  <span class="vss-recent-type">${escapeHtml(mediaLabel)}</span>
+                                  <span class="vss-recent-date">${escapeHtml(`${formatDate(item.createdAt)} · ${formatTime(item.createdAt)}`)}</span>
+                                </div>
+                                <p class="vss-recent-title">${escapeHtml(recentTitle)}</p>
+                                <div class="vss-recent-bottomline">
+                                  <div class="vss-recent-statuses">
+                                    ${assetMissing ? '<span class="vss-recent-status is-stale">Source unavailable</span>' : ""}
+                                  </div>
+                                  <div class="vss-recent-toolbar">
+                                    ${assetMissing ? `<button class="vss-recent-dismiss" type="button" data-delete-id="${escapeHtml(item.id)}">Dismiss</button>` : ""}
+                                    <button class="vss-recent-menu-button" type="button" data-menu-id="${escapeHtml(item.id)}" aria-label="More actions" aria-haspopup="menu" aria-expanded="${state.menuOpenFor === item.id ? "true" : "false"}">•••</button>
+                                  </div>
+                                </div>
+                              </div>`
+                        }
                       </article>
                     `;
                   })
