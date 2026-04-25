@@ -37,3 +37,11 @@ Optional Kling API controls:
   gateway provider is `auto`.
 - `KLING_API_VIDEO_MODEL` defaults to `kling-v2-1`.
 - `KLING_API_BASE_URL` defaults to `https://api-singapore.klingai.com`.
+
+Credit/account storage:
+
+- `VISION_ACCESS_STORAGE=postgres` stores Vision pack balances in Postgres.
+- `ACCESS_DATABASE_URL` can point to the account ledger database. If omitted,
+  the gateway reuses `TRACKING_DATABASE_URL` or `DATABASE_URL`.
+- Runtime JSON access storage is only a local fallback and should not be used as
+  the production source of truth.

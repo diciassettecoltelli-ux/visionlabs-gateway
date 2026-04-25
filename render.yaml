@@ -115,6 +115,10 @@ services:
         value: true
       - key: VISION_ACCESS_SECRET
         sync: false
+      - key: VISION_ACCESS_STORAGE
+        value: postgres
+      - key: ACCESS_DATABASE_URL
+        sync: false
       - key: VISION_USER_SECRET
         sync: false
       - key: VISION_ADMIN_TOKEN

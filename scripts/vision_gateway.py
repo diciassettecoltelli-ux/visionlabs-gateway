@@ -2335,6 +2335,561 @@ class AccessStore:
             return True
 
 
+class PostgresAccessStore:
+    def __init__(self, database_url: str, *, seed_path: Path | None = None) -> None:
+        try:
+            import psycopg
+            from psycopg.rows import dict_row
+        except ImportError as exc:
+            raise TrackingStoreUnavailable("psycopg is required for Postgres access storage.") from exc
+        self.database_url = database_url
+        self.psycopg = psycopg
+        self.dict_row = dict_row
+        self.lock = threading.Lock()
+        self._ensure_schema()
+        self._import_json_seed(seed_path)
+
+    def _connect(self):
+        return self.psycopg.connect(self.database_url, row_factory=self.dict_row)
+
+    def _execute_optional(self, cursor: Any, statement: str, label: str) -> None:
+        try:
+            cursor.execute(statement)
+        except Exception as exc:
+            print(f"[vision] optional access schema step failed ({label}): {_safe_access_error(str(exc))}")
+
+    def _ensure_schema(self) -> None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS vision_access_accounts (
+                        access_id TEXT PRIMARY KEY,
+                        admin BOOLEAN NOT NULL DEFAULT FALSE,
+                        email TEXT,
+                        user_id TEXT,
+                        vision_credits_remaining BIGINT NOT NULL DEFAULT 0,
+                        vision_credits_purchased BIGINT NOT NULL DEFAULT 0,
+                        video_remaining INTEGER NOT NULL DEFAULT 0,
+                        image_remaining INTEGER NOT NULL DEFAULT 0,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+                for statement in (
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS access_id TEXT",
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS admin BOOLEAN NOT NULL DEFAULT FALSE",
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS email TEXT",
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS user_id TEXT",
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS vision_credits_remaining BIGINT NOT NULL DEFAULT 0",
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS vision_credits_purchased BIGINT NOT NULL DEFAULT 0",
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS video_remaining INTEGER NOT NULL DEFAULT 0",
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS image_remaining INTEGER NOT NULL DEFAULT 0",
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                    "ALTER TABLE vision_access_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_vision_access_accounts_id_unique ON vision_access_accounts(access_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_access_accounts_email ON vision_access_accounts(email)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_access_accounts_user ON vision_access_accounts(user_id)",
+                ):
+                    self._execute_optional(cursor, statement, "accounts migration")
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS vision_access_sessions (
+                        session_id TEXT PRIMARY KEY,
+                        access_id TEXT NOT NULL REFERENCES vision_access_accounts(access_id) ON DELETE CASCADE,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+                for statement in (
+                    "ALTER TABLE vision_access_sessions ADD COLUMN IF NOT EXISTS session_id TEXT",
+                    "ALTER TABLE vision_access_sessions ADD COLUMN IF NOT EXISTS access_id TEXT",
+                    "ALTER TABLE vision_access_sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_vision_access_sessions_session_unique ON vision_access_sessions(session_id)",
+                    "CREATE INDEX IF NOT EXISTS idx_vision_access_sessions_access ON vision_access_sessions(access_id)",
+                ):
+                    self._execute_optional(cursor, statement, "sessions migration")
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS vision_access_notifications (
+                        session_id TEXT PRIMARY KEY,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+                for statement in (
+                    "ALTER TABLE vision_access_notifications ADD COLUMN IF NOT EXISTS session_id TEXT",
+                    "ALTER TABLE vision_access_notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_vision_access_notifications_session_unique ON vision_access_notifications(session_id)",
+                ):
+                    self._execute_optional(cursor, statement, "notifications migration")
+
+    def _row_to_entry(self, row: dict[str, Any] | None, sessions: list[str] | None = None) -> dict[str, Any] | None:
+        if not row:
+            return None
+        return {
+            "id": str(row.get("access_id") or ""),
+            "admin": bool(row.get("admin")),
+            "email": row.get("email"),
+            "user_id": row.get("user_id"),
+            "vision_credits_remaining": int(row.get("vision_credits_remaining") or 0),
+            "vision_credits_purchased": int(row.get("vision_credits_purchased") or 0),
+            "video_remaining": int(row.get("video_remaining") or 0),
+            "image_remaining": int(row.get("image_remaining") or 0),
+            "created_at": str(row.get("created_at") or ""),
+            "updated_at": str(row.get("updated_at") or ""),
+            "stripe_sessions": list(sessions or []),
+        }
+
+    def _sessions_for_access(self, cursor: Any, access_id: str) -> list[str]:
+        cursor.execute(
+            "SELECT session_id FROM vision_access_sessions WHERE access_id = %s ORDER BY created_at ASC",
+            (access_id,),
+        )
+        return [str(row.get("session_id") or "") for row in cursor.fetchall() if row.get("session_id")]
+
+    def _get_with_cursor(self, cursor: Any, access_id: str) -> dict[str, Any] | None:
+        cursor.execute(
+            "SELECT * FROM vision_access_accounts WHERE access_id = %s LIMIT 1",
+            (access_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return self._row_to_entry(row, self._sessions_for_access(cursor, access_id))
+
+    def _import_json_seed(self, seed_path: Path | None) -> None:
+        if not seed_path or not seed_path.exists():
+            return
+        try:
+            raw = json.loads(seed_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            print(f"[vision] access json seed skipped: {exc}")
+            return
+        entries = raw.get("entries") if isinstance(raw, dict) and isinstance(raw.get("entries"), dict) else raw
+        if not isinstance(entries, dict):
+            return
+        applied_sessions = raw.get("applied_sessions", {}) if isinstance(raw, dict) else {}
+        notified_sessions = raw.get("notified_sessions", []) if isinstance(raw, dict) else []
+        with self.lock, self._connect() as connection:
+            with connection.cursor() as cursor:
+                for access_id, entry in entries.items():
+                    if not isinstance(entry, dict):
+                        continue
+                    clean_id = str(entry.get("id") or access_id or "").strip()
+                    if not clean_id or clean_id == "admin":
+                        continue
+                    cursor.execute(
+                        """
+                        INSERT INTO vision_access_accounts (
+                            access_id, admin, email, user_id, vision_credits_remaining,
+                            vision_credits_purchased, video_remaining, image_remaining, created_at, updated_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, COALESCE(%s::timestamptz, NOW()), COALESCE(%s::timestamptz, NOW()))
+                        ON CONFLICT (access_id) DO NOTHING
+                        """,
+                        (
+                            clean_id,
+                            bool(entry.get("admin")),
+                            _normalize_email(entry.get("email")),
+                            str(entry.get("user_id") or "") or None,
+                            int(entry.get("vision_credits_remaining") or 0),
+                            int(entry.get("vision_credits_purchased") or 0),
+                            int(entry.get("video_remaining") or 0),
+                            int(entry.get("image_remaining") or 0),
+                            entry.get("created_at") or None,
+                            entry.get("updated_at") or None,
+                        ),
+                    )
+                    for session_id in entry.get("stripe_sessions") or []:
+                        clean_session_id = str(session_id or "").strip()
+                        if clean_session_id:
+                            cursor.execute(
+                                """
+                                INSERT INTO vision_access_sessions (session_id, access_id)
+                                VALUES (%s, %s)
+                                ON CONFLICT (session_id) DO NOTHING
+                                """,
+                                (clean_session_id, clean_id),
+                            )
+                for session_id, access_id in applied_sessions.items():
+                    clean_session_id = str(session_id or "").strip()
+                    clean_access_id = str(access_id or "").strip()
+                    if clean_session_id and clean_access_id:
+                        cursor.execute(
+                            """
+                            INSERT INTO vision_access_sessions (session_id, access_id)
+                            VALUES (%s, %s)
+                            ON CONFLICT (session_id) DO NOTHING
+                            """,
+                            (clean_session_id, clean_access_id),
+                        )
+                for session_id in notified_sessions:
+                    clean_session_id = str(session_id or "").strip()
+                    if clean_session_id:
+                        cursor.execute(
+                            "INSERT INTO vision_access_notifications (session_id) VALUES (%s) ON CONFLICT DO NOTHING",
+                            (clean_session_id,),
+                        )
+
+    def get(self, access_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                return self._get_with_cursor(cursor, str(access_id))
+
+    def summary(self, access_id: str) -> dict[str, Any]:
+        entry = self.get(access_id)
+        return _access_summary(entry)
+
+    def find_by_email(self, email: str | None) -> dict[str, Any] | None:
+        normalized = _normalize_email(email)
+        if not normalized:
+            return None
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT * FROM vision_access_accounts
+                    WHERE email = %s AND admin = FALSE
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    (normalized,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                return self._row_to_entry(row, self._sessions_for_access(cursor, str(row["access_id"])))
+
+    def find_by_user_id(self, user_id: str | None) -> dict[str, Any] | None:
+        if not user_id:
+            return None
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT * FROM vision_access_accounts
+                    WHERE user_id = %s AND admin = FALSE
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """,
+                    (str(user_id),),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                return self._row_to_entry(row, self._sessions_for_access(cursor, str(row["access_id"])))
+
+    def attach_user(self, access_id: str, *, user_id: str, email: str | None) -> dict[str, Any] | None:
+        with self.lock, self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE vision_access_accounts
+                    SET user_id = %s,
+                        email = COALESCE(%s, email),
+                        updated_at = NOW()
+                    WHERE access_id = %s
+                    RETURNING *
+                    """,
+                    (str(user_id), _normalize_email(email) or None, str(access_id)),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                return self._row_to_entry(row, self._sessions_for_access(cursor, str(row["access_id"])))
+
+    def _select_paid_account(
+        self,
+        cursor: Any,
+        *,
+        email: str | None,
+        current_access_id: str | None,
+        current_user_id: str | None,
+    ) -> dict[str, Any] | None:
+        if current_access_id:
+            cursor.execute(
+                "SELECT * FROM vision_access_accounts WHERE access_id = %s AND admin = FALSE FOR UPDATE",
+                (str(current_access_id),),
+            )
+            row = cursor.fetchone()
+            if row:
+                return row
+        if current_user_id:
+            cursor.execute(
+                """
+                SELECT * FROM vision_access_accounts
+                WHERE user_id = %s AND admin = FALSE
+                ORDER BY updated_at DESC
+                LIMIT 1
+                FOR UPDATE
+                """,
+                (str(current_user_id),),
+            )
+            row = cursor.fetchone()
+            if row:
+                return row
+        normalized = _normalize_email(email)
+        if normalized:
+            cursor.execute(
+                """
+                SELECT * FROM vision_access_accounts
+                WHERE email = %s AND admin = FALSE
+                ORDER BY updated_at DESC
+                LIMIT 1
+                FOR UPDATE
+                """,
+                (normalized,),
+            )
+            row = cursor.fetchone()
+            if row:
+                return row
+        return None
+
+    def apply_paid_session(
+        self,
+        *,
+        session_id: str,
+        email: str | None,
+        current_access_id: str | None,
+        current_user_id: str | None,
+        vision_credits: int | None = None,
+        video_credits: int | None = None,
+        image_credits: int | None = None,
+    ) -> dict[str, Any]:
+        clean_session_id = str(session_id or "").strip()
+        if not clean_session_id:
+            raise ValueError("Stripe session id is required.")
+        with self.lock, self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT access_id FROM vision_access_sessions WHERE session_id = %s LIMIT 1",
+                    (clean_session_id,),
+                )
+                existing_session = cursor.fetchone()
+                if existing_session:
+                    existing = self._get_with_cursor(cursor, str(existing_session["access_id"]))
+                    if existing:
+                        return existing
+
+                account = self._select_paid_account(
+                    cursor,
+                    email=email,
+                    current_access_id=current_access_id,
+                    current_user_id=current_user_id,
+                )
+                if account:
+                    access_id = str(account["access_id"])
+                else:
+                    access_id = uuid.uuid4().hex[:16]
+                    cursor.execute(
+                        """
+                        INSERT INTO vision_access_accounts (
+                            access_id, admin, email, user_id, vision_credits_remaining,
+                            vision_credits_purchased, video_remaining, image_remaining, created_at, updated_at
+                        ) VALUES (%s, FALSE, %s, %s, 0, 0, 0, 0, NOW(), NOW())
+                        """,
+                        (access_id, _normalize_email(email) or None, str(current_user_id or "") or None),
+                    )
+
+                cursor.execute(
+                    """
+                    INSERT INTO vision_access_sessions (session_id, access_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT (session_id) DO NOTHING
+                    RETURNING access_id
+                    """,
+                    (clean_session_id, access_id),
+                )
+                inserted_session = cursor.fetchone()
+                if not inserted_session:
+                    cursor.execute(
+                        "SELECT access_id FROM vision_access_sessions WHERE session_id = %s LIMIT 1",
+                        (clean_session_id,),
+                    )
+                    existing_session = cursor.fetchone()
+                    existing = self._get_with_cursor(cursor, str(existing_session["access_id"])) if existing_session else None
+                    if existing:
+                        return existing
+
+                resolved_vision_credits = max(int(vision_credits if vision_credits is not None else _pack_vision_credits()), 0)
+                resolved_video_credits = max(int(video_credits if video_credits is not None else _pack_video_credits()), 0)
+                resolved_image_credits = max(int(image_credits if image_credits is not None else _pack_image_credits()), 0)
+                if resolved_vision_credits > 0:
+                    resolved_video_credits = 0
+                    resolved_image_credits = 0
+                cursor.execute(
+                    """
+                    UPDATE vision_access_accounts
+                    SET email = COALESCE(%s, email),
+                        user_id = COALESCE(%s, user_id),
+                        vision_credits_remaining = vision_credits_remaining + %s,
+                        vision_credits_purchased = vision_credits_purchased + %s,
+                        video_remaining = video_remaining + %s,
+                        image_remaining = image_remaining + %s,
+                        updated_at = NOW()
+                    WHERE access_id = %s
+                    RETURNING *
+                    """,
+                    (
+                        _normalize_email(email) or None,
+                        str(current_user_id or "") or None,
+                        resolved_vision_credits,
+                        resolved_vision_credits,
+                        resolved_video_credits,
+                        resolved_image_credits,
+                        access_id,
+                    ),
+                )
+                row = cursor.fetchone()
+                return self._row_to_entry(row, self._sessions_for_access(cursor, access_id)) or {
+                    "id": access_id,
+                    "admin": False,
+                    "email": _normalize_email(email) or None,
+                    "user_id": current_user_id,
+                    "vision_credits_remaining": 0,
+                    "vision_credits_purchased": 0,
+                    "video_remaining": 0,
+                    "image_remaining": 0,
+                    "stripe_sessions": [clean_session_id],
+                }
+
+    def consume(self, access_id: str, mode: str, *, amount: int = 1) -> dict[str, Any] | None:
+        requested_amount = max(int(amount or 1), 1)
+        with self.lock, self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE vision_access_accounts
+                    SET vision_credits_remaining = vision_credits_remaining - %s,
+                        updated_at = NOW()
+                    WHERE access_id = %s
+                      AND (vision_credits_remaining > 0 OR vision_credits_purchased > 0)
+                      AND vision_credits_remaining >= %s
+                    RETURNING *
+                    """,
+                    (requested_amount, str(access_id), requested_amount),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        "entry": self._row_to_entry(row, self._sessions_for_access(cursor, str(access_id))),
+                        "charge": {"type": "vision_credits", "amount": requested_amount},
+                    }
+                key = "image_remaining" if mode == "image" else "video_remaining"
+                cursor.execute(
+                    f"""
+                    UPDATE vision_access_accounts
+                    SET {key} = {key} - 1,
+                        updated_at = NOW()
+                    WHERE access_id = %s
+                      AND vision_credits_remaining = 0
+                      AND vision_credits_purchased = 0
+                      AND {key} > 0
+                    RETURNING *
+                    """,
+                    (str(access_id),),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                return {
+                    "entry": self._row_to_entry(row, self._sessions_for_access(cursor, str(access_id))),
+                    "charge": {"type": key, "amount": 1},
+                }
+
+    def refund(self, access_id: str, mode: str, *, amount: int = 1, credit_type: str | None = None) -> dict[str, Any] | None:
+        refunded_amount = max(int(amount or 1), 1)
+        with self.lock, self._connect() as connection:
+            with connection.cursor() as cursor:
+                if credit_type == "vision_credits":
+                    cursor.execute(
+                        """
+                        UPDATE vision_access_accounts
+                        SET vision_credits_remaining = vision_credits_remaining + %s,
+                            updated_at = NOW()
+                        WHERE access_id = %s
+                        RETURNING *
+                        """,
+                        (refunded_amount, str(access_id)),
+                    )
+                else:
+                    key = "image_remaining" if mode == "image" else "video_remaining"
+                    cursor.execute(
+                        f"""
+                        UPDATE vision_access_accounts
+                        SET {key} = {key} + %s,
+                            updated_at = NOW()
+                        WHERE access_id = %s
+                        RETURNING *
+                        """,
+                        (refunded_amount, str(access_id)),
+                    )
+                row = cursor.fetchone()
+                if not row:
+                    return None
+                return self._row_to_entry(row, self._sessions_for_access(cursor, str(access_id)))
+
+    def claim_notification(self, session_id: str) -> bool:
+        clean_session_id = str(session_id or "").strip()
+        if not clean_session_id:
+            return False
+        with self.lock, self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO vision_access_notifications (session_id)
+                    VALUES (%s)
+                    ON CONFLICT (session_id) DO NOTHING
+                    RETURNING session_id
+                    """,
+                    (clean_session_id,),
+                )
+                return cursor.fetchone() is not None
+
+
+def _access_database_url() -> str:
+    for env_name in ("ACCESS_DATABASE_URL", "TRACKING_DATABASE_URL", "DATABASE_URL"):
+        value = os.environ.get(env_name, "").strip()
+        if _is_usable_database_url(value) and not value.startswith("sqlite:///"):
+            return value
+    return ""
+
+
+def _safe_access_error(value: str) -> str:
+    text = str(value or "")
+    for env_name in ("ACCESS_DATABASE_URL", "TRACKING_DATABASE_URL", "DATABASE_URL"):
+        database_url = os.environ.get(env_name, "").strip()
+        if database_url:
+            text = text.replace(database_url, "[database-url]")
+    text = re.sub(r"(postgres(?:ql)?://)[^@\s]+@", r"\1[credentials]@", text)
+    return text[:500]
+
+
+def _create_access_store() -> AccessStore | PostgresAccessStore:
+    mode = os.environ.get("VISION_ACCESS_STORAGE", os.environ.get("ACCESS_STORAGE", "auto")).strip().lower()
+    database_url = _access_database_url()
+    if mode in {"json", "local", "local_json", "file"}:
+        return AccessStore(ACCESS_FILE)
+    if database_url:
+        try:
+            return PostgresAccessStore(database_url, seed_path=ACCESS_FILE)
+        except Exception as exc:
+            print(f"[vision] Postgres access storage unavailable, falling back to runtime json: {_safe_access_error(str(exc))}")
+    elif mode in {"postgres", "postgresql", "db"}:
+        print("[vision] Postgres access storage requested but no ACCESS_DATABASE_URL/TRACKING_DATABASE_URL/DATABASE_URL is configured.")
+    return AccessStore(ACCESS_FILE)
+
+
+def _access_storage_label() -> str:
+    access = globals().get("ACCESS")
+    if isinstance(access, PostgresAccessStore):
+        return "postgres"
+    if isinstance(access, AccessStore):
+        return "runtime_json"
+    return "unknown"
+
+
 class UserStore:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -2453,7 +3008,7 @@ class UserStore:
 
 
 JOBS = JobsStore(JOBS_FILE)
-ACCESS = AccessStore(ACCESS_FILE)
+ACCESS = _create_access_store()
 USERS = UserStore(USERS_FILE)
 TRACKING = _create_tracking_store()
 QUEUE: queue.Queue[str] = queue.Queue()
@@ -3023,6 +3578,7 @@ def engine_status() -> dict[str, Any]:
         "google": _google_status(),
         "default_provider": _default_generation_provider(),
         "default_quality": _default_generation_quality(),
+        "access_storage": _access_storage_label(),
     }
 
 
