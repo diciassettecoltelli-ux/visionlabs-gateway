@@ -11898,3 +11898,99 @@ body:not(.is-studio-route) .pricing-credit-info p {
     border-radius: 1.05rem;
   }
 }
+
+/* Pack credit spacing refinement v45 */
+body:not(.is-studio-route) .pricing-credit,
+.subscribe-pack-credit {
+  display: grid;
+  gap: 0.18rem;
+  max-width: none;
+  line-height: 1;
+}
+
+body:not(.is-studio-route) .pricing-credit-number,
+.subscribe-pack-credit-number {
+  display: block;
+  font-weight: 800;
+  letter-spacing: -0.065em;
+  color: rgba(248, 247, 242, 0.98);
+}
+
+body:not(.is-studio-route) .pricing-credit-number {
+  font-size: clamp(1.9rem, 2.55vw, 2.65rem);
+}
+
+.subscribe-pack-credit-number {
+  font-size: clamp(1.42rem, 1.9vw, 1.9rem);
+}
+
+body:not(.is-studio-route) .pricing-credit-label,
+.subscribe-pack-credit-label {
+  display: block;
+  width: fit-content;
+  margin-top: 0.06rem;
+  padding: 0.28rem 0.42rem;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.024);
+  color: rgba(206, 200, 190, 0.56);
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+body:not(.is-studio-route) .pricing-price,
+.subscribe-pack-price {
+  margin-top: 0.46rem;
+}
+
+.subscribe-pack-subtitle {
+  margin-top: 0.14rem;
+  color: rgba(232, 226, 217, 0.72);
+  font-size: 0.68rem;
+  letter-spacing: 0.13em;
+}
+
+.subscribe-pack-description,
+.subscribe-pack-example {
+  color: rgba(199, 193, 184, 0.62);
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+.subscribe-pack-description {
+  min-height: 0;
+}
+
+.subscribe-pack-specs {
+  gap: 0.28rem;
+  margin-top: 0.06rem;
+}
+
+.subscribe-pack-specs span {
+  padding: 0.28rem 0.42rem;
+  color: rgba(226, 220, 211, 0.66);
+  font-size: 0.54rem;
+  letter-spacing: 0.11em;
+}
+
+.subscribe-pack-features {
+  margin-top: 0.08rem;
+}
+
+.subscribe-pack-features li {
+  color: rgba(195, 189, 180, 0.58);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 760px) {
+  body:not(.is-studio-route) .pricing-credit-number {
+    font-size: clamp(1.9rem, 8.6vw, 2.48rem);
+  }
+
+  .subscribe-pack-credit-number {
+    font-size: clamp(1.5rem, 7vw, 2rem);
+  }
+}
