@@ -11462,3 +11462,439 @@ body.is-studio-route .studio-loader.is-open .studio-loader-progress-bar {
     top: calc(48svh + 5.15rem) !important;
   }
 }
+
+/* Pricing and access modal elegance pass v44 */
+body:not(.is-studio-route) .pricing-section,
+.subscribe-modal {
+  font-family: "Manrope", "Onest", sans-serif;
+}
+
+body:not(.is-studio-route) .pricing-section {
+  padding: clamp(3.2rem, 6vw, 5rem) 1.5rem 8rem;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.055), transparent 36rem),
+    linear-gradient(180deg, rgba(13, 14, 17, 0.78), rgba(9, 10, 12, 0.96));
+}
+
+body:not(.is-studio-route) .pricing-glow {
+  opacity: 0.16;
+  filter: blur(54px);
+}
+
+body:not(.is-studio-route) .pricing-shell {
+  width: min(100%, 82rem);
+}
+
+body:not(.is-studio-route) .pricing-header {
+  grid-template-columns: minmax(0, 0.95fr) minmax(20rem, 0.72fr);
+  align-items: center;
+  gap: clamp(1.5rem, 4vw, 4rem);
+  margin-bottom: clamp(1.55rem, 3vw, 2.35rem);
+}
+
+body:not(.is-studio-route) .pricing-kicker,
+.subscribe-kicker {
+  color: rgba(220, 216, 208, 0.5);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+}
+
+body:not(.is-studio-route) .pricing-title {
+  max-width: 11.5ch;
+  font-size: clamp(2.7rem, 5.3vw, 5rem);
+  font-weight: 500;
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+  color: rgba(247, 246, 241, 0.98);
+}
+
+body:not(.is-studio-route) .pricing-copy {
+  max-width: 36rem;
+  font-size: clamp(0.98rem, 1.3vw, 1.08rem);
+  line-height: 1.7;
+  color: rgba(215, 211, 203, 0.68);
+}
+
+body:not(.is-studio-route) .pricing-grid {
+  gap: 1rem;
+  align-items: stretch;
+}
+
+body:not(.is-studio-route) .pricing-card {
+  overflow: hidden;
+  gap: 1rem;
+  padding: 1.35rem;
+  border-radius: 1.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.038), rgba(255, 255, 255, 0.012)),
+    rgba(17, 18, 20, 0.84);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 26px 54px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px) saturate(92%);
+}
+
+body:not(.is-studio-route) .pricing-card::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 38%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+}
+
+body:not(.is-studio-route) .pricing-card--pro {
+  border-color: rgba(232, 226, 216, 0.18);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(226, 218, 204, 0.08), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.016)),
+    rgba(22, 22, 23, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 30px 68px rgba(0, 0, 0, 0.28);
+}
+
+body:not(.is-studio-route) .pricing-card-top {
+  gap: 0.5rem;
+}
+
+body:not(.is-studio-route) .pricing-badge {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(232, 226, 216, 0.62);
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+}
+
+body:not(.is-studio-route) .pricing-plan {
+  color: rgba(230, 226, 218, 0.64);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+}
+
+body:not(.is-studio-route) .pricing-credit {
+  max-width: 12.5ch;
+  font-size: clamp(1.7rem, 2.25vw, 2.32rem);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.07em;
+  color: rgba(248, 247, 242, 0.98);
+}
+
+body:not(.is-studio-route) .pricing-price {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: rgba(231, 226, 216, 0.78);
+}
+
+body:not(.is-studio-route) .pricing-price span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(199, 194, 185, 0.48);
+}
+
+body:not(.is-studio-route) .pricing-volume {
+  margin-top: 0.2rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  color: rgba(246, 243, 236, 0.92);
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+body:not(.is-studio-route) .pricing-meta,
+body:not(.is-studio-route) .pricing-example {
+  color: rgba(202, 197, 188, 0.68);
+  font-size: 0.88rem;
+  line-height: 1.58;
+}
+
+body:not(.is-studio-route) .pricing-list {
+  gap: 0.44rem;
+  margin-top: 0.1rem;
+}
+
+body:not(.is-studio-route) .pricing-list li {
+  padding-left: 1.05rem;
+  color: rgba(205, 200, 191, 0.66);
+  font-size: 0.86rem;
+  line-height: 1.48;
+}
+
+body:not(.is-studio-route) .pricing-list li::before {
+  top: 0.62rem;
+  width: 0.28rem;
+  height: 0.28rem;
+  background: rgba(231, 225, 216, 0.56);
+  box-shadow: none;
+}
+
+body:not(.is-studio-route) .pricing-button {
+  min-width: 0;
+  width: fit-content;
+  padding: 0.86rem 1rem;
+  border-radius: 999px;
+  border-color: rgba(255, 255, 255, 0.11);
+  background:
+    linear-gradient(180deg, rgba(246, 241, 232, 0.13), rgba(246, 241, 232, 0.055)),
+    rgba(255, 255, 255, 0.035);
+  color: rgba(248, 245, 238, 0.92);
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-decoration: none;
+}
+
+body:not(.is-studio-route) .pricing-button:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background:
+    linear-gradient(180deg, rgba(246, 241, 232, 0.18), rgba(246, 241, 232, 0.075)),
+    rgba(255, 255, 255, 0.055);
+}
+
+body:not(.is-studio-route) .pricing-credit-info {
+  margin-top: 1rem;
+  padding: 1.05rem 1.2rem;
+  border-radius: 1.25rem;
+  border-color: rgba(255, 255, 255, 0.075);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.026), rgba(255, 255, 255, 0.012)),
+    rgba(18, 18, 19, 0.68);
+}
+
+body:not(.is-studio-route) .pricing-credit-info h3 {
+  color: rgba(239, 235, 228, 0.82);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+body:not(.is-studio-route) .pricing-credit-info p {
+  color: rgba(202, 197, 188, 0.66);
+}
+
+.subscribe-modal::before {
+  background:
+    radial-gradient(circle at 50% 14%, rgba(231, 225, 214, 0.08), transparent 24rem),
+    rgba(5, 5, 6, 0.82);
+  backdrop-filter: blur(22px) saturate(82%);
+}
+
+.subscribe-panel {
+  width: min(100%, 1040px);
+  padding: 1.65rem;
+  border-radius: 1.7rem;
+  border-color: rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(180deg, rgba(29, 29, 30, 0.98), rgba(11, 11, 12, 0.985)),
+    rgba(11, 11, 12, 0.98);
+  box-shadow:
+    0 42px 110px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.subscribe-panel::before,
+.subscribe-panel::after {
+  display: none;
+}
+
+.subscribe-close {
+  color: rgba(231, 226, 217, 0.54);
+  font-weight: 800;
+  letter-spacing: 0.22em;
+}
+
+.subscribe-panel h3 {
+  max-width: 16ch;
+  font-size: clamp(2.1rem, 4vw, 3.45rem);
+  font-weight: 500;
+  line-height: 0.96;
+  letter-spacing: -0.07em;
+  color: rgba(248, 247, 242, 0.98);
+}
+
+.subscribe-copy {
+  max-width: 60ch;
+  font-size: 0.95rem;
+  line-height: 1.62;
+  color: rgba(205, 199, 190, 0.68);
+}
+
+.subscribe-pack-grid {
+  gap: 0.84rem;
+}
+
+.subscribe-pack-card {
+  gap: 0.72rem;
+  padding: 1.1rem;
+  border-radius: 1.25rem;
+  border-color: rgba(255, 255, 255, 0.075);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(17, 17, 18, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 22px 44px rgba(0, 0, 0, 0.16);
+}
+
+.subscribe-pack-card.is-selected {
+  border-color: rgba(232, 226, 216, 0.2);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(232, 226, 216, 0.07), transparent 56%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.046), rgba(255, 255, 255, 0.014)),
+    rgba(24, 24, 25, 0.9);
+}
+
+.subscribe-pack-name {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: rgba(223, 217, 208, 0.66);
+}
+
+.subscribe-pack-credit {
+  max-width: 11.5ch;
+  font-size: clamp(1.25rem, 1.75vw, 1.62rem);
+  font-weight: 800;
+  letter-spacing: -0.065em;
+  color: rgba(248, 247, 242, 0.98);
+}
+
+.subscribe-pack-price {
+  color: rgba(222, 216, 207, 0.72);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.subscribe-pack-badge {
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: rgba(225, 219, 210, 0.64);
+}
+
+.subscribe-pack-subtitle {
+  margin: -0.08rem 0 0;
+  color: rgba(240, 236, 228, 0.82);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.subscribe-pack-description,
+.subscribe-pack-example {
+  color: rgba(199, 193, 184, 0.68);
+}
+
+.subscribe-pack-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.36rem;
+}
+
+.subscribe-pack-specs span {
+  padding: 0.34rem 0.46rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.028);
+  color: rgba(232, 226, 217, 0.74);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.subscribe-pack-features {
+  gap: 0.34rem;
+}
+
+.subscribe-pack-features li {
+  color: rgba(195, 189, 180, 0.62);
+  font-size: 0.74rem;
+}
+
+.subscribe-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  justify-self: center;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.subscribe-highlights li {
+  padding: 0.5rem 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.022);
+  color: rgba(202, 196, 187, 0.66);
+}
+
+.subscribe-highlights li::before {
+  display: none;
+}
+
+.subscribe-submit {
+  border-color: rgba(236, 230, 220, 0.16);
+  background:
+    linear-gradient(180deg, rgba(235, 231, 222, 0.96), rgba(206, 200, 188, 0.94));
+  color: rgba(14, 14, 15, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 20px 42px rgba(0, 0, 0, 0.24);
+}
+
+.subscribe-submit:hover {
+  border-color: rgba(250, 246, 238, 0.28);
+  background:
+    linear-gradient(180deg, rgba(250, 247, 240, 0.98), rgba(219, 213, 201, 0.96));
+  color: rgba(8, 8, 9, 0.96);
+}
+
+@media (max-width: 980px) {
+  body:not(.is-studio-route) .pricing-header,
+  body:not(.is-studio-route) .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body:not(.is-studio-route) .pricing-title {
+    max-width: 12ch;
+  }
+}
+
+@media (max-width: 760px) {
+  body:not(.is-studio-route) .pricing-section {
+    padding: 3rem 1rem 5.5rem;
+  }
+
+  body:not(.is-studio-route) .pricing-title {
+    font-size: clamp(2.35rem, 12vw, 3.65rem);
+  }
+
+  body:not(.is-studio-route) .pricing-card {
+    padding: 1.12rem;
+    border-radius: 1.25rem;
+  }
+
+  body:not(.is-studio-route) .pricing-credit {
+    max-width: 13ch;
+    font-size: clamp(1.72rem, 8vw, 2.28rem);
+  }
+
+  .subscribe-modal {
+    padding: 0.7rem;
+  }
+
+  .subscribe-panel {
+    padding: 1rem;
+    border-radius: 1.35rem;
+  }
+
+  .subscribe-panel h3 {
+    font-size: clamp(2rem, 10vw, 2.8rem);
+  }
+
+  .subscribe-pack-card {
+    border-radius: 1.05rem;
+  }
+}

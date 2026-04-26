@@ -1674,10 +1674,11 @@ const renderSubscribePackOptions = () => {
       .join("");
     const creditLabel =
       pack.credit_label || (pack.vision_credits ? `${new Intl.NumberFormat("it-IT").format(pack.vision_credits)} Vision credits` : "");
+    const displayName = String(pack.name || "").replace(/^Vision\s+/i, "") || "Pack";
     card.innerHTML = `
       <div class="subscribe-pack-head">
         <div>
-          <span class="subscribe-pack-name">${pack.name}</span>
+          <span class="subscribe-pack-name">${displayName}</span>
           <strong class="subscribe-pack-credit">${creditLabel}</strong>
           <span class="subscribe-pack-price">${formatPackPrice(pack)} · one time</span>
         </div>
