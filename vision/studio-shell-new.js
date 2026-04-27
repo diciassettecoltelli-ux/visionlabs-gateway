@@ -70,7 +70,8 @@
     price_cents: 3990,
     currency: "EUR",
     vision_credits: 2000000,
-    credit_label: "2.000.000 Vision credits",
+    credit_label: "2M credits",
+    total_credit_label: "2.000.000 total credits",
   };
 
   const defaultViewer = {

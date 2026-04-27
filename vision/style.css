@@ -11994,3 +11994,183 @@ body:not(.is-studio-route) .pricing-price,
     font-size: clamp(1.5rem, 7vw, 2rem);
   }
 }
+
+/* Pack sales hierarchy refinement v46 */
+body:not(.is-studio-route) .pricing-title {
+  max-width: 10.5ch;
+}
+
+body:not(.is-studio-route) .pricing-copy {
+  max-width: 32rem;
+}
+
+body:not(.is-studio-route) .pricing-card,
+.subscribe-pack-card {
+  display: flex;
+  flex-direction: column;
+}
+
+body:not(.is-studio-route) .pricing-card {
+  min-height: 30rem;
+}
+
+body:not(.is-studio-route) .pricing-card-top,
+.subscribe-pack-head > div {
+  display: grid;
+  gap: 0.38rem;
+}
+
+body:not(.is-studio-route) .pricing-card--pro {
+  border-color: rgba(238, 232, 222, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 34px 72px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(238, 232, 222, 0.035);
+}
+
+body:not(.is-studio-route) .pricing-credit,
+.subscribe-pack-credit {
+  gap: 0.1rem;
+}
+
+body:not(.is-studio-route) .pricing-credit-number {
+  font-size: clamp(2.35rem, 3.25vw, 3.25rem);
+  letter-spacing: -0.08em;
+}
+
+.subscribe-pack-credit-number {
+  font-size: clamp(1.65rem, 2.25vw, 2.24rem);
+  letter-spacing: -0.08em;
+}
+
+body:not(.is-studio-route) .pricing-credit-label,
+.subscribe-pack-credit-label,
+.subscribe-pack-total {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(198, 192, 183, 0.52);
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+}
+
+.subscribe-pack-total {
+  display: block;
+  margin-top: 0.04rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+body:not(.is-studio-route) .pricing-price,
+.subscribe-pack-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.36rem;
+  margin-top: 0.48rem;
+  color: rgba(224, 218, 209, 0.74);
+}
+
+body:not(.is-studio-route) .pricing-price-current,
+.subscribe-pack-price > span:first-child {
+  color: rgba(239, 235, 228, 0.9);
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+body:not(.is-studio-route) .pricing-price-note,
+.subscribe-pack-price em {
+  color: rgba(198, 192, 183, 0.5);
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body:not(.is-studio-route) .pricing-discount,
+.subscribe-pack-offer {
+  padding: 0.25rem 0.42rem;
+  border: 1px solid rgba(238, 232, 222, 0.1);
+  border-radius: 999px;
+  background: rgba(238, 232, 222, 0.045);
+  color: rgba(238, 232, 222, 0.68);
+  font-size: 0.55rem;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+body:not(.is-studio-route) .pricing-volume,
+.subscribe-pack-value {
+  margin-top: 0.28rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.075);
+  color: rgba(247, 244, 238, 0.92);
+  font-size: 0.98rem;
+  font-weight: 850;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.subscribe-pack-value {
+  margin: 0.05rem 0 0;
+  padding-top: 0.74rem;
+}
+
+body:not(.is-studio-route) .pricing-meta,
+.subscribe-pack-description {
+  color: rgba(202, 197, 188, 0.66);
+  font-size: 0.82rem;
+  line-height: 1.48;
+}
+
+body:not(.is-studio-route) .pricing-list,
+.subscribe-pack-features {
+  margin-top: 0.18rem;
+}
+
+body:not(.is-studio-route) .pricing-button,
+.subscribe-pack-card-cta {
+  margin-top: auto;
+}
+
+body:not(.is-studio-route) .pricing-card--pro .pricing-button,
+.subscribe-pack-card.is-selected .subscribe-pack-card-cta {
+  border-color: rgba(238, 232, 222, 0.22);
+  background: linear-gradient(180deg, rgba(239, 235, 226, 0.96), rgba(207, 201, 190, 0.94));
+  color: rgba(13, 13, 14, 0.92);
+}
+
+.subscribe-pack-card-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 2.5rem;
+  padding: 0.78rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: rgba(238, 232, 222, 0.84);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+body:not(.is-studio-route) .pricing-credit-info {
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  body:not(.is-studio-route) .pricing-card {
+    min-height: auto;
+  }
+
+  body:not(.is-studio-route) .pricing-credit-number,
+  .subscribe-pack-credit-number {
+    font-size: clamp(2.18rem, 10vw, 2.7rem);
+  }
+}

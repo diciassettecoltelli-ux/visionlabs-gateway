@@ -120,58 +120,67 @@ const defaultPacks = [
     id: "starter",
     name: "Vision Starter",
     subtitle: "Short videos + images",
-    description: "Good for testing Vision with premium image and video creation.",
+    description: "For testing ideas, short clips, and images.",
     price_cents: 1490,
     currency: "eur",
     vision_credits: 500000,
-    credit_label: "500.000 Vision credits",
+    credit_label: "500K credits",
+    total_credit_label: "500.000 total credits",
+    discount_label: "Launch offer",
     video_credits: 5,
     image_credits: 50,
-    video_label: "Up to 5 videos",
+    video_label: "5 videos",
     duration_label: "Videos up to 15 seconds",
-    image_label: "Up to 50 images",
+    image_label: "50 images",
+    value_label: "Creates up to 5 videos or 50 images.",
     example_label: "Examples: up to 5 short videos or 50 images.",
     badge: "",
-    cta_label: "Start creating",
-    features: ["Improve Prompt included", "No watermark exports", "480p, 720p, 1080p, or 4K-ready output", "Private downloads"],
+    cta_label: "Start with Starter",
+    features: ["Prompt enhancement", "Watermark-free exports", "Private downloads"],
   },
   {
     id: "creator",
     name: "Vision Creator",
-    subtitle: "Most popular for creators",
-    description: "Best for creators, social clips, and prompt testing.",
+    subtitle: "Best value for creators",
+    description: "Best value for creators and social content.",
     price_cents: 3990,
     currency: "eur",
     vision_credits: 2000000,
-    credit_label: "2.000.000 Vision credits",
-    video_credits: 20,
+    credit_label: "2M credits",
+    total_credit_label: "2.000.000 total credits",
+    discount_label: "Launch offer",
+    video_credits: 10,
     image_credits: 200,
-    video_label: "Up to 20 videos",
+    video_label: "10 videos",
     duration_label: "Videos up to 15 seconds",
-    image_label: "Up to 200 images",
+    image_label: "200 images",
+    value_label: "Creates up to 10 standard videos or 200 images.",
     example_label: "Examples: up to 10 standard 10s videos or 200 images.",
-    badge: "Most popular",
+    badge: "Best value",
     cta_label: "Choose Creator",
-    features: ["Sound on/off control", "Full HD video generation", "Premium cinematic prompt refinement", "No watermark exports"],
+    features: ["Full HD video generation", "Sound on/off control", "Premium cinematic prompt refinement", "Watermark-free exports"],
   },
   {
     id: "pro",
     name: "Vision Pro",
-    subtitle: "Premium generation for campaigns",
-    description: "For heavier creation, longer clips, premium outputs, and campaign work.",
+    subtitle: "Premium generation",
+    description: "For campaigns, premium clips, and heavier creation.",
     price_cents: 8990,
     currency: "eur",
     vision_credits: 5000000,
-    credit_label: "5.000.000 Vision credits",
-    video_credits: 50,
+    credit_label: "5M credits",
+    total_credit_label: "5.000.000 total credits",
+    discount_label: "Launch offer",
+    video_credits: 25,
     image_credits: 500,
-    video_label: "Up to 50 videos",
+    video_label: "25 videos",
     duration_label: "Videos up to 15 seconds",
-    image_label: "Up to 500 images",
+    image_label: "500 images",
+    value_label: "Creates up to 25 standard videos or 500 images.",
     example_label: "Examples: up to 25 standard 10s videos, premium clips, or 500 images.",
-    badge: "Premium generation",
+    badge: "Premium",
     cta_label: "Go Pro",
-    features: ["480p, 720p, 1080p, and 4K-ready outputs", "Sound on/off control", "Advanced cinematic refinement", "Campaign-ready no watermark exports"],
+    features: ["Up to 4K-ready output", "Advanced cinematic refinement", "Sound on/off control", "Campaign-ready exports"],
   },
 ];
 
@@ -1674,29 +1683,33 @@ const renderSubscribePackOptions = () => {
       .join("");
     const creditLabel =
       pack.credit_label || (pack.vision_credits ? `${new Intl.NumberFormat("it-IT").format(pack.vision_credits)} Vision credits` : "");
-    const creditMatch = String(creditLabel).match(/^([\d.,]+)\s+(.+)$/);
+    const creditMatch = String(creditLabel).match(/^([\d.,]+[KM]?)\s+(.+)$/i);
     const creditMarkup = creditMatch
       ? `<span class="subscribe-pack-credit-number">${creditMatch[1]}</span><span class="subscribe-pack-credit-label">${creditMatch[2]}</span>`
       : `<span class="subscribe-pack-credit-number">${creditLabel}</span>`;
+    const totalCreditMarkup = pack.total_credit_label ? `<span class="subscribe-pack-total">${pack.total_credit_label}</span>` : "";
+    const discountMarkup = pack.discount_label ? `<span class="subscribe-pack-offer">${pack.discount_label}</span>` : "";
     const displayName = String(pack.name || "").replace(/^Vision\s+/i, "") || "Pack";
     card.innerHTML = `
       <div class="subscribe-pack-head">
         <div>
           <span class="subscribe-pack-name">${displayName}</span>
           <strong class="subscribe-pack-credit">${creditMarkup}</strong>
-          <span class="subscribe-pack-price">${formatPackPrice(pack)} · one time</span>
+          ${totalCreditMarkup}
+          <span class="subscribe-pack-price"><span>${formatPackPrice(pack)}</span><em>one time</em>${discountMarkup}</span>
         </div>
         ${pack.badge ? `<span class="subscribe-pack-badge">${pack.badge}</span>` : ""}
       </div>
       ${pack.subtitle ? `<p class="subscribe-pack-subtitle">${pack.subtitle}</p>` : ""}
       <p class="subscribe-pack-description">${pack.description}</p>
+      ${pack.value_label ? `<p class="subscribe-pack-value">${pack.value_label}</p>` : ""}
       <div class="subscribe-pack-specs">
         <span>${pack.video_label}</span>
-        <span>${pack.duration_label}</span>
         <span>${pack.image_label}</span>
       </div>
       ${pack.example_label ? `<p class="subscribe-pack-example">${pack.example_label}</p>` : ""}
       <ul class="subscribe-pack-features">${featureMarkup}</ul>
+      <span class="subscribe-pack-card-cta">${pack.cta_label || "Choose pack"}</span>
     `;
     card.addEventListener("click", () => {
       selectedPackId = pack.id;
