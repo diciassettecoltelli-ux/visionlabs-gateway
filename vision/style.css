@@ -12073,11 +12073,22 @@ body:not(.is-studio-route) .pricing-price,
 }
 
 body:not(.is-studio-route) .pricing-price-current,
-.subscribe-pack-price > span:first-child {
+.subscribe-pack-price-current {
   color: rgba(239, 235, 228, 0.9);
   font-size: 1.08rem;
   font-weight: 800;
   letter-spacing: -0.04em;
+}
+
+body:not(.is-studio-route) .pricing-price-was,
+.subscribe-pack-price-was {
+  color: rgba(179, 173, 165, 0.46);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  text-decoration: line-through;
+  text-decoration-color: rgba(232, 226, 216, 0.45);
+  text-decoration-thickness: 0.08em;
 }
 
 body:not(.is-studio-route) .pricing-price-note,

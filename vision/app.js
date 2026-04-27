@@ -121,12 +121,13 @@ const defaultPacks = [
     name: "Vision Starter",
     subtitle: "Short videos + images",
     description: "For testing ideas, short clips, and images.",
-    price_cents: 1490,
+    price_cents: 990,
+    original_price_cents: 1490,
     currency: "eur",
     vision_credits: 500000,
     credit_label: "500K credits",
     total_credit_label: "500.000 total credits",
-    discount_label: "Launch offer",
+    discount_label: "Save 34%",
     video_credits: 5,
     image_credits: 50,
     video_label: "5 videos",
@@ -143,12 +144,13 @@ const defaultPacks = [
     name: "Vision Creator",
     subtitle: "Best value for creators",
     description: "Best value for creators and social content.",
-    price_cents: 3990,
+    price_cents: 1990,
+    original_price_cents: 3990,
     currency: "eur",
     vision_credits: 2000000,
     credit_label: "2M credits",
     total_credit_label: "2.000.000 total credits",
-    discount_label: "Launch offer",
+    discount_label: "Save 50%",
     video_credits: 10,
     image_credits: 200,
     video_label: "10 videos",
@@ -165,12 +167,13 @@ const defaultPacks = [
     name: "Vision Pro",
     subtitle: "Premium generation",
     description: "For campaigns, premium clips, and heavier creation.",
-    price_cents: 8990,
+    price_cents: 2990,
+    original_price_cents: 8990,
     currency: "eur",
     vision_credits: 5000000,
     credit_label: "5M credits",
     total_credit_label: "5.000.000 total credits",
-    discount_label: "Launch offer",
+    discount_label: "Save 67%",
     video_credits: 25,
     image_credits: 500,
     video_label: "25 videos",
@@ -1688,6 +1691,12 @@ const renderSubscribePackOptions = () => {
       ? `<span class="subscribe-pack-credit-number">${creditMatch[1]}</span><span class="subscribe-pack-credit-label">${creditMatch[2]}</span>`
       : `<span class="subscribe-pack-credit-number">${creditLabel}</span>`;
     const totalCreditMarkup = pack.total_credit_label ? `<span class="subscribe-pack-total">${pack.total_credit_label}</span>` : "";
+    const originalPriceCents = Number(pack.original_price_cents || 0);
+    const currentPriceCents = Number(pack.price_cents || 0);
+    const originalPriceMarkup =
+      originalPriceCents > currentPriceCents
+        ? `<del class="subscribe-pack-price-was">${formatPackPrice({ ...pack, price_cents: originalPriceCents })}</del>`
+        : "";
     const discountMarkup = pack.discount_label ? `<span class="subscribe-pack-offer">${pack.discount_label}</span>` : "";
     const displayName = String(pack.name || "").replace(/^Vision\s+/i, "") || "Pack";
     card.innerHTML = `
@@ -1696,7 +1705,7 @@ const renderSubscribePackOptions = () => {
           <span class="subscribe-pack-name">${displayName}</span>
           <strong class="subscribe-pack-credit">${creditMarkup}</strong>
           ${totalCreditMarkup}
-          <span class="subscribe-pack-price"><span>${formatPackPrice(pack)}</span><em>one time</em>${discountMarkup}</span>
+          <span class="subscribe-pack-price">${originalPriceMarkup}<span class="subscribe-pack-price-current">${formatPackPrice(pack)}</span><em>one time</em>${discountMarkup}</span>
         </div>
         ${pack.badge ? `<span class="subscribe-pack-badge">${pack.badge}</span>` : ""}
       </div>
@@ -1839,10 +1848,10 @@ const setSubscribeContent = (context = {}) => {
   const title =
     reason === "insufficient_credits" || accessState.access_id
       ? "Buy more Vision credits."
-      : "Choose your Vision credits.";
+      : "Choose your Vision pack.";
   const copy = pendingPrompt
     ? `Choose the pack that fits this ${pendingMode} idea. Vision will resume your current prompt right after payment so you can keep creating without starting over.`
-    : "Pick the pack that fits your release. Every option unlocks cinematic creation inside Vision with private access, cleaner prompt direction, and watermark-free exports.";
+    : "Every pack includes private access, prompt enhancement, watermark-free exports, and private downloads.";
   const note = "Secure checkout with Stripe. Vision resumes your prompt automatically after payment.";
 
   if (subscribeKicker) {

@@ -67,11 +67,13 @@
   const defaultPack = {
     id: DEFAULT_PACK_ID,
     name: "Vision Creator",
-    price_cents: 3990,
+    price_cents: 1990,
+    original_price_cents: 3990,
     currency: "EUR",
     vision_credits: 2000000,
     credit_label: "2M credits",
     total_credit_label: "2.000.000 total credits",
+    discount_label: "Save 50%",
   };
 
   const defaultViewer = {
@@ -1226,7 +1228,8 @@
     return packs.map((pack) => ({
       id: String(pack && pack.id ? pack.id : DEFAULT_PACK_ID).toLowerCase(),
       name: String(pack && pack.name ? pack.name : "Vision Creator"),
-      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 3990),
+      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 1990),
+      original_price_cents: Number(pack && pack.original_price_cents ? pack.original_price_cents : 3990),
       currency: String(pack && pack.currency ? pack.currency : "EUR"),
       vision_credits: Number(pack && pack.vision_credits ? pack.vision_credits : 0),
       credit_label: String(pack && pack.credit_label ? pack.credit_label : ""),

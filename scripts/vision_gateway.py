@@ -502,12 +502,13 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "name": "Vision Starter",
             "subtitle": "Short videos + images",
             "description": "For testing ideas, short clips, and images.",
-            "price_cents": 1490,
+            "price_cents": 990,
+            "original_price_cents": 1490,
             "currency": "eur",
             "vision_credits": 500000,
             "credit_label": "500K credits",
             "total_credit_label": "500.000 total credits",
-            "discount_label": "Launch offer",
+            "discount_label": "Save 34%",
             "video_credits": 5,
             "image_credits": 50,
             "video_label": "5 videos",
@@ -528,12 +529,13 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "name": "Vision Creator",
             "subtitle": "Best value for creators",
             "description": "Best value for creators and social content.",
-            "price_cents": 3990,
+            "price_cents": 1990,
+            "original_price_cents": 3990,
             "currency": "eur",
             "vision_credits": 2000000,
             "credit_label": "2M credits",
             "total_credit_label": "2.000.000 total credits",
-            "discount_label": "Launch offer",
+            "discount_label": "Save 50%",
             "video_credits": 10,
             "image_credits": 200,
             "video_label": "10 videos",
@@ -555,12 +557,13 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "name": "Vision Pro",
             "subtitle": "Premium generation",
             "description": "For campaigns, premium clips, and heavier creation.",
-            "price_cents": 8990,
+            "price_cents": 2990,
+            "original_price_cents": 8990,
             "currency": "eur",
             "vision_credits": 5000000,
             "credit_label": "5M credits",
             "total_credit_label": "5.000.000 total credits",
-            "discount_label": "Launch offer",
+            "discount_label": "Save 67%",
             "video_credits": 25,
             "image_credits": 500,
             "video_label": "25 videos",
@@ -606,7 +609,7 @@ def _pack_by_id(pack_id: str | None) -> dict[str, Any]:
 
 
 def _pack_price_cents() -> int:
-    return int(_pack_summary().get("price_cents") or 1490)
+    return int(_pack_summary().get("price_cents") or 990)
 
 
 def _pack_currency() -> str:
@@ -962,7 +965,7 @@ def _create_stripe_checkout_session(
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",
         "line_items[0][price_data][currency]": str(pack.get("currency") or "eur"),
-        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 1490),
+        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 990),
         "line_items[0][price_data][product_data][name]": str(pack.get("name") or "Vision Starter"),
         "line_items[0][price_data][product_data][description]": str(pack.get("description") or ""),
         "metadata[vision_pack_id]": str(pack.get("id") or "starter"),
