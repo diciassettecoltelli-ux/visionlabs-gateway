@@ -12185,3 +12185,38 @@ body:not(.is-studio-route) .pricing-credit-info {
     font-size: clamp(2.18rem, 10vw, 2.7rem);
   }
 }
+
+/* Vision pack polish v48 */
+body:not(.is-studio-route) .pricing-example,
+.subscribe-pack-example {
+  display: none !important;
+}
+
+body:not(.is-studio-route) .pricing-list,
+.subscribe-pack-features {
+  gap: 0.42rem;
+}
+
+body:not(.is-studio-route) .pricing-list li,
+.subscribe-pack-features li {
+  position: relative;
+  padding-left: 1.18rem;
+}
+
+body:not(.is-studio-route) .pricing-list li::before,
+.subscribe-pack-features li::before {
+  content: "✓";
+  position: absolute;
+  top: 0.12rem;
+  left: 0;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(109, 226, 156, 0.92);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+}

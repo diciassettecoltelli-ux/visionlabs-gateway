@@ -514,8 +514,7 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "video_label": "5 videos",
             "duration_label": "Videos up to 15 seconds",
             "image_label": "50 images",
-            "value_label": "Creates up to 5 videos or 50 images.",
-            "example_label": "Examples: up to 5 short videos or 50 images.",
+            "value_label": "Creates up to 5 videos and 50 images.",
             "badge": "",
             "cta_label": "Start with Starter",
             "features": [
@@ -541,8 +540,7 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "video_label": "10 videos",
             "duration_label": "Videos up to 15 seconds",
             "image_label": "200 images",
-            "value_label": "Creates up to 10 standard videos or 200 images.",
-            "example_label": "Examples: up to 10 standard 10s videos or 200 images.",
+            "value_label": "Creates up to 10 standard videos and 200 images.",
             "badge": "Best value",
             "cta_label": "Choose Creator",
             "features": [
@@ -569,8 +567,7 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "video_label": "25 videos",
             "duration_label": "Videos up to 15 seconds",
             "image_label": "500 images",
-            "value_label": "Creates up to 25 standard videos or 500 images.",
-            "example_label": "Examples: up to 25 standard 10s videos, premium clips, or 500 images.",
+            "value_label": "Creates up to 25 standard videos and 500 images.",
             "badge": "Premium",
             "cta_label": "Go Pro",
             "features": [

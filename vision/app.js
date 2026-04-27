@@ -133,8 +133,7 @@ const defaultPacks = [
     video_label: "5 videos",
     duration_label: "Videos up to 15 seconds",
     image_label: "50 images",
-    value_label: "Creates up to 5 videos or 50 images.",
-    example_label: "Examples: up to 5 short videos or 50 images.",
+    value_label: "Creates up to 5 videos and 50 images.",
     badge: "",
     cta_label: "Start with Starter",
     features: ["Prompt enhancement", "Watermark-free exports", "Private downloads"],
@@ -156,8 +155,7 @@ const defaultPacks = [
     video_label: "10 videos",
     duration_label: "Videos up to 15 seconds",
     image_label: "200 images",
-    value_label: "Creates up to 10 standard videos or 200 images.",
-    example_label: "Examples: up to 10 standard 10s videos or 200 images.",
+    value_label: "Creates up to 10 standard videos and 200 images.",
     badge: "Best value",
     cta_label: "Choose Creator",
     features: ["Full HD video generation", "Sound on/off control", "Premium cinematic prompt refinement", "Watermark-free exports"],
@@ -179,8 +177,7 @@ const defaultPacks = [
     video_label: "25 videos",
     duration_label: "Videos up to 15 seconds",
     image_label: "500 images",
-    value_label: "Creates up to 25 standard videos or 500 images.",
-    example_label: "Examples: up to 25 standard 10s videos, premium clips, or 500 images.",
+    value_label: "Creates up to 25 standard videos and 500 images.",
     badge: "Premium",
     cta_label: "Go Pro",
     features: ["Up to 4K-ready output", "Advanced cinematic refinement", "Sound on/off control", "Campaign-ready exports"],
@@ -1716,7 +1713,6 @@ const renderSubscribePackOptions = () => {
         <span>${pack.video_label}</span>
         <span>${pack.image_label}</span>
       </div>
-      ${pack.example_label ? `<p class="subscribe-pack-example">${pack.example_label}</p>` : ""}
       <ul class="subscribe-pack-features">${featureMarkup}</ul>
       <span class="subscribe-pack-card-cta">${pack.cta_label || "Choose pack"}</span>
     `;
