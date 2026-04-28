@@ -6,7 +6,9 @@ import hashlib
 import hmac
 import json
 import os
+import shutil
 import ssl
+import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -14,6 +16,13 @@ from pathlib import Path
 from typing import Any
 
 import certifi
+
+
+DEFAULT_KLING_API_VIDEO_MODEL = "kling-v3-omni"
+DEFAULT_KLING_API_FALLBACK_VIDEO_MODEL = "kling-v2-1-master"
+DEFAULT_KLING_API_NATIVE_15_MODELS = {
+    "kling-v3-omni",
+}
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -127,6 +136,132 @@ def _safe_duration(value: int) -> int:
     return 15
 
 
+def _normalize_model_name(model: str | None) -> str:
+    return str(model or "").strip().lower()
+
+
+def _primary_video_model(model: str | None = None) -> str:
+    return str(model or os.getenv("KLING_API_VIDEO_MODEL", DEFAULT_KLING_API_VIDEO_MODEL)).strip()
+
+
+def _fallback_video_model() -> str:
+    return os.getenv("KLING_API_FALLBACK_VIDEO_MODEL", DEFAULT_KLING_API_FALLBACK_VIDEO_MODEL).strip()
+
+
+def _native_15_models() -> set[str]:
+    configured = os.getenv("KLING_API_NATIVE_15_MODELS", "").strip()
+    if not configured:
+        return set(DEFAULT_KLING_API_NATIVE_15_MODELS)
+    return {item.strip().lower() for item in configured.split(",") if item.strip()}
+
+
+def _model_supports_native_15(model: str | None) -> bool:
+    normalized = _normalize_model_name(model)
+    return normalized in _native_15_models() or "omni" in normalized
+
+
+def _duration_segments(duration: int, *, model: str | None = None) -> list[int]:
+    safe_duration = _safe_duration(duration)
+    if safe_duration <= 10 or _model_supports_native_15(model):
+        return [safe_duration]
+    return [5, 5, 5]
+
+
+def _is_model_unsupported_error(exc: Exception) -> bool:
+    return "model is not supported" in str(exc).lower()
+
+
+def _is_duration_unsupported_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "duration" in message and any(
+        phrase in message for phrase in ("not supported", "unsupported", "invalid", "must be")
+    )
+
+
+def _ffmpeg_executable() -> str:
+    configured = os.getenv("FFMPEG_BINARY", "").strip()
+    if configured:
+        return configured
+    discovered = shutil.which("ffmpeg")
+    if discovered:
+        return discovered
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception as exc:
+        raise RuntimeError("ffmpeg is required to assemble Kling API 15-second videos.") from exc
+
+
+def _concat_file_line(path: Path) -> str:
+    absolute_path = path.resolve()
+    return "file '" + str(absolute_path).replace("'", "'\\''") + "'"
+
+
+def _concat_videos(segment_paths: list[Path], output_video: Path, output_dir: Path) -> Path:
+    if len(segment_paths) < 2:
+        return segment_paths[0]
+    ffmpeg = _ffmpeg_executable()
+    output_video.parent.mkdir(parents=True, exist_ok=True)
+    concat_list = output_dir / "kling_api_concat.txt"
+    concat_list.write_text("\n".join(_concat_file_line(path) for path in segment_paths) + "\n", encoding="utf-8")
+    copy_command = [
+        ffmpeg,
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(concat_list),
+        "-c",
+        "copy",
+        "-movflags",
+        "+faststart",
+        str(output_video),
+    ]
+    try:
+        subprocess.run(copy_command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        return output_video
+    except subprocess.CalledProcessError:
+        reencode_command = [
+            ffmpeg,
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(concat_list),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "18",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-movflags",
+            "+faststart",
+            str(output_video),
+        ]
+        subprocess.run(reencode_command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        return output_video
+
+
+def _segment_prompt(prompt: str, *, segment_index: int, segment_count: int, duration: int) -> str:
+    if segment_count <= 1:
+        return prompt
+    return (
+        f"{prompt}\n\n"
+        f"Vision continuity segment {segment_index}/{segment_count}: generate only this {duration}-second part "
+        "of one continuous final video. Keep the same subject, identity, location, lighting, camera language, "
+        "color grade, and cinematic style. No text, no logo, no subtitles."
+    )
+
+
 def _mode_for_generation(*, resolution: str, sound_enabled: bool, quality: str | None = None) -> str:
     configured = os.getenv("KLING_API_VIDEO_MODE", "").strip().lower()
     if configured in {"std", "pro"}:
@@ -173,7 +308,8 @@ def _create_payload(
 def status() -> dict[str, Any]:
     access_key = os.getenv("KLING_ACCESS_KEY", "").strip()
     secret_key = os.getenv("KLING_SECRET_KEY", "").strip()
-    model = os.getenv("KLING_API_VIDEO_MODEL", "kling-v2-1").strip()
+    model = _primary_video_model()
+    fallback_model = _fallback_video_model()
     return {
         "ready": bool(access_key and secret_key),
         "mode": "kling_api",
@@ -181,6 +317,8 @@ def status() -> dict[str, Any]:
         "has_access_key": bool(access_key),
         "has_secret_key": bool(secret_key),
         "model": model or None,
+        "fallback_model": fallback_model or None,
+        "native_15s": _model_supports_native_15(model),
     }
 
 
@@ -201,8 +339,167 @@ def generate_video(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_video_path = Path(output_video) if output_video else output_dir / "kling_api_video.mp4"
+    resolved_model = _primary_video_model(model)
+    segments = _duration_segments(duration, model=resolved_model)
 
-    resolved_model = model or _env("KLING_API_VIDEO_MODEL", "kling-v2-1")
+    try:
+        return _generate_video_with_segments(
+            prompt=prompt,
+            output_dir=output_dir,
+            output_video_path=output_video_path,
+            model=resolved_model,
+            duration=duration,
+            segments=segments,
+            aspect_ratio=aspect_ratio,
+            resolution=resolution,
+            sound_enabled=sound_enabled,
+            quality=quality,
+            timeout_seconds=timeout_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+        )
+    except RuntimeError as exc:
+        fallback_model = _fallback_video_model()
+        can_fallback_model = bool(fallback_model and _normalize_model_name(fallback_model) != _normalize_model_name(resolved_model))
+        should_try_split = _safe_duration(duration) > 10 and len(segments) == 1 and _is_duration_unsupported_error(exc)
+        should_try_model_fallback = _is_model_unsupported_error(exc) and can_fallback_model
+        if not should_try_model_fallback and not should_try_split:
+            raise
+
+        fallback_error = {
+            "provider": "kling_api",
+            "attempted_model": resolved_model,
+            "fallback_model": fallback_model if should_try_model_fallback else resolved_model,
+            "duration": _safe_duration(duration),
+            "error": str(exc),
+            "fallback_reason": "model_unsupported" if should_try_model_fallback else "duration_unsupported",
+        }
+        (output_dir / "kling_api_fallback.json").write_text(json.dumps(fallback_error, indent=2) + "\n", encoding="utf-8")
+        fallback_generation_model = fallback_model if should_try_model_fallback else resolved_model
+        fallback_segments = (
+            [5, 5, 5]
+            if should_try_split
+            else _duration_segments(duration, model=fallback_generation_model)
+        )
+        return _generate_video_with_segments(
+            prompt=prompt,
+            output_dir=output_dir,
+            output_video_path=output_video_path,
+            model=fallback_generation_model,
+            duration=duration,
+            segments=fallback_segments,
+            aspect_ratio=aspect_ratio,
+            resolution=resolution,
+            sound_enabled=sound_enabled,
+            quality=quality,
+            timeout_seconds=timeout_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+            fallback_from=fallback_error,
+        )
+
+
+def _generate_video_with_segments(
+    *,
+    prompt: str,
+    output_dir: Path,
+    output_video_path: Path,
+    model: str,
+    duration: int,
+    segments: list[int],
+    aspect_ratio: str,
+    resolution: str,
+    sound_enabled: bool,
+    quality: str | None,
+    timeout_seconds: int,
+    poll_interval_seconds: int,
+    fallback_from: dict[str, Any] | None = None,
+) -> Path:
+    if len(segments) > 1:
+        segment_paths: list[Path] = []
+        segment_metadata: list[dict[str, Any]] = []
+        for index, segment_duration in enumerate(segments, start=1):
+            segment_path = output_dir / f"kling_api_segment_{index:02d}.mp4"
+            segment_prompt = _segment_prompt(
+                prompt,
+                segment_index=index,
+                segment_count=len(segments),
+                duration=segment_duration,
+            )
+            saved_segment, metadata = _generate_video_task(
+                prompt=segment_prompt,
+                output_dir=output_dir,
+                output_video_path=segment_path,
+                metadata_path=output_dir / f"kling_api_segment_{index:02d}_metadata.json",
+                model=model,
+                duration=segment_duration,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+                sound_enabled=sound_enabled,
+                quality=quality,
+                timeout_seconds=timeout_seconds,
+                poll_interval_seconds=poll_interval_seconds,
+            )
+            metadata["segment_index"] = index
+            metadata["segment_count"] = len(segments)
+            segment_paths.append(saved_segment)
+            segment_metadata.append(metadata)
+
+        saved_video = _concat_videos(segment_paths, output_video_path, output_dir)
+        combined_metadata = {
+            "provider": "kling_api",
+            "duration_strategy": "split_5s_segments",
+            "model": model,
+            "prompt": prompt,
+            "duration": sum(segments),
+            "segment_durations": segments,
+            "aspect_ratio": aspect_ratio,
+            "resolution_requested": resolution,
+            "sound_enabled_requested": bool(sound_enabled),
+            "quality": quality,
+            "segments": segment_metadata,
+            "output_video": str(saved_video),
+        }
+        if fallback_from:
+            combined_metadata["fallback_from"] = fallback_from
+        (output_dir / "kling_api_metadata.json").write_text(
+            json.dumps(combined_metadata, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return saved_video
+
+    saved_video, _metadata = _generate_video_task(
+        prompt=prompt,
+        output_dir=output_dir,
+        output_video_path=output_video_path,
+        metadata_path=output_dir / "kling_api_metadata.json",
+        model=model,
+        duration=segments[0],
+        aspect_ratio=aspect_ratio,
+        resolution=resolution,
+        sound_enabled=sound_enabled,
+        quality=quality,
+        timeout_seconds=timeout_seconds,
+        poll_interval_seconds=poll_interval_seconds,
+    )
+    return saved_video
+
+
+def _generate_video_task(
+    *,
+    prompt: str,
+    output_dir: Path,
+    output_video_path: Path,
+    metadata_path: Path,
+    model: str | None,
+    duration: int,
+    aspect_ratio: str,
+    resolution: str,
+    sound_enabled: bool,
+    quality: str | None,
+    timeout_seconds: int,
+    poll_interval_seconds: int,
+) -> tuple[Path, dict[str, Any]]:
+
+    resolved_model = _primary_video_model(model)
     create_path = os.getenv("KLING_API_TEXT_TO_VIDEO_PATH", "/v1/videos/text2video").strip()
     query_template = os.getenv("KLING_API_TEXT_TO_VIDEO_QUERY_PATH_TEMPLATE", "/v1/videos/text2video/{task_id}").strip()
     payload = _create_payload(
@@ -252,8 +549,8 @@ def generate_video(
         "create_response": created,
         "status_payload": status_payload,
     }
-    (output_dir / "kling_api_metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    return saved_video
+    metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    return saved_video, metadata
 
 
 def main() -> None:

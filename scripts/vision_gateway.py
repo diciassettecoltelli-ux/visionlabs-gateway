@@ -1236,7 +1236,7 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str, setting
                 route = {
                     "provider": "kling_api",
                     "quality": candidate_quality,
-                    "model": os.environ.get("KLING_API_VIDEO_MODEL", "kling-v2-1"),
+                    "model": os.environ.get("KLING_API_VIDEO_MODEL", "kling-v3-omni"),
                     "resolution": selected_resolution,
                     "duration": selected_duration,
                     "aspect_ratio": "16:9",

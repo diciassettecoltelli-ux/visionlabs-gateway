@@ -36,7 +36,9 @@ services:
       - key: KLING_SECRET_KEY
         sync: false
       - key: KLING_API_VIDEO_MODEL
-        value: kling-v2-1
+        value: kling-v3-omni
+      - key: KLING_API_FALLBACK_VIDEO_MODEL
+        value: kling-v2-1-master
       - key: KLING_API_BASE_URL
         value: https://api-singapore.klingai.com
       - key: VISION_KLING_COOKIE_HEADER

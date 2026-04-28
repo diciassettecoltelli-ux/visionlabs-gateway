@@ -35,7 +35,10 @@ Optional Kling API controls:
 
 - `VISION_KLING_API_FIRST=true` keeps official Kling API video first when the
   gateway provider is `auto`.
-- `KLING_API_VIDEO_MODEL` defaults to `kling-v2-1`.
+- `KLING_API_VIDEO_MODEL` defaults to `kling-v3-omni` for native 15s video when
+  available from the official Kling API.
+- `KLING_API_FALLBACK_VIDEO_MODEL` defaults to `kling-v2-1-master`; Vision falls
+  back to this model automatically if Omni is not supported by the API account.
 - `KLING_API_BASE_URL` defaults to `https://api-singapore.klingai.com`.
 
 Credit/account storage:
