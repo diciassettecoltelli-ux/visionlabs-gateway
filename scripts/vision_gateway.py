@@ -172,6 +172,27 @@ def _normalize_resolution(value: str | None) -> str:
     return "720p"
 
 
+def _normalize_aspect_ratio(value: str | None) -> str:
+    normalized = str(value or "16:9").strip().lower().replace(" ", "")
+    aliases = {
+        "vertical": "9:16",
+        "portrait": "9:16",
+        "reel": "9:16",
+        "reels": "9:16",
+        "tiktok": "9:16",
+        "short": "9:16",
+        "shorts": "9:16",
+        "landscape": "16:9",
+        "horizontal": "16:9",
+        "wide": "16:9",
+        "square": "1:1",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized in {"16:9", "9:16", "1:1"}:
+        return normalized
+    return "16:9"
+
+
 def _quality_from_generation_settings(mode: str, resolution: str, sound_enabled: bool) -> str:
     if mode == "image":
         return "director" if resolution == "4k" else "studio"
@@ -1175,6 +1196,7 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str, setting
     generation_settings = settings or {}
     selected_duration = _normalize_duration_seconds(generation_settings.get("duration_seconds"))
     selected_resolution = _normalize_resolution(generation_settings.get("resolution"))
+    selected_aspect_ratio = _normalize_aspect_ratio(generation_settings.get("aspect_ratio"))
     selected_sound = bool(generation_settings.get("sound_enabled"))
     google_resolution = selected_resolution if selected_resolution in {"720p", "1080p", "4k"} else "720p"
     seedance_resolution = selected_resolution if selected_resolution in {"480p", "720p", "1080p"} else "1080p"
@@ -1210,7 +1232,7 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str, setting
                         "quality": candidate_quality,
                         "model": model_name,
                         "fallback_models": _google_fallback_models_for_quality(candidate_quality),
-                        "aspect_ratio": "16:9",
+                        "aspect_ratio": selected_aspect_ratio,
                         "resolution": google_resolution or _google_resolution_for_quality(candidate_quality),
                         "duration": selected_duration or _google_duration_for_quality(candidate_quality),
                     }
@@ -1225,6 +1247,7 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str, setting
                         "provider": "byteplus_seedance",
                         "quality": candidate_quality,
                         "model": model_name,
+                        "aspect_ratio": selected_aspect_ratio,
                         "resolution": seedance_resolution or _seedance_resolution_for_quality(candidate_quality),
                         "duration": selected_duration,
                     }
@@ -1239,7 +1262,7 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str, setting
                     "model": os.environ.get("KLING_API_VIDEO_MODEL", "kling-v3-omni"),
                     "resolution": selected_resolution,
                     "duration": selected_duration,
-                    "aspect_ratio": "16:9",
+                    "aspect_ratio": selected_aspect_ratio,
                     "sound_enabled": selected_sound,
                 }
                 route_key = (route["provider"], route["quality"], route["model"])
@@ -1253,6 +1276,7 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str, setting
                     "model": os.environ.get("WORLDSIM_KLING_MODEL", "kling-2.6-pro"),
                     "resolution": "1080p",
                     "duration": selected_duration,
+                    "aspect_ratio": selected_aspect_ratio,
                     "sound_enabled": selected_sound,
                 }
                 route_key = (route["provider"], route["quality"], route["model"])
@@ -1306,6 +1330,7 @@ class CreateJobRequest(BaseModel):
     mode: str | None = Field(default="video", min_length=5, max_length=16)
     duration_seconds: int | None = Field(default=None, ge=3, le=15)
     resolution: str | None = Field(default=None, min_length=2, max_length=8)
+    aspect_ratio: str | None = Field(default=None, min_length=3, max_length=16)
     sound_enabled: bool | None = False
 
 
@@ -3428,7 +3453,7 @@ def _process_job(job_id: str) -> None:
                         output_dir=output_dir,
                         model=route["model"],
                         duration=int(route.get("duration", 5)),
-                        aspect_ratio="16:9",
+                        aspect_ratio=str(route.get("aspect_ratio") or "16:9"),
                         resolution=route["resolution"],
                     )
                 elif route["provider"] == "google_veo":
@@ -3898,10 +3923,12 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
     mode = _normalize_mode(payload.mode)
     duration_seconds = _normalize_duration_seconds(payload.duration_seconds)
     resolution = _normalize_resolution(payload.resolution)
+    aspect_ratio = _normalize_aspect_ratio(payload.aspect_ratio)
     sound_enabled = bool(payload.sound_enabled) if mode == "video" else False
     generation_settings = {
         "duration_seconds": duration_seconds if mode == "video" else None,
         "resolution": resolution,
+        "aspect_ratio": aspect_ratio if mode == "video" else None,
         "sound_enabled": sound_enabled,
     }
     credit_cost = _vision_credit_cost(
