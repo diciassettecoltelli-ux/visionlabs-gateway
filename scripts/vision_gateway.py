@@ -127,7 +127,11 @@ def _default_generation_quality() -> str:
 
 
 def _default_generation_provider() -> str:
-    requested = os.environ.get("VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER", "auto").strip().lower()
+    return _normalize_generation_provider(os.environ.get("VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER", "auto"))
+
+
+def _normalize_generation_provider(value: str | None) -> str:
+    requested = str(value or "auto").strip().lower()
     return requested if requested in {"auto", "seedance", "google", "kling"} else "auto"
 
 
@@ -1191,9 +1195,9 @@ def _candidate_generation_routes(prompt: str, quality: str, job_id: str, setting
     google_state = _google_status()
     kling_api_state = kling_api_status()
     kling_state = kling_session_bridge_status()
-    default_provider = _default_generation_provider()
-    quality_candidates = _quality_candidates_for_prompt(quality)
     generation_settings = settings or {}
+    default_provider = _normalize_generation_provider(generation_settings.get("provider")) if generation_settings.get("provider") else _default_generation_provider()
+    quality_candidates = _quality_candidates_for_prompt(quality)
     selected_duration = _normalize_duration_seconds(generation_settings.get("duration_seconds"))
     selected_resolution = _normalize_resolution(generation_settings.get("resolution"))
     selected_aspect_ratio = _normalize_aspect_ratio(generation_settings.get("aspect_ratio"))
@@ -1327,6 +1331,7 @@ APP.mount("/generated", StaticFiles(directory=str(OUTPUT_ROOT)), name="generated
 class CreateJobRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=5000)
     quality: str | None = Field(default=None, min_length=4, max_length=16)
+    provider: str | None = Field(default=None, min_length=4, max_length=16)
     mode: str | None = Field(default="video", min_length=5, max_length=16)
     duration_seconds: int | None = Field(default=None, ge=3, le=15)
     resolution: str | None = Field(default=None, min_length=2, max_length=8)
@@ -3925,11 +3930,13 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
     resolution = _normalize_resolution(payload.resolution)
     aspect_ratio = _normalize_aspect_ratio(payload.aspect_ratio)
     sound_enabled = bool(payload.sound_enabled) if mode == "video" else False
+    provider = _normalize_generation_provider(payload.provider)
     generation_settings = {
         "duration_seconds": duration_seconds if mode == "video" else None,
         "resolution": resolution,
         "aspect_ratio": aspect_ratio if mode == "video" else None,
         "sound_enabled": sound_enabled,
+        "provider": provider if provider != "auto" else None,
     }
     credit_cost = _vision_credit_cost(
         mode,
