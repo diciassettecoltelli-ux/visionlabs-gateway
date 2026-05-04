@@ -14214,3 +14214,176 @@ html body:not(.is-studio-route) .subscribe-modal .subscribe-returning {
     min-height: 34px !important;
   }
 }
+
+/* Pricing modal premium polish v65 */
+html body:not(.is-studio-route) .subscribe-modal.is-open {
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal.is-open::before {
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 30%),
+    rgba(0, 0, 0, 0.72) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+html body:not(.is-studio-route) .subscribe-panel {
+  width: min(1000px, calc(100vw - 32px)) !important;
+  max-height: calc(100svh - 24px) !important;
+  gap: clamp(9px, 1.2vh, 13px) !important;
+  padding: clamp(13px, 1.7vh, 18px) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.038), rgba(255, 255, 255, 0.012)),
+    rgba(14, 14, 15, 0.96) !important;
+  box-shadow:
+    0 40px 110px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-panel h3 {
+  font-size: clamp(1.42rem, 2.5vw, 2.25rem) !important;
+  font-weight: 430 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-grid {
+  gap: 7px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+  gap: 6px !important;
+  padding: 10px !important;
+  border-color: rgba(255, 255, 255, 0.085) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.01)),
+    rgba(255, 255, 255, 0.012) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card.is-selected {
+  border-color: rgba(235, 230, 218, 0.35) !important;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 48%),
+    rgba(255, 255, 255, 0.04) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name {
+  color: rgba(232, 228, 218, 0.74) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-number {
+  font-size: clamp(1.72rem, 3vw, 2.45rem) !important;
+  color: rgba(250, 248, 242, 0.98) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price-current {
+  color: rgba(244, 239, 229, 0.98) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-value {
+  padding-top: 5px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+  color: rgba(247, 244, 237, 0.9) !important;
+  font-weight: 720 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-specs span {
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  color: rgba(232, 226, 216, 0.72) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card-cta {
+  color: rgba(244, 240, 232, 0.88) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card.is-selected .subscribe-pack-card-cta {
+  color: rgba(10, 10, 11, 0.96) !important;
+  background: linear-gradient(180deg, rgba(249, 246, 238, 0.98), rgba(210, 204, 193, 0.96)) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-form {
+  grid-template-columns: 1fr !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-field-row {
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 250px) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-input {
+  background: rgba(255, 255, 255, 0.035) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(248, 246, 240, 0.95) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+  color: rgba(10, 10, 11, 0.96) !important;
+  background: linear-gradient(180deg, rgba(249, 246, 238, 0.99), rgba(209, 202, 191, 0.98)) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-note,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-returning {
+  color: rgba(208, 202, 192, 0.58) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-returning-link {
+  color: rgba(238, 234, 226, 0.92) !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .subscribe-modal.is-open {
+    padding: max(7px, env(safe-area-inset-top)) max(7px, env(safe-area-inset-right)) max(7px, env(safe-area-inset-bottom)) max(7px, env(safe-area-inset-left)) !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+  html body:not(.is-studio-route) .subscribe-panel {
+    width: calc(100vw - 14px) !important;
+    max-height: calc(100svh - 14px) !important;
+    gap: 5px !important;
+    padding: 7px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-panel h3 {
+    font-size: 0.98rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-grid {
+    gap: 4px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+    grid-template-columns: minmax(58px, 0.72fr) minmax(92px, 1.18fr) minmax(54px, 0.58fr) !important;
+    padding: 5px 6px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-number {
+    font-size: 1.02rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-value {
+    border-top: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card-cta {
+    position: relative !important;
+    min-height: 28px !important;
+    font-size: 0 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card-cta::before {
+    content: attr(data-short-label);
+    font-size: 0.48rem !important;
+    line-height: 1 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-field-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-input,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+    min-height: 36px !important;
+  }
+}

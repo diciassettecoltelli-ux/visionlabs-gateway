@@ -1696,6 +1696,7 @@ const renderSubscribePackOptions = () => {
         : "";
     const discountMarkup = pack.discount_label ? `<span class="subscribe-pack-offer">${pack.discount_label}</span>` : "";
     const displayName = String(pack.name || "").replace(/^Vision\s+/i, "") || "Pack";
+    const shortCtaLabel = displayName;
     card.innerHTML = `
       <div class="subscribe-pack-head">
         <div>
@@ -1714,7 +1715,7 @@ const renderSubscribePackOptions = () => {
         <span>${pack.image_label}</span>
       </div>
       <ul class="subscribe-pack-features">${featureMarkup}</ul>
-      <span class="subscribe-pack-card-cta">${pack.cta_label || "Choose pack"}</span>
+      <span class="subscribe-pack-card-cta" data-short-label="${shortCtaLabel}">${pack.cta_label || "Choose pack"}</span>
     `;
     card.addEventListener("click", () => {
       selectedPackId = pack.id;
