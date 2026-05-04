@@ -13790,3 +13790,427 @@ html body:not(.is-studio-route) .subscribe-returning {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Pricing modal table fit v64 - compact checkout, no modal scrolling */
+html body:not(.is-studio-route).subscribe-open {
+  overflow: hidden !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal.is-open {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)) !important;
+  overflow: hidden !important;
+  border-radius: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+html body:not(.is-studio-route) .subscribe-panel {
+  box-sizing: border-box !important;
+  display: grid !important;
+  grid-template-rows: auto auto !important;
+  gap: clamp(10px, 1.5vh, 16px) !important;
+  width: min(1120px, calc(100vw - 24px)) !important;
+  max-height: calc(100dvh - 16px) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: clamp(12px, 1.8vh, 18px) !important;
+  overflow: hidden !important;
+  transform: none !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-close {
+  top: 10px !important;
+  right: 12px !important;
+  z-index: 3 !important;
+  font-size: 0.5rem !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-intro {
+  display: grid !important;
+  gap: clamp(7px, 1vh, 10px) !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  text-align: center !important;
+  justify-items: stretch !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-kicker,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-copy,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-highlights,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-description,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-features {
+  display: none !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-panel h3 {
+  max-width: none !important;
+  margin: 0 !important;
+  padding-right: 52px !important;
+  font-size: clamp(1.25rem, 2vw, 2rem) !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-align: left !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+  width: 100% !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+  box-sizing: border-box !important;
+  display: grid !important;
+  grid-template-rows: auto auto auto auto !important;
+  align-content: start !important;
+  gap: clamp(5px, 0.75vh, 8px) !important;
+  min-height: 0 !important;
+  padding: clamp(9px, 1.2vh, 13px) !important;
+  overflow: hidden !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 6px !important;
+  align-items: start !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head > div {
+  display: grid !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-label,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-total,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price em,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-offer,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-specs span,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card-cta,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-label,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+  letter-spacing: 0.12em !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit {
+  margin: 0 !important;
+  line-height: 0.95 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-number {
+  font-size: clamp(1.55rem, 2.8vw, 2.4rem) !important;
+  line-height: 0.92 !important;
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-label,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-total,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name {
+  font-size: clamp(0.48rem, 0.75vw, 0.64rem) !important;
+  line-height: 1.08 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin: 0 !important;
+  font-size: clamp(0.58rem, 0.8vw, 0.74rem) !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price-current {
+  font-size: clamp(0.86rem, 1.25vw, 1.08rem) !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price-was {
+  font-size: 0.7rem !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price em,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-offer,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge {
+  font-size: 0.48rem !important;
+  line-height: 1 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-offer {
+  padding: 3px 5px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-subtitle {
+  margin: 0 !important;
+  font-size: clamp(0.58rem, 0.82vw, 0.72rem) !important;
+  line-height: 1.12 !important;
+  letter-spacing: 0.12em !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-value {
+  margin: 0 !important;
+  padding-top: 7px !important;
+  font-size: clamp(0.78rem, 1.05vw, 1rem) !important;
+  line-height: 1.14 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-specs {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-specs span {
+  padding: 4px 6px !important;
+  font-size: clamp(0.48rem, 0.68vw, 0.58rem) !important;
+  line-height: 1 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card-cta {
+  min-height: clamp(32px, 4.6vh, 44px) !important;
+  margin-top: 2px !important;
+  padding: 7px 9px !important;
+  font-size: clamp(0.5rem, 0.78vw, 0.62rem) !important;
+  line-height: 1.05 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-form {
+  display: grid !important;
+  gap: 7px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-label {
+  font-size: 0.54rem !important;
+  line-height: 1 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-field-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 235px) !important;
+  gap: 8px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-input,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+  min-height: clamp(42px, 5.2vh, 56px) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-input {
+  font-size: 1rem !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+  min-width: 0 !important;
+  padding: 0 12px !important;
+  font-size: 0.62rem !important;
+  white-space: normal !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-note {
+  margin: 0 !important;
+  font-size: 0.72rem !important;
+  line-height: 1.25 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-returning {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 9px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 0.74rem !important;
+  line-height: 1.15 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+@media (min-width: 761px) and (max-height: 760px) {
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-subtitle,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-note {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+    padding: 8px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .subscribe-modal.is-open {
+    align-items: center !important;
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)) !important;
+    overflow: hidden !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+  html body:not(.is-studio-route) .subscribe-panel {
+    display: grid !important;
+    grid-template-rows: auto auto !important;
+    gap: 6px !important;
+    width: calc(100vw - 12px) !important;
+    max-height: calc(100svh - 12px) !important;
+    padding: 8px !important;
+    overflow: hidden !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-close {
+    top: 7px !important;
+    right: 8px !important;
+    font-size: 0.44rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-intro {
+    gap: 6px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-panel h3 {
+    padding-right: 40px !important;
+    font-size: 1.02rem !important;
+    line-height: 1.02 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-grid {
+    grid-template-columns: 1fr !important;
+    gap: 5px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+    grid-template-columns: minmax(72px, 0.8fr) minmax(96px, 1.05fr) minmax(72px, 0.8fr) !important;
+    grid-template-areas:
+      "head value cta"
+      "price specs cta" !important;
+    align-items: center !important;
+    gap: 3px 6px !important;
+    padding: 6px 7px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head {
+    display: block !important;
+    grid-area: head !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head > div {
+    display: grid !important;
+    gap: 1px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-offer,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-subtitle,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-total,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price-was {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-label {
+    font-size: 0.43rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-number {
+    font-size: 1.08rem !important;
+    line-height: 0.9 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price {
+    grid-area: price !important;
+    gap: 2px !important;
+    font-size: 0.46rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price-current {
+    font-size: 0.66rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price em {
+    font-size: 0.38rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-value {
+    grid-area: value !important;
+    padding: 0 !important;
+    font-size: 0.55rem !important;
+    line-height: 1.08 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-specs {
+    grid-area: specs !important;
+    gap: 3px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-specs span {
+    padding: 3px 4px !important;
+    font-size: 0.38rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card-cta {
+    grid-area: cta !important;
+    min-height: 30px !important;
+    padding: 4px 5px !important;
+    font-size: 0.42rem !important;
+    line-height: 1.05 !important;
+    white-space: normal !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-form {
+    gap: 5px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-label {
+    font-size: 0.46rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-field-row {
+    grid-template-columns: 1fr !important;
+    gap: 5px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-input,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+    min-height: 38px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+    font-size: 0.56rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-note {
+    font-size: 0.58rem !important;
+    line-height: 1.18 !important;
+    text-align: center !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-returning {
+    gap: 7px !important;
+    font-size: 0.58rem !important;
+  }
+}
+
+@media (max-width: 380px), (max-height: 670px) {
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-note {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+    padding: 5px 6px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-input,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+    min-height: 34px !important;
+  }
+}
