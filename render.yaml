@@ -144,9 +144,9 @@ services:
       - key: META_CAPI_ACCESS_TOKEN
         sync: false
       - key: TIKTOK_PIXEL_ENABLED
-        value: false
+        value: true
       - key: TIKTOK_PIXEL_ID
-        sync: false
+        value: D7S19RJC77UCOHR2LDSG
       - key: TIKTOK_EVENTS_API_ENABLED
         value: false
       - key: TIKTOK_EVENTS_API_ACCESS_TOKEN

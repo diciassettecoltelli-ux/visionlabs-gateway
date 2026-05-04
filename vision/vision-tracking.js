@@ -150,11 +150,29 @@
     delete clean.last_touch;
     delete clean.payload;
     delete clean.ads_only;
+    const contentId = event.plan_id || event.asset_id || event.job_id || clean.plan_id || clean.asset_id || clean.job_id || "vision-studio";
+    const contentName =
+      clean.plan_name ||
+      clean.content_name ||
+      (event.plan_id ? `Vision ${String(event.plan_id).replace(/[-_]+/g, " ")} pack` : "") ||
+      (event.event_name === "StudioViewed" ? "Vision Studio" : "Vision");
+    const value = Number.isFinite(Number(event.value)) ? Number(event.value) : undefined;
+    const currency = String(event.currency || clean.currency || "EUR").toUpperCase();
     return {
       ...clean,
-      value: event.value,
-      currency: event.currency,
-      content_id: event.plan_id || event.asset_id || event.job_id,
+      value,
+      currency,
+      content_id: contentId,
+      content_type: "product",
+      content_name: contentName,
+      contents: [
+        {
+          content_id: contentId,
+          content_type: "product",
+          content_name: contentName,
+        },
+      ],
+      event_id: event.event_id,
     };
   };
 
@@ -205,17 +223,63 @@
     if (tiktokLoaded || !config.tiktok_pixel_enabled || !config.tiktok_pixel_id || !consentAllowsAds()) {
       return false;
     }
-    window.ttq =
-      window.ttq ||
-      {
-        track() {},
-        page() {},
-        load() {},
+    const libraryName = "ttq";
+    const pixelId = String(config.tiktok_pixel_id);
+    window.TiktokAnalyticsObject = libraryName;
+    const ttq = (window[libraryName] = window[libraryName] || []);
+    if (!ttq.methods) {
+      ttq.methods = [
+        "page",
+        "track",
+        "identify",
+        "instances",
+        "debug",
+        "on",
+        "off",
+        "once",
+        "ready",
+        "alias",
+        "group",
+        "enableCookie",
+        "disableCookie",
+        "holdConsent",
+        "revokeConsent",
+        "grantConsent",
+      ];
+      ttq.setAndDefer = (target, method) => {
+        target[method] = function () {
+          target.push([method].concat(Array.prototype.slice.call(arguments, 0)));
+        };
       };
-    await loadScript("https://analytics.tiktok.com/i18n/pixel/events.js").catch(() => null);
-    if (window.ttq && typeof window.ttq.load === "function") {
-      window.ttq.load(config.tiktok_pixel_id);
+      for (let index = 0; index < ttq.methods.length; index += 1) {
+        ttq.setAndDefer(ttq, ttq.methods[index]);
+      }
+      ttq.instance = (instanceId) => {
+        const instance = (ttq._i && ttq._i[instanceId]) || [];
+        for (let index = 0; index < ttq.methods.length; index += 1) {
+          ttq.setAndDefer(instance, ttq.methods[index]);
+        }
+        return instance;
+      };
+      ttq.load = (sdkId, options) => {
+        const scriptUrl = "https://analytics.tiktok.com/i18n/pixel/events.js";
+        ttq._i = ttq._i || {};
+        ttq._i[sdkId] = [];
+        ttq._i[sdkId]._u = scriptUrl;
+        ttq._t = ttq._t || {};
+        ttq._t[sdkId] = +new Date();
+        ttq._o = ttq._o || {};
+        ttq._o[sdkId] = options || {};
+        const script = document.createElement("script");
+        script.type = "text/javascript";
+        script.async = true;
+        script.src = `${scriptUrl}?sdkid=${encodeURIComponent(sdkId)}&lib=${encodeURIComponent(libraryName)}`;
+        const firstScript = document.getElementsByTagName("script")[0];
+        firstScript.parentNode.insertBefore(script, firstScript);
+      };
     }
+    ttq.load(pixelId);
+    ttq.page();
     tiktokLoaded = true;
     return true;
   };

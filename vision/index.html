@@ -946,7 +946,7 @@
           appendStylesheet("/studio-shell-new.css?v=127");
           appendScript("/vision-config.js?v=41")
             .catch(() => null)
-            .then(() => appendScript("/vision-tracking.js?v=1"))
+            .then(() => appendScript("/vision-tracking.js?v=2"))
             .catch(() => null)
             .then(() => appendScript("/studio-shell-new.js?v=129"));
           return;
@@ -955,7 +955,7 @@
         appendScript("/public-footer.js?v=7")
           .then(() => appendScript("/vision-config.js?v=41"))
           .catch(() => null)
-          .then(() => appendScript("/vision-tracking.js?v=1"))
+          .then(() => appendScript("/vision-tracking.js?v=2"))
           .catch(() => null)
           .then(() => appendScript("/app.js?v=59"))
           .catch((error) => {
