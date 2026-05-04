@@ -1647,6 +1647,8 @@ const setAuthLoading = (loading, label) => {
     authSubmit.disabled = loading;
     if (label) {
       authSubmit.textContent = label;
+    } else if (!loading) {
+      authSubmit.textContent = authStep === "code" ? "Continue to Vision" : "Send access code";
     }
   }
   if (authEmail) {

@@ -770,6 +770,7 @@ def _send_resend_email(
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": "visionlabs-gateway/1.0",
         },
         method="POST",
     )
