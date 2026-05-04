@@ -12491,6 +12491,55 @@ html body:not(.is-studio-route) .auth-input {
   }
 }
 
+/* Pricing access footer restore v61 */
+html body:not(.is-studio-route) .subscribe-modal {
+  align-items: flex-start !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding: clamp(18px, 3vh, 34px) clamp(12px, 3vw, 28px) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-panel,
+html body:not(.is-studio-route) .subscribe-panel {
+  max-height: calc(100vh - clamp(36px, 6vh, 68px)) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding-bottom: clamp(32px, 5vh, 56px) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-form {
+  margin-top: clamp(20px, 3vh, 34px) !important;
+  padding-bottom: 2px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-returning {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  margin: 18px 0 0 !important;
+  padding-bottom: 4px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .subscribe-modal {
+    padding: 12px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-panel,
+  html body:not(.is-studio-route) .subscribe-panel {
+    max-height: calc(100vh - 24px) !important;
+    padding-bottom: 28px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-returning {
+    flex-wrap: wrap !important;
+    row-gap: 6px !important;
+  }
+}
+
 /* Pricing geometry polish v58 - final sharp edge lock */
 html body .pricing-shell,
 html body .subscribe-modal .subscribe-panel,
