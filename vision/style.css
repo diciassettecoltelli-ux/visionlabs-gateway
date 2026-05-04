@@ -12220,3 +12220,822 @@ body:not(.is-studio-route) .pricing-list li::before,
   font-weight: 900;
   line-height: 1;
 }
+
+/* Pricing geometry polish v49 */
+body:not(.is-studio-route) .pricing-shell,
+.subscribe-panel {
+  border-radius: 1rem;
+}
+
+body:not(.is-studio-route) .pricing-card,
+.subscribe-pack-card,
+body:not(.is-studio-route) .pricing-credit-info,
+.auth-panel,
+.auth-account {
+  border-radius: 0.78rem;
+}
+
+body:not(.is-studio-route) .pricing-button,
+.subscribe-submit,
+.subscribe-pack-card-cta,
+.auth-submit,
+.auth-secondary,
+.auth-close {
+  border-radius: 0.46rem;
+}
+
+body:not(.is-studio-route) .pricing-badge,
+body:not(.is-studio-route) .pricing-discount,
+body:not(.is-studio-route) .pricing-credit-label,
+.subscribe-pack-badge,
+.subscribe-pack-offer,
+.subscribe-pack-specs span,
+.subscribe-highlights li {
+  border-radius: 0.42rem;
+}
+
+.subscribe-input,
+.auth-input {
+  border-radius: 0.62rem;
+}
+
+@media (max-width: 760px) {
+  body:not(.is-studio-route) .pricing-shell,
+  .subscribe-panel {
+    border-radius: 0.86rem;
+  }
+
+  body:not(.is-studio-route) .pricing-card,
+  .subscribe-pack-card,
+  body:not(.is-studio-route) .pricing-credit-info {
+    border-radius: 0.68rem;
+  }
+
+  body:not(.is-studio-route) .pricing-button,
+  .subscribe-submit,
+  .subscribe-pack-card-cta {
+    border-radius: 0.44rem;
+  }
+}
+
+/* Pricing geometry polish v50 - squared premium edges */
+body:not(.is-studio-route) .pricing-shell,
+.subscribe-panel {
+  border-radius: 10px !important;
+}
+
+body:not(.is-studio-route) .pricing-card,
+.subscribe-pack-card,
+body:not(.is-studio-route) .pricing-credit-info,
+.auth-panel,
+.auth-account {
+  border-radius: 8px !important;
+}
+
+body:not(.is-studio-route) .pricing-card::before,
+.subscribe-pack-card::before,
+.subscribe-panel::before,
+.subscribe-panel::after {
+  border-radius: inherit !important;
+}
+
+body:not(.is-studio-route) .pricing-button,
+.subscribe-submit,
+.subscribe-pack-card-cta,
+.auth-submit,
+.auth-secondary,
+.auth-close {
+  border-radius: 6px !important;
+}
+
+body:not(.is-studio-route) .pricing-badge,
+body:not(.is-studio-route) .pricing-discount,
+body:not(.is-studio-route) .pricing-credit-label,
+body:not(.is-studio-route) .pricing-credit-total,
+.subscribe-pack-badge,
+.subscribe-pack-offer,
+.subscribe-pack-specs span,
+.subscribe-highlights li {
+  border-radius: 5px !important;
+}
+
+.subscribe-input,
+.auth-input {
+  border-radius: 8px !important;
+}
+
+@media (max-width: 760px) {
+  body:not(.is-studio-route) .pricing-shell,
+  .subscribe-panel {
+    border-radius: 9px !important;
+  }
+
+  body:not(.is-studio-route) .pricing-card,
+  .subscribe-pack-card,
+  body:not(.is-studio-route) .pricing-credit-info {
+    border-radius: 7px !important;
+  }
+
+  body:not(.is-studio-route) .pricing-button,
+  .subscribe-submit,
+  .subscribe-pack-card-cta {
+    border-radius: 5px !important;
+  }
+}
+
+/* Pricing geometry polish v51 - final deploy override */
+html body:not(.is-studio-route) .pricing-shell,
+html body:not(.is-studio-route) .subscribe-panel {
+  border-radius: 8px !important;
+}
+
+html body:not(.is-studio-route) .pricing-card,
+html body:not(.is-studio-route) .subscribe-pack-card,
+html body:not(.is-studio-route) .pricing-credit-info,
+html body:not(.is-studio-route) .auth-panel,
+html body:not(.is-studio-route) .auth-account {
+  border-radius: 6px !important;
+}
+
+html body:not(.is-studio-route) .pricing-card::before,
+html body:not(.is-studio-route) .subscribe-pack-card::before,
+html body:not(.is-studio-route) .subscribe-panel::before,
+html body:not(.is-studio-route) .subscribe-panel::after {
+  border-radius: inherit !important;
+}
+
+html body:not(.is-studio-route) .pricing-button,
+html body:not(.is-studio-route) .subscribe-submit,
+html body:not(.is-studio-route) .subscribe-pack-card-cta,
+html body:not(.is-studio-route) .auth-submit,
+html body:not(.is-studio-route) .auth-secondary,
+html body:not(.is-studio-route) .auth-close {
+  border-radius: 4px !important;
+}
+
+html body:not(.is-studio-route) .pricing-badge,
+html body:not(.is-studio-route) .pricing-discount,
+html body:not(.is-studio-route) .pricing-credit-label,
+html body:not(.is-studio-route) .pricing-credit-total,
+html body:not(.is-studio-route) .subscribe-pack-badge,
+html body:not(.is-studio-route) .subscribe-pack-offer,
+html body:not(.is-studio-route) .subscribe-pack-specs span,
+html body:not(.is-studio-route) .subscribe-highlights li {
+  border-radius: 4px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-input,
+html body:not(.is-studio-route) .auth-input {
+  border-radius: 6px !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .pricing-shell,
+  html body:not(.is-studio-route) .subscribe-panel {
+    border-radius: 7px !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-card,
+  html body:not(.is-studio-route) .subscribe-pack-card,
+  html body:not(.is-studio-route) .pricing-credit-info {
+    border-radius: 5px !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-button,
+  html body:not(.is-studio-route) .subscribe-submit,
+  html body:not(.is-studio-route) .subscribe-pack-card-cta {
+    border-radius: 4px !important;
+  }
+}
+
+/* Pricing geometry polish v59 - true final square lock */
+html body:not(.is-studio-route) .pricing-shell,
+html body:not(.is-studio-route) .subscribe-modal,
+html body:not(.is-studio-route) .subscribe-panel,
+html body:not(.is-studio-route) .access-modal,
+html body:not(.is-studio-route) .access-panel {
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+html body:not(.is-studio-route) .pricing-card,
+html body:not(.is-studio-route) .pricing-card.pricing-card--pro,
+html body:not(.is-studio-route) .subscribe-pack-card,
+html body:not(.is-studio-route) .subscribe-pack-card.is-selected,
+html body:not(.is-studio-route) .pricing-credit-info,
+html body:not(.is-studio-route) .auth-panel,
+html body:not(.is-studio-route) .auth-account {
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+html body:not(.is-studio-route) .pricing-card::before,
+html body:not(.is-studio-route) .pricing-card::after,
+html body:not(.is-studio-route) .subscribe-pack-card::before,
+html body:not(.is-studio-route) .subscribe-pack-card::after,
+html body:not(.is-studio-route) .subscribe-panel::before,
+html body:not(.is-studio-route) .subscribe-panel::after,
+html body:not(.is-studio-route) .pricing-shell::before,
+html body:not(.is-studio-route) .pricing-shell::after {
+  border-radius: inherit !important;
+}
+
+html body:not(.is-studio-route) .pricing-button,
+html body:not(.is-studio-route) .subscribe-submit,
+html body:not(.is-studio-route) .subscribe-pack-card-cta,
+html body:not(.is-studio-route) .auth-submit,
+html body:not(.is-studio-route) .auth-secondary,
+html body:not(.is-studio-route) .auth-close {
+  border-radius: 3px !important;
+}
+
+html body:not(.is-studio-route) .pricing-badge,
+html body:not(.is-studio-route) .pricing-discount,
+html body:not(.is-studio-route) .pricing-credit-label,
+html body:not(.is-studio-route) .pricing-credit-total,
+html body:not(.is-studio-route) .subscribe-pack-badge,
+html body:not(.is-studio-route) .subscribe-pack-offer,
+html body:not(.is-studio-route) .subscribe-pack-specs span,
+html body:not(.is-studio-route) .subscribe-highlights li {
+  border-radius: 2px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-input,
+html body:not(.is-studio-route) .auth-input {
+  border-radius: 3px !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .pricing-shell,
+  html body:not(.is-studio-route) .subscribe-modal,
+  html body:not(.is-studio-route) .subscribe-panel,
+  html body:not(.is-studio-route) .access-modal,
+  html body:not(.is-studio-route) .access-panel,
+  html body:not(.is-studio-route) .pricing-card,
+  html body:not(.is-studio-route) .subscribe-pack-card,
+  html body:not(.is-studio-route) .pricing-credit-info,
+  html body:not(.is-studio-route) .auth-panel,
+  html body:not(.is-studio-route) .auth-account {
+    border-radius: 4px !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-button,
+  html body:not(.is-studio-route) .subscribe-submit,
+  html body:not(.is-studio-route) .subscribe-pack-card-cta,
+  html body:not(.is-studio-route) .auth-submit,
+  html body:not(.is-studio-route) .auth-secondary,
+  html body:not(.is-studio-route) .auth-close,
+  html body:not(.is-studio-route) .subscribe-input,
+  html body:not(.is-studio-route) .auth-input {
+    border-radius: 3px !important;
+  }
+}
+
+/* Pricing geometry polish v58 - final sharp edge lock */
+html body .pricing-shell,
+html body .subscribe-modal .subscribe-panel,
+html body .subscribe-panel,
+html body .subscribe-modal,
+html body .access-panel,
+html body .access-modal {
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+html body .pricing-card,
+html body .pricing-card.pricing-card--pro,
+html body .subscribe-modal .subscribe-pack-card,
+html body .subscribe-pack-card,
+html body .subscribe-pack-card.is-selected,
+html body .pricing-credit-info,
+html body .auth-panel,
+html body .auth-account {
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+html body .pricing-card::before,
+html body .pricing-card::after,
+html body .subscribe-pack-card::before,
+html body .subscribe-pack-card::after,
+html body .subscribe-panel::before,
+html body .subscribe-panel::after,
+html body .pricing-shell::before,
+html body .pricing-shell::after,
+html body .pricing-button::before,
+html body .pricing-button::after,
+html body .subscribe-pack-card-cta::before,
+html body .subscribe-pack-card-cta::after {
+  border-radius: inherit !important;
+}
+
+html body .pricing-button,
+html body .subscribe-submit,
+html body .subscribe-pack-card-cta,
+html body .auth-submit,
+html body .auth-secondary,
+html body .auth-close {
+  border-radius: 3px !important;
+}
+
+html body .pricing-badge,
+html body .pricing-discount,
+html body .pricing-credit-label,
+html body .pricing-credit-total,
+html body .subscribe-pack-badge,
+html body .subscribe-pack-offer,
+html body .subscribe-pack-specs span,
+html body .subscribe-highlights li,
+html body .subscribe-benefits-chip {
+  border-radius: 2px !important;
+}
+
+html body .subscribe-input,
+html body .auth-input {
+  border-radius: 3px !important;
+}
+
+@media (max-width: 760px) {
+  html body .pricing-shell,
+  html body .subscribe-modal .subscribe-panel,
+  html body .subscribe-panel,
+  html body .auth-panel,
+  html body .access-panel {
+    border-radius: 4px !important;
+  }
+
+  html body .pricing-card,
+  html body .subscribe-modal .subscribe-pack-card,
+  html body .subscribe-pack-card,
+  html body .pricing-credit-info,
+  html body .auth-account {
+    border-radius: 4px !important;
+  }
+
+  html body .pricing-button,
+  html body .subscribe-submit,
+  html body .subscribe-pack-card-cta,
+  html body .auth-submit,
+  html body .auth-secondary,
+  html body .auth-close,
+  html body .subscribe-input,
+  html body .auth-input {
+    border-radius: 3px !important;
+  }
+}
+
+/* Pricing geometry polish v57 - absolute live edge override */
+html body:not(.is-studio-route) .pricing-shell,
+html body:not(.is-studio-route) .subscribe-panel,
+html body:not(.is-studio-route) .subscribe-modal,
+html body:not(.is-studio-route) .access-panel,
+html body:not(.is-studio-route) .access-modal {
+  border-radius: 4px !important;
+}
+
+html body:not(.is-studio-route) .pricing-card,
+html body:not(.is-studio-route) .subscribe-pack-card,
+html body:not(.is-studio-route) .pricing-credit-info,
+html body:not(.is-studio-route) .auth-panel,
+html body:not(.is-studio-route) .auth-account {
+  border-radius: 4px !important;
+}
+
+html body:not(.is-studio-route) .pricing-shell::before,
+html body:not(.is-studio-route) .subscribe-panel::before,
+html body:not(.is-studio-route) .subscribe-panel::after,
+html body:not(.is-studio-route) .pricing-card::before,
+html body:not(.is-studio-route) .subscribe-pack-card::before,
+html body:not(.is-studio-route) .auth-panel::before {
+  border-radius: inherit !important;
+}
+
+html body:not(.is-studio-route) .pricing-button,
+html body:not(.is-studio-route) .subscribe-submit,
+html body:not(.is-studio-route) .subscribe-pack-card-cta,
+html body:not(.is-studio-route) .auth-submit,
+html body:not(.is-studio-route) .auth-secondary,
+html body:not(.is-studio-route) .auth-close {
+  border-radius: 3px !important;
+}
+
+html body:not(.is-studio-route) .pricing-badge,
+html body:not(.is-studio-route) .pricing-discount,
+html body:not(.is-studio-route) .pricing-credit-label,
+html body:not(.is-studio-route) .pricing-credit-total,
+html body:not(.is-studio-route) .subscribe-pack-badge,
+html body:not(.is-studio-route) .subscribe-pack-offer,
+html body:not(.is-studio-route) .subscribe-pack-specs span,
+html body:not(.is-studio-route) .subscribe-highlights li,
+html body:not(.is-studio-route) .subscribe-benefits-chip {
+  border-radius: 2px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-input,
+html body:not(.is-studio-route) .auth-input {
+  border-radius: 3px !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .pricing-shell,
+  html body:not(.is-studio-route) .subscribe-panel,
+  html body:not(.is-studio-route) .subscribe-modal,
+  html body:not(.is-studio-route) .access-panel,
+  html body:not(.is-studio-route) .access-modal,
+  html body:not(.is-studio-route) .pricing-card,
+  html body:not(.is-studio-route) .subscribe-pack-card,
+  html body:not(.is-studio-route) .pricing-credit-info {
+    border-radius: 4px !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-button,
+  html body:not(.is-studio-route) .subscribe-submit,
+  html body:not(.is-studio-route) .subscribe-pack-card-cta,
+  html body:not(.is-studio-route) .subscribe-input,
+  html body:not(.is-studio-route) .auth-input {
+    border-radius: 3px !important;
+  }
+}
+
+/* Pricing geometry polish v56 - true final deployment override */
+html body .pricing-shell,
+html body .subscribe-modal .subscribe-panel,
+html body .subscribe-panel {
+  border-radius: 5px !important;
+  overflow: hidden !important;
+}
+
+html body .pricing-card,
+html body .pricing-card.pricing-card--pro,
+html body .subscribe-modal .subscribe-pack-card,
+html body .subscribe-pack-card,
+html body .subscribe-pack-card.is-selected,
+html body .pricing-credit-info,
+html body .auth-panel,
+html body .auth-account {
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+html body .pricing-card::before,
+html body .pricing-card::after,
+html body .subscribe-pack-card::before,
+html body .subscribe-pack-card::after,
+html body .subscribe-panel::before,
+html body .subscribe-panel::after,
+html body .pricing-shell::before,
+html body .pricing-shell::after,
+html body .pricing-button::before,
+html body .pricing-button::after,
+html body .subscribe-pack-card-cta::before,
+html body .subscribe-pack-card-cta::after {
+  border-radius: inherit !important;
+}
+
+html body .pricing-button,
+html body .subscribe-submit,
+html body .subscribe-pack-card-cta,
+html body .auth-submit,
+html body .auth-secondary,
+html body .auth-close {
+  border-radius: 3px !important;
+}
+
+html body .pricing-badge,
+html body .pricing-discount,
+html body .pricing-credit-label,
+html body .pricing-credit-total,
+html body .subscribe-pack-badge,
+html body .subscribe-pack-offer,
+html body .subscribe-pack-specs span,
+html body .subscribe-highlights li,
+html body .subscribe-input,
+html body .auth-input {
+  border-radius: 3px !important;
+}
+
+@media (max-width: 760px) {
+  html body .pricing-shell,
+  html body .subscribe-modal .subscribe-panel,
+  html body .subscribe-panel {
+    border-radius: 4px !important;
+  }
+
+  html body .pricing-card,
+  html body .pricing-card.pricing-card--pro,
+  html body .subscribe-modal .subscribe-pack-card,
+  html body .subscribe-pack-card,
+  html body .subscribe-pack-card.is-selected,
+  html body .pricing-credit-info,
+  html body .auth-panel,
+  html body .auth-account {
+    border-radius: 4px !important;
+  }
+
+  html body .pricing-button,
+  html body .subscribe-submit,
+  html body .subscribe-pack-card-cta,
+  html body .auth-submit,
+  html body .auth-secondary,
+  html body .auth-close {
+    border-radius: 3px !important;
+  }
+}
+
+/* Pricing geometry polish v55 - deployment lock */
+html body .pricing-shell,
+html body .subscribe-modal .subscribe-panel,
+html body .subscribe-panel {
+  border-radius: 5px !important;
+  overflow: hidden !important;
+}
+
+html body .pricing-card,
+html body .pricing-card.pricing-card--pro,
+html body .subscribe-modal .subscribe-pack-card,
+html body .subscribe-pack-card,
+html body .subscribe-pack-card.is-selected,
+html body .pricing-credit-info,
+html body .auth-panel,
+html body .auth-account {
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+html body .pricing-card::before,
+html body .pricing-card::after,
+html body .subscribe-pack-card::before,
+html body .subscribe-pack-card::after,
+html body .subscribe-panel::before,
+html body .subscribe-panel::after,
+html body .pricing-shell::before,
+html body .pricing-shell::after,
+html body .pricing-button::before,
+html body .pricing-button::after,
+html body .subscribe-pack-card-cta::before,
+html body .subscribe-pack-card-cta::after {
+  border-radius: inherit !important;
+}
+
+html body .pricing-button,
+html body .subscribe-submit,
+html body .subscribe-pack-card-cta,
+html body .auth-submit,
+html body .auth-secondary,
+html body .auth-close {
+  border-radius: 3px !important;
+}
+
+html body .pricing-badge,
+html body .pricing-discount,
+html body .pricing-credit-label,
+html body .pricing-credit-total,
+html body .subscribe-pack-badge,
+html body .subscribe-pack-offer,
+html body .subscribe-pack-specs span,
+html body .subscribe-highlights li {
+  border-radius: 3px !important;
+}
+
+html body .subscribe-input,
+html body .auth-input {
+  border-radius: 4px !important;
+}
+
+@media (max-width: 760px) {
+  html body .pricing-shell,
+  html body .subscribe-modal .subscribe-panel,
+  html body .subscribe-panel {
+    border-radius: 5px !important;
+  }
+
+  html body .pricing-card,
+  html body .subscribe-modal .subscribe-pack-card,
+  html body .subscribe-pack-card,
+  html body .auth-panel,
+  html body .auth-account {
+    border-radius: 4px !important;
+  }
+
+  html body .pricing-button,
+  html body .subscribe-submit,
+  html body .subscribe-pack-card-cta,
+  html body .auth-submit,
+  html body .auth-secondary,
+  html body .auth-close {
+    border-radius: 3px !important;
+  }
+}
+
+/* Pricing geometry polish v54 - true EOF override */
+html body:not(.is-studio-route) .pricing-shell,
+html body:not(.is-studio-route) .subscribe-panel {
+  border-radius: 8px !important;
+}
+
+html body:not(.is-studio-route) .pricing-card,
+html body:not(.is-studio-route) .subscribe-pack-card,
+html body:not(.is-studio-route) .pricing-credit-info,
+html body:not(.is-studio-route) .auth-panel,
+html body:not(.is-studio-route) .auth-account {
+  border-radius: 6px !important;
+}
+
+html body:not(.is-studio-route) .pricing-card::before,
+html body:not(.is-studio-route) .subscribe-pack-card::before,
+html body:not(.is-studio-route) .subscribe-panel::before,
+html body:not(.is-studio-route) .subscribe-panel::after {
+  border-radius: inherit !important;
+}
+
+html body:not(.is-studio-route) .pricing-button,
+html body:not(.is-studio-route) .subscribe-submit,
+html body:not(.is-studio-route) .subscribe-pack-card-cta,
+html body:not(.is-studio-route) .auth-submit,
+html body:not(.is-studio-route) .auth-secondary,
+html body:not(.is-studio-route) .auth-close {
+  border-radius: 4px !important;
+}
+
+html body:not(.is-studio-route) .pricing-badge,
+html body:not(.is-studio-route) .pricing-discount,
+html body:not(.is-studio-route) .pricing-credit-label,
+html body:not(.is-studio-route) .pricing-credit-total,
+html body:not(.is-studio-route) .subscribe-pack-badge,
+html body:not(.is-studio-route) .subscribe-pack-offer,
+html body:not(.is-studio-route) .subscribe-pack-specs span,
+html body:not(.is-studio-route) .subscribe-highlights li {
+  border-radius: 4px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-input,
+html body:not(.is-studio-route) .auth-input {
+  border-radius: 6px !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .pricing-shell,
+  html body:not(.is-studio-route) .subscribe-panel {
+    border-radius: 7px !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-card,
+  html body:not(.is-studio-route) .subscribe-pack-card,
+  html body:not(.is-studio-route) .pricing-credit-info {
+    border-radius: 5px !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-button,
+  html body:not(.is-studio-route) .subscribe-submit,
+  html body:not(.is-studio-route) .subscribe-pack-card-cta {
+    border-radius: 4px !important;
+  }
+}
+
+/* Pricing geometry polish v52 - absolute final override */
+html body:not(.is-studio-route) .pricing-shell,
+html body:not(.is-studio-route) .subscribe-panel {
+  border-radius: 8px !important;
+}
+
+html body:not(.is-studio-route) .pricing-card,
+html body:not(.is-studio-route) .subscribe-pack-card,
+html body:not(.is-studio-route) .pricing-credit-info,
+html body:not(.is-studio-route) .auth-panel,
+html body:not(.is-studio-route) .auth-account {
+  border-radius: 6px !important;
+}
+
+html body:not(.is-studio-route) .pricing-card::before,
+html body:not(.is-studio-route) .subscribe-pack-card::before,
+html body:not(.is-studio-route) .subscribe-panel::before,
+html body:not(.is-studio-route) .subscribe-panel::after {
+  border-radius: inherit !important;
+}
+
+html body:not(.is-studio-route) .pricing-button,
+html body:not(.is-studio-route) .subscribe-submit,
+html body:not(.is-studio-route) .subscribe-pack-card-cta,
+html body:not(.is-studio-route) .auth-submit,
+html body:not(.is-studio-route) .auth-secondary,
+html body:not(.is-studio-route) .auth-close {
+  border-radius: 4px !important;
+}
+
+html body:not(.is-studio-route) .pricing-badge,
+html body:not(.is-studio-route) .pricing-discount,
+html body:not(.is-studio-route) .pricing-credit-label,
+html body:not(.is-studio-route) .pricing-credit-total,
+html body:not(.is-studio-route) .subscribe-pack-badge,
+html body:not(.is-studio-route) .subscribe-pack-offer,
+html body:not(.is-studio-route) .subscribe-pack-specs span,
+html body:not(.is-studio-route) .subscribe-highlights li {
+  border-radius: 4px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-input,
+html body:not(.is-studio-route) .auth-input {
+  border-radius: 6px !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .pricing-shell,
+  html body:not(.is-studio-route) .subscribe-panel {
+    border-radius: 7px !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-card,
+  html body:not(.is-studio-route) .subscribe-pack-card,
+  html body:not(.is-studio-route) .pricing-credit-info {
+    border-radius: 5px !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-button,
+  html body:not(.is-studio-route) .subscribe-submit,
+  html body:not(.is-studio-route) .subscribe-pack-card-cta {
+    border-radius: 4px !important;
+  }
+}
+
+/* Pricing geometry polish v60 - absolute live-final square lock */
+html body:not(.is-studio-route) .pricing-shell,
+html body:not(.is-studio-route) .subscribe-modal,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-panel,
+html body:not(.is-studio-route) .subscribe-panel,
+html body:not(.is-studio-route) .access-modal,
+html body:not(.is-studio-route) .access-panel {
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+html body:not(.is-studio-route) .pricing-card,
+html body:not(.is-studio-route) .pricing-card.pricing-card--pro,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card,
+html body:not(.is-studio-route) .subscribe-pack-card,
+html body:not(.is-studio-route) .subscribe-pack-card.is-selected,
+html body:not(.is-studio-route) .pricing-credit-info,
+html body:not(.is-studio-route) .auth-panel,
+html body:not(.is-studio-route) .auth-account {
+  border-radius: 4px !important;
+  overflow: hidden !important;
+}
+
+html body:not(.is-studio-route) .pricing-card::before,
+html body:not(.is-studio-route) .pricing-card::after,
+html body:not(.is-studio-route) .subscribe-pack-card::before,
+html body:not(.is-studio-route) .subscribe-pack-card::after,
+html body:not(.is-studio-route) .subscribe-panel::before,
+html body:not(.is-studio-route) .subscribe-panel::after,
+html body:not(.is-studio-route) .access-panel::before,
+html body:not(.is-studio-route) .access-panel::after {
+  border-radius: inherit !important;
+}
+
+html body:not(.is-studio-route) .pricing-button,
+html body:not(.is-studio-route) .subscribe-submit,
+html body:not(.is-studio-route) .subscribe-pack-card-cta,
+html body:not(.is-studio-route) .auth-submit,
+html body:not(.is-studio-route) .auth-secondary,
+html body:not(.is-studio-route) .auth-close {
+  border-radius: 3px !important;
+}
+
+html body:not(.is-studio-route) .pricing-badge,
+html body:not(.is-studio-route) .pricing-discount,
+html body:not(.is-studio-route) .pricing-credit-label,
+html body:not(.is-studio-route) .pricing-credit-total,
+html body:not(.is-studio-route) .subscribe-pack-badge,
+html body:not(.is-studio-route) .subscribe-pack-offer,
+html body:not(.is-studio-route) .subscribe-pack-specs span,
+html body:not(.is-studio-route) .subscribe-highlights li,
+html body:not(.is-studio-route) .pricing-trust-pill {
+  border-radius: 2px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-input,
+html body:not(.is-studio-route) .auth-input {
+  border-radius: 3px !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .pricing-shell,
+  html body:not(.is-studio-route) .subscribe-modal,
+  html body:not(.is-studio-route) .subscribe-panel,
+  html body:not(.is-studio-route) .access-panel,
+  html body:not(.is-studio-route) .pricing-card,
+  html body:not(.is-studio-route) .subscribe-pack-card,
+  html body:not(.is-studio-route) .pricing-credit-info {
+    border-radius: 4px !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-button,
+  html body:not(.is-studio-route) .subscribe-submit,
+  html body:not(.is-studio-route) .subscribe-pack-card-cta,
+  html body:not(.is-studio-route) .auth-submit,
+  html body:not(.is-studio-route) .auth-secondary,
+  html body:not(.is-studio-route) .auth-close,
+  html body:not(.is-studio-route) .subscribe-input,
+  html body:not(.is-studio-route) .auth-input {
+    border-radius: 3px !important;
+  }
+}
