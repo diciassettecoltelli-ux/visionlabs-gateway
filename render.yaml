@@ -111,6 +111,8 @@ services:
         sync: false
       - key: VISION_NOTIFY_SMTP_PASSWORD
         sync: false
+      - key: VISION_NOTIFY_RESEND_API_KEY
+        sync: false
       - key: VISION_NOTIFY_SMTP_USE_SSL
         value: false
       - key: VISION_NOTIFY_SMTP_USE_STARTTLS

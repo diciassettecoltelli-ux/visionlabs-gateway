@@ -740,9 +740,53 @@ def _notification_sender() -> str:
     return "vision@localhost"
 
 
+def _resend_api_key_for_email(host: str, password: str) -> str:
+    configured = os.environ.get("VISION_NOTIFY_RESEND_API_KEY", "").strip()
+    if configured:
+        return configured
+    if host == "smtp.resend.com" and password.startswith("re_"):
+        return password
+    return ""
+
+
+def _send_resend_email(
+    *,
+    api_key: str,
+    recipients: list[str],
+    subject: str,
+    body_lines: list[str],
+    sender: str,
+) -> None:
+    payload = {
+        "from": sender,
+        "to": recipients,
+        "subject": subject,
+        "text": "\n".join(body_lines),
+    }
+    encoded_payload = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=encoded_payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            if response.status not in {200, 201, 202}:
+                raise RuntimeError(f"Resend API returned HTTP {response.status}.")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Resend API returned HTTP {exc.code}: {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Resend API connection failed: {exc.reason}") from exc
+
+
 def _send_email(*, recipients: list[str], subject: str, body_lines: list[str], sender: str | None = None) -> None:
     host = os.environ.get("VISION_NOTIFY_SMTP_HOST", "").strip()
-    if not recipients or not host:
+    if not recipients:
         return
 
     port = int(os.environ.get("VISION_NOTIFY_SMTP_PORT", "587"))
@@ -750,10 +794,25 @@ def _send_email(*, recipients: list[str], subject: str, body_lines: list[str], s
     password = os.environ.get("VISION_NOTIFY_SMTP_PASSWORD", "").strip()
     use_ssl = os.environ.get("VISION_NOTIFY_SMTP_USE_SSL", "false").strip().lower() in {"1", "true", "yes", "on"}
     use_starttls = os.environ.get("VISION_NOTIFY_SMTP_USE_STARTTLS", "true").strip().lower() in {"1", "true", "yes", "on"}
+    resolved_sender = sender or _notification_sender()
+
+    resend_api_key = _resend_api_key_for_email(host, password)
+    if resend_api_key:
+        _send_resend_email(
+            api_key=resend_api_key,
+            recipients=recipients,
+            subject=subject,
+            body_lines=body_lines,
+            sender=resolved_sender,
+        )
+        return
+
+    if not host:
+        return
 
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = sender or _notification_sender()
+    message["From"] = resolved_sender
     message["To"] = ", ".join(recipients)
     message.set_content("\n".join(body_lines))
 

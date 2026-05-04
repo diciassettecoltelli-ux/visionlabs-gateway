@@ -1978,6 +1978,9 @@ const requestAuthCode = async (email) => {
     }
   } finally {
     setAuthLoading(false);
+    if (authStep === "email") {
+      renderAuthState();
+    }
   }
 };
 
