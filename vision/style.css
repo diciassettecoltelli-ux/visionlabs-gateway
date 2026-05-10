@@ -14387,3 +14387,44 @@ html body:not(.is-studio-route) .subscribe-modal .subscribe-returning-link {
     min-height: 36px !important;
   }
 }
+
+html body:not(.is-studio-route) .pricing-grid--single {
+  grid-template-columns: minmax(0, 42rem) !important;
+  justify-content: center !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single .pricing-card {
+  min-height: auto !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single .pricing-price {
+  align-items: baseline !important;
+  margin-top: 0.72rem !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single .pricing-price-current {
+  font-size: clamp(2.6rem, 5.5vw, 4.6rem) !important;
+  font-weight: 780 !important;
+  line-height: 0.92 !important;
+  color: rgba(250, 248, 242, 0.98) !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single .pricing-price-note {
+  font-size: 0.72rem !important;
+  letter-spacing: 0.14em !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single .pricing-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  column-gap: 1.1rem !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .pricing-grid--single {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html body:not(.is-studio-route) .pricing-grid--single .pricing-list {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}

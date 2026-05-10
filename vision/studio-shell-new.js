@@ -33,7 +33,7 @@
   const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
   const VISION_ASSET_CACHE_DB = "vision_asset_cache_v1";
   const VISION_ASSET_CACHE_STORE = "assets";
-  const DEFAULT_PACK_ID = "creator";
+  const DEFAULT_PACK_ID = "studio";
   const VISION_DURATION_OPTIONS = [3, 5, 10, 15];
   const VISION_RESOLUTION_OPTIONS = ["480p", "720p", "1080p", "4k"];
 
@@ -66,14 +66,14 @@
 
   const defaultPack = {
     id: DEFAULT_PACK_ID,
-    name: "Vision Creator",
-    price_cents: 1990,
-    original_price_cents: 3990,
+    name: "Vision Studio",
+    price_cents: 2499,
+    original_price_cents: 2499,
     currency: "EUR",
-    vision_credits: 2000000,
-    credit_label: "2M credits",
-    total_credit_label: "2.000.000 total credits",
-    discount_label: "Save 50%",
+    vision_credits: 3000000,
+    credit_label: "3M monthly creative credits",
+    total_credit_label: "3.000.000 monthly creative credits",
+    discount_label: "",
   };
 
   const defaultViewer = {
@@ -1041,7 +1041,7 @@
       return {
         variant: "guest",
         label: "Access Vision",
-        subtitle: "Log in or buy a pack",
+        subtitle: "Log in or start Studio",
       };
     }
     const avatar = state.user.email ? state.user.email.charAt(0).toUpperCase() : "A";
@@ -1227,9 +1227,9 @@
     }
     return packs.map((pack) => ({
       id: String(pack && pack.id ? pack.id : DEFAULT_PACK_ID).toLowerCase(),
-      name: String(pack && pack.name ? pack.name : "Vision Creator"),
-      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 1990),
-      original_price_cents: Number(pack && pack.original_price_cents ? pack.original_price_cents : 3990),
+      name: String(pack && pack.name ? pack.name : "Vision Studio"),
+      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 2499),
+      original_price_cents: Number(pack && pack.original_price_cents ? pack.original_price_cents : 2499),
       currency: String(pack && pack.currency ? pack.currency : "EUR"),
       vision_credits: Number(pack && pack.vision_credits ? pack.vision_credits : 0),
       credit_label: String(pack && pack.credit_label ? pack.credit_label : ""),
@@ -1241,7 +1241,7 @@
     state.packs[0] || { ...defaultPack };
 
   const formatPackPrice = (pack) => {
-    const amount = Number((pack && pack.price_cents) || 999) / 100;
+    const amount = Number((pack && pack.price_cents) || 2499) / 100;
     const currency = String((pack && pack.currency) || "EUR").toUpperCase();
     try {
       return new Intl.NumberFormat("it-IT", {
@@ -1516,7 +1516,7 @@
     }
     state.accountPanelOpen = true;
     state.authStep = "email";
-    state.authNote = detail && detail.message ? detail.message : "Unlock a Vision pack to keep creating.";
+    state.authNote = detail && detail.message ? detail.message : "Start Vision Studio to keep creating.";
     state.currentJob = null;
     syncScene();
     render();
@@ -1779,6 +1779,7 @@
 
   const renderHeader = () => {
     const pill = getAccountPillState();
+    const hasAccess = !!state.access.admin || hasPackContext();
     return `
       <header class="vss-header">
         <div class="vss-brand-cluster">
@@ -1792,7 +1793,7 @@
           ${
             state.access.admin
               ? ""
-              : `<button class="vss-credit-topup" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Buy more credits"}</button>`
+              : `<button class="vss-credit-topup" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : hasAccess ? "Renew Vision Studio" : "Start Vision Studio"}</button>`
           }
           <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Access Vision" : "Vision account and credits"}" aria-haspopup="dialog" aria-expanded="${state.accountPanelOpen ? "true" : "false"}">
             ${
@@ -1959,6 +1960,7 @@
 
   const renderGenerationControls = () => {
     const cost = getGenerationCost();
+    const showCreditCost = !!state.access.admin || hasPackContext();
     const resolutionButtons = VISION_RESOLUTION_OPTIONS.map((resolution) => {
       const label = resolution === "4k" ? "4K" : resolution;
       return `<button class="vss-control-pill${normalizeResolution(state.resolution) === resolution ? " is-active" : ""}" type="button" data-resolution="${resolution}">${label}</button>`;
@@ -1988,10 +1990,14 @@
               </button>`
             : ""
         }
-        <div class="vss-credit-cost" title="${escapeHtml(cost.label)}">
-          <span>${escapeHtml(cost.label)}</span>
-          <strong>${formatVisionCredits(cost.amount)} credits</strong>
-        </div>
+        ${
+          showCreditCost
+            ? `<div class="vss-credit-cost" title="${escapeHtml(cost.label)}">
+                <span>${escapeHtml(cost.label)}</span>
+                <strong>${state.access.admin ? "Included" : `${formatVisionCredits(cost.amount)} credits`}</strong>
+              </div>`
+            : ""
+        }
       </div>
     `;
   };
@@ -2006,7 +2012,7 @@
             <button type="button" data-mode="image" class="${state.mode === "image" ? "is-active" : ""}">Image</button>
           </div>
           <span class="vss-mode-separator" aria-hidden="true"></span>
-          <span class="vss-mode-access">${escapeHtml(getAccessLabel())}</span>
+          <span class="vss-mode-access">${escapeHtml(hasPackContext() || state.access.admin ? getAccessLabel() : "Vision Studio")}</span>
         </div>
         ${renderGenerationControls()}
       </div>
@@ -2200,12 +2206,12 @@
           <div class="vss-account-panel-head">
             <div>
               <div class="vss-account-panel-kicker">${showAccount ? "Account" : "Access"}</div>
-              <h2 class="vss-account-panel-title" id="vss-account-title">${showAccount ? "Vision account and credits" : "Access your Vision pack"}</h2>
+              <h2 class="vss-account-panel-title" id="vss-account-title">${showAccount ? "Vision account and credits" : "Access Vision Studio"}</h2>
               <p class="vss-account-panel-copy">
                 ${
                   showAccount
                     ? "See your credits, manage access and jump back into Vision."
-                    : "Enter your email for a one-time access code, or open secure checkout for a new pack."
+                    : "Enter your email for a one-time access code, or open secure checkout for Vision Studio."
                 }
               </p>
             </div>
@@ -2232,7 +2238,7 @@
                     </div>
                   </div>
                   <div class="vss-account-actions">
-                    ${state.access.admin ? "" : `<button class="vss-account-primary" id="vss-buy-pack" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Buy more credits"}</button>`}
+                    ${state.access.admin ? "" : `<button class="vss-account-primary" id="vss-buy-pack" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Renew Vision Studio"}</button>`}
                     <button class="vss-account-secondary" id="vss-logout" type="button">${state.authLoading ? "Logging out..." : "Log out"}</button>
                   </div>
                 </div>`
@@ -2247,11 +2253,11 @@
                   }
                   <div class="vss-account-actions">
                     <button class="vss-account-primary" id="vss-auth-submit" type="submit">${state.authLoading ? "Please wait..." : state.authStep === "code" ? "Continue to Vision" : "Send access code"}</button>
-                    <button class="vss-account-secondary" id="vss-buy-pack" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Buy Vision credits"}</button>
+                    <button class="vss-account-secondary" id="vss-buy-pack" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Start Vision Studio"}</button>
                   </div>
                 </form>`
           }
-          <p class="vss-account-panel-note">${escapeHtml(state.authNote || (showAccount ? "Your pack follows you anywhere you sign into Vision." : "We’ll send a one-time access code so your pack follows you when you come back."))}</p>
+          <p class="vss-account-panel-note">${escapeHtml(state.authNote || (showAccount ? "Your monthly creative credits refresh inside Vision Studio." : "We’ll send a one-time access code so your Studio access follows you when you come back."))}</p>
         </div>
       </div>
     `;
@@ -2536,7 +2542,7 @@
         if (!email || email.indexOf("@") === -1) {
           state.accountPanelOpen = true;
           state.authStep = hasAccountContext() ? "account" : "email";
-          state.authNote = "Enter your email to buy Vision credits.";
+          state.authNote = "Enter your email to start Vision Studio.";
           render();
           return;
         }

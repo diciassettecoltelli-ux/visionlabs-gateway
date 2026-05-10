@@ -97,7 +97,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "126";
+const STUDIO_SHELL_ASSET_VERSION = "130";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -117,70 +117,38 @@ const getVisionTrackingContext = (overrides = {}) =>
 
 const defaultPacks = [
   {
-    id: "starter",
-    name: "Vision Starter",
-    subtitle: "Short videos + images",
-    description: "For testing ideas, short clips, and images.",
-    price_cents: 990,
-    original_price_cents: 1490,
+    id: "studio",
+    name: "Vision Studio",
+    subtitle: "Monthly cinematic creation",
+    description: "Premium monthly access for visual creators.",
+    price_cents: 2499,
+    original_price_cents: 2499,
     currency: "eur",
-    vision_credits: 500000,
-    credit_label: "500K credits",
-    total_credit_label: "500.000 total credits",
-    discount_label: "Save 34%",
-    video_credits: 5,
-    image_credits: 50,
-    video_label: "5 videos",
-    duration_label: "Videos up to 15 seconds",
-    image_label: "50 images",
-    value_label: "Creates up to 5 videos and 50 images.",
-    badge: "",
-    cta_label: "Start with Starter",
-    features: ["Prompt enhancement", "Watermark-free exports", "Private downloads"],
-  },
-  {
-    id: "creator",
-    name: "Vision Creator",
-    subtitle: "Best value for creators",
-    description: "Best value for creators and social content.",
-    price_cents: 1990,
-    original_price_cents: 3990,
-    currency: "eur",
-    vision_credits: 2000000,
-    credit_label: "2M credits",
-    total_credit_label: "2.000.000 total credits",
-    discount_label: "Save 50%",
-    video_credits: 10,
+    vision_credits: 3000000,
+    credit_label: "3M monthly creative credits",
+    total_credit_label: "3.000.000 monthly creative credits",
+    discount_label: "",
+    video_credits: 50,
     image_credits: 200,
-    video_label: "10 videos",
+    video_label: "Up to 50 cinematic videos",
     duration_label: "Videos up to 15 seconds",
-    image_label: "200 images",
-    value_label: "Creates up to 10 standard videos and 200 images.",
-    badge: "Best value",
-    cta_label: "Choose Creator",
-    features: ["Full HD video generation", "Sound on/off control", "Premium cinematic prompt refinement", "Watermark-free exports"],
-  },
-  {
-    id: "pro",
-    name: "Vision Pro",
-    subtitle: "Premium generation",
-    description: "For campaigns, premium clips, and heavier creation.",
-    price_cents: 2990,
-    original_price_cents: 8990,
-    currency: "eur",
-    vision_credits: 5000000,
-    credit_label: "5M credits",
-    total_credit_label: "5.000.000 total credits",
-    discount_label: "Save 67%",
-    video_credits: 25,
-    image_credits: 500,
-    video_label: "25 videos",
-    duration_label: "Videos up to 15 seconds",
-    image_label: "500 images",
-    value_label: "Creates up to 25 standard videos and 500 images.",
-    badge: "Premium",
-    cta_label: "Go Pro",
-    features: ["Up to 4K-ready output", "Advanced cinematic refinement", "Sound on/off control", "Campaign-ready exports"],
+    image_label: "Up to 200 images",
+    value_label: "Up to 50 cinematic videos and 200 images.",
+    badge: "Monthly",
+    cta_label: "Start Vision Studio",
+    features: [
+      "Upload your own images",
+      "Animate and edit your images",
+      "Upload your own videos",
+      "Edit and transform videos",
+      "Videos up to 15 seconds",
+      "4K mode available",
+      "Audio generation available",
+      "Prompt enhancement included",
+      "Private gallery",
+      "No watermark",
+      "Monthly refresh",
+    ],
   },
 ];
 
@@ -497,12 +465,12 @@ const formatPackPrice = (pack) => {
 };
 
 const formatPackLine = (pack) =>
-  `${formatPackPrice(pack)} · one-time unlock · ${pack.credit_label || `${pack.video_credits} videos + ${pack.image_credits} images`}`;
+  `${formatPackPrice(pack)} / month · Vision Studio`;
 
 const normalizePack = (pack = {}) => ({
   ...defaultPack,
   ...pack,
-  id: String(pack?.id || defaultPack.id || "starter").toLowerCase(),
+  id: String(pack?.id || defaultPack.id || "studio").toLowerCase(),
   features: Array.isArray(pack?.features) && pack.features.length ? pack.features : defaultPack.features,
 });
 
@@ -569,7 +537,7 @@ let improvePromptInFlight = false;
 let accessState = { ...defaultAccess };
 let currentUser = { ...defaultUser };
 let currentPacks = normalizePackList(defaultPacks);
-let selectedPackId = "creator";
+let selectedPackId = "studio";
 let currentPack = { ...findPackById(selectedPackId, currentPacks) };
 let currentGenerationOutput = null;
 let currentStudioJob = null;
@@ -1006,14 +974,14 @@ const renderStudioDashboard = () => {
     } else if (hasPack) {
       studioPackStatus.textContent = `${getStudioCreditLabel()} are ready to use.`;
     } else if (currentUser.authenticated || currentUser.email) {
-      studioPackStatus.textContent = "No active pack yet. Unlock one and your credits will appear here instantly.";
+      studioPackStatus.textContent = "No active Studio plan yet. Start Vision Studio to unlock creation.";
     } else {
-      studioPackStatus.textContent = "Access Vision or unlock a pack to keep your credits and creations in one place.";
+      studioPackStatus.textContent = "Access Vision or start Studio to keep your creations in one place.";
     }
   }
   if (studioTopupButton) {
     studioTopupButton.hidden = adminMode;
-    studioTopupButton.textContent = hasPack ? "Buy more credits" : "Buy Vision credits";
+    studioTopupButton.textContent = hasPack ? "Renew Vision Studio" : "Start Vision Studio";
   }
   renderStudioHistory();
 
@@ -1663,8 +1631,7 @@ const updateSubscribeSubmitLabel = () => {
   if (!subscribeSubmit) {
     return;
   }
-  const packName = currentPack?.name ? currentPack.name.replace(/^Vision\s+/i, "") : "selected pack";
-  subscribeSubmit.textContent = `Unlock ${packName}`;
+  subscribeSubmit.textContent = "Start Vision Studio";
 };
 
 const renderSubscribePackOptions = () => {
@@ -1680,16 +1647,9 @@ const renderSubscribePackOptions = () => {
     card.dataset.packId = pack.id;
     card.setAttribute("aria-pressed", selected ? "true" : "false");
     const featureMarkup = (Array.isArray(pack.features) ? pack.features : [])
-      .slice(0, 4)
+      .slice(0, 7)
       .map((feature) => `<li>${feature}</li>`)
       .join("");
-    const creditLabel =
-      pack.credit_label || (pack.vision_credits ? `${new Intl.NumberFormat("it-IT").format(pack.vision_credits)} Vision credits` : "");
-    const creditMatch = String(creditLabel).match(/^([\d.,]+[KM]?)\s+(.+)$/i);
-    const creditMarkup = creditMatch
-      ? `<span class="subscribe-pack-credit-number">${creditMatch[1]}</span><span class="subscribe-pack-credit-label">${creditMatch[2]}</span>`
-      : `<span class="subscribe-pack-credit-number">${creditLabel}</span>`;
-    const totalCreditMarkup = pack.total_credit_label ? `<span class="subscribe-pack-total">${pack.total_credit_label}</span>` : "";
     const originalPriceCents = Number(pack.original_price_cents || 0);
     const currentPriceCents = Number(pack.price_cents || 0);
     const originalPriceMarkup =
@@ -1703,9 +1663,7 @@ const renderSubscribePackOptions = () => {
       <div class="subscribe-pack-head">
         <div>
           <span class="subscribe-pack-name">${displayName}</span>
-          <strong class="subscribe-pack-credit">${creditMarkup}</strong>
-          ${totalCreditMarkup}
-          <span class="subscribe-pack-price">${originalPriceMarkup}<span class="subscribe-pack-price-current">${formatPackPrice(pack)}</span><em>one time</em>${discountMarkup}</span>
+          <span class="subscribe-pack-price">${originalPriceMarkup}<span class="subscribe-pack-price-current">${formatPackPrice(pack)}</span><em>/ month</em>${discountMarkup}</span>
         </div>
         ${pack.badge ? `<span class="subscribe-pack-badge">${pack.badge}</span>` : ""}
       </div>
@@ -1737,12 +1695,12 @@ const renderAuthState = () => {
   const counts = getStudioCreditCounts();
   const hasPack = hasStudioPackContext();
   if (authTitle) {
-    authTitle.textContent = showAccount ? "Your Vision account." : "Access your Vision pack.";
+    authTitle.textContent = showAccount ? "Your Vision account." : "Access Vision Studio.";
   }
   if (authCopy) {
     authCopy.textContent = showAccount
-      ? "See your remaining credits, manage your current pack, or unlock a new one when you need more."
-      : "Enter your email and Vision will send you a one-time access code to return to your pack from any device.";
+      ? "See your remaining monthly creative credits and manage your Studio access."
+      : "Enter your email and Vision will send you a one-time access code to return to your Studio from any device.";
   }
   if (authAccount) {
     authAccount.hidden = !showAccount;
@@ -1761,7 +1719,7 @@ const renderAuthState = () => {
     } else if (hasPack) {
       authAccountCredits.textContent = `${getStudioCreditLabel()} remaining`;
     } else {
-      authAccountCredits.textContent = "No active pack yet.";
+      authAccountCredits.textContent = "No active Studio plan yet.";
     }
   }
   if (authEnterStudio) {
@@ -1772,7 +1730,7 @@ const renderAuthState = () => {
       authBuyPack.hidden = true;
     } else {
       authBuyPack.hidden = false;
-      authBuyPack.textContent = hasPack ? "Buy more credits" : "Buy Vision credits";
+      authBuyPack.textContent = hasPack ? "Renew Vision Studio" : "Start Vision Studio";
     }
   }
   if (authCodeRow) {
@@ -1785,7 +1743,7 @@ const renderAuthState = () => {
     authSubmit.textContent = authStep === "code" ? "Continue to Vision" : "Send access code";
   }
   if (authNote && !showAccount && authStep === "email") {
-    authNote.textContent = "We’ll send a one-time access code so your pack follows you when you come back.";
+    authNote.textContent = "We’ll send a one-time access code so your Studio access follows you when you come back.";
   }
   if (authEmail && currentUser.email && !authEmail.value) {
     authEmail.value = currentUser.email;
@@ -1822,7 +1780,7 @@ const renderAccessState = (access, pack, user, packs) => {
       trigger.textContent = "Vision unlocked";
       return;
     }
-    trigger.textContent = hasStudioPackContext() ? "Buy more credits" : "Unlock Vision";
+    trigger.textContent = hasStudioPackContext() ? "Renew Vision Studio" : "Start Vision Studio";
   });
 
   syncTopbarCta();
@@ -1833,7 +1791,7 @@ const renderAccessState = (access, pack, user, packs) => {
 const setSubscribeLoading = (loading, label = null) => {
   if (subscribeSubmit) {
     subscribeSubmit.disabled = loading;
-    subscribeSubmit.textContent = loading ? label || subscribeSubmit.textContent : `Unlock ${String(currentPack?.name || "selected pack").replace(/^Vision\s+/i, "")}`;
+    subscribeSubmit.textContent = loading ? label || subscribeSubmit.textContent : "Start Vision Studio";
   }
   if (subscribeEmail) {
     subscribeEmail.disabled = loading;
@@ -1846,15 +1804,15 @@ const setSubscribeContent = (context = {}) => {
   const pendingMode = context.mode === "image" ? "image" : "video";
   const title =
     reason === "insufficient_credits" || accessState.access_id
-      ? "Buy more Vision credits."
-      : "Choose your Vision pack.";
+      ? "Renew Vision Studio."
+      : "Start Vision Studio.";
   const copy = pendingPrompt
-    ? `Choose the pack that fits this ${pendingMode} idea. Vision will resume your current prompt right after payment so you can keep creating without starting over.`
-    : "Every pack includes private access, prompt enhancement, watermark-free exports, and private downloads.";
-  const note = "Secure checkout with Stripe. Vision resumes your prompt automatically after payment.";
+    ? `Start Studio for this ${pendingMode} idea. Vision will resume your current prompt right after payment so you can keep creating without starting over.`
+    : "One monthly plan for cinematic videos, images, uploads, edits, private gallery, and no-watermark exports.";
+  const note = "Secure monthly checkout with Stripe. Vision resumes your prompt automatically after payment.";
 
   if (subscribeKicker) {
-    subscribeKicker.textContent = reason === "insufficient_credits" ? "Vision / Top up" : "Vision / Access";
+    subscribeKicker.textContent = "Vision / Studio";
   }
   if (subscribeTitle) {
     subscribeTitle.textContent = title;
@@ -1886,7 +1844,7 @@ const setSubscribeState = (open, context = {}) => {
 
   lastSubscribeTrigger = context.trigger || null;
   currentPacks = normalizePackList(context.packs || currentPacks);
-  selectedPackId = context.packId || selectedPackId || "creator";
+  selectedPackId = context.packId || selectedPackId || "studio";
   currentPack = findPackById(selectedPackId, currentPacks);
   setSubscribeContent(context);
   window.setTimeout(() => subscribeEmail?.focus(), 220);
@@ -1903,7 +1861,7 @@ const openAccessVision = async ({ forceEmail = false, email = "", autoSend = fal
     authEmail.value = normalizedEmail;
   }
   if (authNote && authStep === "email") {
-    authNote.textContent = "Enter your email and Vision will send you a one-time access code to return to your pack from any device.";
+    authNote.textContent = "Enter your email and Vision will send you a one-time access code to return to your Studio from any device.";
   }
   renderAuthState();
   setSubscribeState(false);
@@ -2498,7 +2456,7 @@ authReset?.addEventListener("click", () => {
     authCode.value = "";
   }
   if (authNote) {
-    authNote.textContent = "We’ll send a one-time access code so your pack follows you when you come back.";
+    authNote.textContent = "We’ll send a one-time access code so your Studio access follows you when you come back.";
   }
   renderAuthState();
 });

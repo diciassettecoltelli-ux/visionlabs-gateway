@@ -561,83 +561,36 @@ def _now_iso() -> str:
 def _default_pack_catalog() -> list[dict[str, Any]]:
     return [
         {
-            "id": "starter",
-            "name": "Vision Starter",
-            "subtitle": "Short videos + images",
-            "description": "For testing ideas, short clips, and images.",
-            "price_cents": 990,
-            "original_price_cents": 1490,
+            "id": "studio",
+            "name": "Vision Studio",
+            "subtitle": "Monthly cinematic creation",
+            "description": "Monthly access for cinematic videos, images, uploads, edits, and private no-watermark exports.",
+            "price_cents": 2499,
+            "original_price_cents": 2499,
             "currency": "eur",
-            "vision_credits": 500000,
-            "credit_label": "500K credits",
-            "total_credit_label": "500.000 total credits",
-            "discount_label": "Save 34%",
-            "video_credits": 5,
-            "image_credits": 50,
-            "video_label": "5 videos",
-            "duration_label": "Videos up to 15 seconds",
-            "image_label": "50 images",
-            "value_label": "Creates up to 5 videos and 50 images.",
-            "badge": "",
-            "cta_label": "Start with Starter",
-            "features": [
-                "Prompt enhancement",
-                "Watermark-free exports",
-                "Private downloads",
-            ],
-        },
-        {
-            "id": "creator",
-            "name": "Vision Creator",
-            "subtitle": "Best value for creators",
-            "description": "Best value for creators and social content.",
-            "price_cents": 1990,
-            "original_price_cents": 3990,
-            "currency": "eur",
-            "vision_credits": 2000000,
-            "credit_label": "2M credits",
-            "total_credit_label": "2.000.000 total credits",
-            "discount_label": "Save 50%",
-            "video_credits": 10,
+            "vision_credits": 3000000,
+            "credit_label": "3M monthly creative credits",
+            "total_credit_label": "3.000.000 monthly creative credits",
+            "discount_label": "",
+            "video_credits": 50,
             "image_credits": 200,
-            "video_label": "10 videos",
+            "video_label": "Up to 50 cinematic videos",
             "duration_label": "Videos up to 15 seconds",
-            "image_label": "200 images",
-            "value_label": "Creates up to 10 standard videos and 200 images.",
-            "badge": "Best value",
-            "cta_label": "Choose Creator",
+            "image_label": "Up to 200 images",
+            "value_label": "Up to 50 cinematic videos and 200 images every month.",
+            "badge": "Monthly",
+            "cta_label": "Start Vision Studio",
             "features": [
-                "Full HD video generation",
-                "Sound on/off control",
-                "Premium cinematic prompt refinement",
-                "Watermark-free exports",
-            ],
-        },
-        {
-            "id": "pro",
-            "name": "Vision Pro",
-            "subtitle": "Premium generation",
-            "description": "For campaigns, premium clips, and heavier creation.",
-            "price_cents": 2990,
-            "original_price_cents": 8990,
-            "currency": "eur",
-            "vision_credits": 5000000,
-            "credit_label": "5M credits",
-            "total_credit_label": "5.000.000 total credits",
-            "discount_label": "Save 67%",
-            "video_credits": 25,
-            "image_credits": 500,
-            "video_label": "25 videos",
-            "duration_label": "Videos up to 15 seconds",
-            "image_label": "500 images",
-            "value_label": "Creates up to 25 standard videos and 500 images.",
-            "badge": "Premium",
-            "cta_label": "Go Pro",
-            "features": [
-                "Up to 4K-ready output",
-                "Advanced cinematic refinement",
-                "Sound on/off control",
-                "Campaign-ready exports",
+                "Upload your own images",
+                "Animate and edit your images",
+                "Upload your own videos",
+                "Edit and transform videos",
+                "4K mode available",
+                "Audio generation available",
+                "Prompt enhancement included",
+                "Private gallery",
+                "No watermark",
+                "Credits refresh monthly",
             ],
         },
     ]
@@ -669,7 +622,7 @@ def _pack_by_id(pack_id: str | None) -> dict[str, Any]:
 
 
 def _pack_price_cents() -> int:
-    return int(_pack_summary().get("price_cents") or 990)
+    return int(_pack_summary().get("price_cents") or 2499)
 
 
 def _pack_currency() -> str:
@@ -677,11 +630,11 @@ def _pack_currency() -> str:
 
 
 def _pack_video_credits() -> int:
-    return max(int(_pack_summary().get("video_credits") or 5), 1)
+    return max(int(_pack_summary().get("video_credits") or 50), 1)
 
 
 def _pack_image_credits() -> int:
-    return max(int(_pack_summary().get("image_credits") or 50), 0)
+    return max(int(_pack_summary().get("image_credits") or 200), 0)
 
 
 def _pack_vision_credits() -> int:
@@ -689,7 +642,7 @@ def _pack_vision_credits() -> int:
 
 
 def _pack_name() -> str:
-    return str(_pack_summary().get("name") or "Vision Starter").strip() or "Vision Starter"
+    return str(_pack_summary().get("name") or "Vision Studio").strip() or "Vision Studio"
 
 
 def _pack_description() -> str:
@@ -940,7 +893,7 @@ def _send_auth_code_email(*, email: str, code: str) -> None:
         "Welcome to Vision.",
         "",
         "Thank you for choosing Vision.",
-        "Use the access code below to enter your Vision Studio and return to your pack whenever you want.",
+        "Use the access code below to enter your Vision Studio and return to your workspace whenever you want.",
         "",
         f"Access code: {code}",
         "",
@@ -1078,21 +1031,28 @@ def _create_stripe_checkout_session(
     frontend_base = _frontend_base_url(request)
     pack = _pack_by_id(pack_id)
     payload: dict[str, Any] = {
-        "mode": "payment",
+        "mode": "subscription",
         "success_url": f"{frontend_base}/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
         "cancel_url": f"{frontend_base}/?checkout=cancel",
         "allow_promotion_codes": "true",
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",
         "line_items[0][price_data][currency]": str(pack.get("currency") or "eur"),
-        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 990),
-        "line_items[0][price_data][product_data][name]": str(pack.get("name") or "Vision Starter"),
+        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 2499),
+        "line_items[0][price_data][recurring][interval]": "month",
+        "line_items[0][price_data][recurring][interval_count]": "1",
+        "line_items[0][price_data][product_data][name]": str(pack.get("name") or "Vision Studio"),
         "line_items[0][price_data][product_data][description]": str(pack.get("description") or ""),
-        "metadata[vision_pack_id]": str(pack.get("id") or "starter"),
-        "metadata[vision_pack_name]": str(pack.get("name") or "Vision Starter"),
+        "metadata[vision_pack_id]": str(pack.get("id") or "studio"),
+        "metadata[vision_pack_name]": str(pack.get("name") or "Vision Studio"),
         "metadata[vision_pack_vision_credits]": str(pack.get("vision_credits") or ""),
-        "metadata[vision_pack_video_credits]": str(pack.get("video_credits") or 5),
-        "metadata[vision_pack_image_credits]": str(pack.get("image_credits") or 50),
+        "metadata[vision_pack_video_credits]": str(pack.get("video_credits") or 50),
+        "metadata[vision_pack_image_credits]": str(pack.get("image_credits") or 200),
+        "subscription_data[metadata][vision_pack_id]": str(pack.get("id") or "studio"),
+        "subscription_data[metadata][vision_pack_name]": str(pack.get("name") or "Vision Studio"),
+        "subscription_data[metadata][vision_pack_vision_credits]": str(pack.get("vision_credits") or ""),
+        "subscription_data[metadata][vision_pack_video_credits]": str(pack.get("video_credits") or 50),
+        "subscription_data[metadata][vision_pack_image_credits]": str(pack.get("image_credits") or 200),
     }
     for key, value in _tracking_metadata(tracking).items():
         payload[f"metadata[{key}]"] = value
@@ -1104,6 +1064,16 @@ def _create_stripe_checkout_session(
 def _retrieve_stripe_checkout_session(session_id: str) -> dict[str, Any]:
     encoded_session_id = urllib.parse.quote(session_id, safe="")
     return _stripe_request("GET", f"/v1/checkout/sessions/{encoded_session_id}")
+
+
+def _retrieve_stripe_subscription(subscription_id: str) -> dict[str, Any]:
+    encoded_subscription_id = urllib.parse.quote(subscription_id, safe="")
+    return _stripe_request("GET", f"/v1/subscriptions/{encoded_subscription_id}")
+
+
+def _retrieve_stripe_customer(customer_id: str) -> dict[str, Any]:
+    encoded_customer_id = urllib.parse.quote(customer_id, safe="")
+    return _stripe_request("GET", f"/v1/customers/{encoded_customer_id}")
 
 
 def _list_stripe_checkout_sessions_by_email(email: str, *, limit: int = 100) -> list[dict[str, Any]]:
@@ -1138,6 +1108,59 @@ def _credits_from_session(session: dict[str, Any]) -> tuple[int, int, int]:
     except (TypeError, ValueError):
         image_credits = int(session_pack.get("image_credits") or _pack_image_credits())
     return max(vision_credits, 0), max(video_credits, 0), max(image_credits, 0)
+
+
+def _subscription_metadata_from_invoice(invoice: dict[str, Any]) -> dict[str, Any]:
+    metadata: dict[str, Any] = {}
+    parent = invoice.get("parent")
+    if isinstance(parent, dict):
+        parent_subscription_details = parent.get("subscription_details")
+        if isinstance(parent_subscription_details, dict) and isinstance(parent_subscription_details.get("metadata"), dict):
+            metadata.update(parent_subscription_details["metadata"])
+    subscription_details = invoice.get("subscription_details")
+    if isinstance(subscription_details, dict) and isinstance(subscription_details.get("metadata"), dict):
+        metadata.update(subscription_details["metadata"])
+    subscription = invoice.get("subscription")
+    if not subscription and isinstance(parent, dict):
+        parent_subscription_details = parent.get("subscription_details")
+        if isinstance(parent_subscription_details, dict):
+            subscription = parent_subscription_details.get("subscription")
+    if isinstance(subscription, dict) and isinstance(subscription.get("metadata"), dict):
+        metadata.update(subscription["metadata"])
+    elif isinstance(subscription, str) and subscription:
+        try:
+            fetched_subscription = _retrieve_stripe_subscription(subscription)
+        except RuntimeError:
+            fetched_subscription = {}
+        fetched_metadata = fetched_subscription.get("metadata") if isinstance(fetched_subscription, dict) else None
+        if isinstance(fetched_metadata, dict):
+            metadata.update(fetched_metadata)
+    return metadata
+
+
+def _credits_from_subscription_invoice(invoice: dict[str, Any]) -> tuple[int, int, int]:
+    metadata = _subscription_metadata_from_invoice(invoice)
+    session_like = {
+        "metadata": metadata,
+    }
+    return _credits_from_session(session_like)
+
+
+def _email_from_stripe_invoice(invoice: dict[str, Any]) -> str | None:
+    for key in ("customer_email", "account_email"):
+        value = invoice.get(key)
+        if value:
+            return str(value)
+    customer = invoice.get("customer")
+    if isinstance(customer, dict):
+        return str(customer.get("email") or "") or None
+    if isinstance(customer, str) and customer:
+        try:
+            fetched_customer = _retrieve_stripe_customer(customer)
+        except RuntimeError:
+            return None
+        return str(fetched_customer.get("email") or "") or None
+    return None
 
 
 def _restore_access_for_email(*, email: str, current_access_id: str | None, current_user_id: str | None) -> dict[str, Any] | None:
@@ -3914,7 +3937,7 @@ def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Requ
         session = _create_stripe_checkout_session(
             request=request,
             email=resolved_email or None,
-            pack_id=str(selected_pack.get("id") or "starter"),
+            pack_id=str(selected_pack.get("id") or "studio"),
             tracking=_tracking_context_from_request(payload.tracking, request),
         )
     except RuntimeError as exc:
@@ -3938,7 +3961,7 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     if session.get("status") != "complete" or session.get("payment_status") != "paid":
-        raise HTTPException(status_code=409, detail="Payment is not completed yet for this Vision pack.")
+        raise HTTPException(status_code=409, detail="Payment is not completed yet for Vision Studio.")
 
     customer_details = session.get("customer_details") or {}
     session_pack = _pack_summary((session.get("metadata") or {}).get("vision_pack_id"))
@@ -3992,12 +4015,49 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="Invalid Stripe webhook payload.") from exc
 
     event_type = str(event.get("type") or "")
-    if event_type not in {"checkout.session.completed", "checkout.session.async_payment_succeeded"}:
+    subscription_invoice_events = {"invoice.paid", "invoice.payment_succeeded"}
+    if event_type not in {"checkout.session.completed", "checkout.session.async_payment_succeeded", *subscription_invoice_events}:
         return {"ok": True, "handled": False}
 
-    session = ((event.get("data") or {}).get("object") or {})
-    if not isinstance(session, dict):
+    event_object = ((event.get("data") or {}).get("object") or {})
+    if not isinstance(event_object, dict):
         return {"ok": True, "handled": False}
+
+    if event_type in subscription_invoice_events:
+        invoice = event_object
+        invoice_id = str(invoice.get("id") or "").strip()
+        if not invoice_id:
+            return {"ok": True, "handled": False}
+        # The first subscription invoice is covered by checkout.session.completed.
+        if str(invoice.get("billing_reason") or "") == "subscription_create":
+            return {"ok": True, "handled": False, "invoice_id": invoice_id, "reason": "initial_subscription_invoice"}
+        if str(invoice.get("status") or "") not in {"paid"}:
+            return {"ok": True, "handled": False, "invoice_id": invoice_id}
+        email = _email_from_stripe_invoice(invoice)
+        known_user = USERS.find_by_email(email)
+        vision_credits, video_credits, image_credits = _credits_from_subscription_invoice(invoice)
+        entry = ACCESS.apply_paid_session(
+            session_id=f"invoice:{invoice_id}",
+            email=email,
+            current_access_id=None,
+            current_user_id=str(known_user.get("id")) if known_user else None,
+            vision_credits=vision_credits,
+            video_credits=video_credits,
+            image_credits=image_credits,
+        )
+        if ACCESS.claim_notification(f"invoice:{invoice_id}"):
+            invoice_session = {
+                "id": f"invoice:{invoice_id}",
+                "metadata": _subscription_metadata_from_invoice(invoice),
+                "amount_total": invoice.get("amount_paid") or invoice.get("total"),
+                "currency": invoice.get("currency"),
+                "customer_email": email,
+                "payment_status": "paid",
+            }
+            _notify_purchase_async(session=invoice_session, entry=entry)
+        return {"ok": True, "handled": True, "invoice_id": invoice_id}
+
+    session = event_object
 
     session_id = str(session.get("id") or "").strip()
     if not session_id:
@@ -4067,7 +4127,7 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
             status_code=402,
             detail={
                 "code": "payment_required",
-                "message": "Unlock a Vision pack to turn this idea into a cinematic result.",
+                "message": "Start Vision Studio to turn this idea into a cinematic result.",
                 "access": summary,
                 "pack": _pack_summary(),
                 "packs": _packs_summary(),
@@ -4087,7 +4147,7 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
                 status_code=402,
                 detail={
                     "code": "insufficient_credits",
-                    "message": "Buy more Vision credits to keep creating inside Vision.",
+                    "message": "Renew Vision Studio to keep creating inside Vision.",
                     "access": summary,
                     "pack": _pack_summary(),
                     "packs": _packs_summary(),
