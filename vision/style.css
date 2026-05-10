@@ -14680,3 +14680,787 @@ html body:not(.is-studio-route) .pricing-grid--single .pricing-list {
     min-height: 52px !important;
   }
 }
+
+/* Responsive checkout split v67: desktop stays wide, phone portrait gets the premium vertical card. */
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge {
+  display: none !important;
+}
+
+@media (min-width: 761px), (max-width: 760px) and (orientation: landscape) {
+  html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+  html body:not(.is-studio-route) .subscribe-panel {
+    width: min(1080px, calc(100vw - 40px)) !important;
+    max-height: calc(100svh - 32px) !important;
+    padding: 28px !important;
+    border-radius: 8px !important;
+    overflow-y: auto !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-intro {
+    gap: 16px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-panel h3 {
+    display: block !important;
+    font-size: 3rem !important;
+    line-height: 0.98 !important;
+    padding-right: 64px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-copy,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-kicker {
+    display: block !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+    border-radius: 8px !important;
+    padding: 26px !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.062), rgba(255, 255, 255, 0.018)),
+      rgba(255, 255, 255, 0.028) !important;
+    box-shadow: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: start !important;
+    text-align: left !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name {
+    font-size: 1.55rem !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name::after {
+    content: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-label {
+    display: inline-flex !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price {
+    justify-content: end !important;
+    text-align: right !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price-current {
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-symbol,
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-amount,
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-period {
+    display: inline !important;
+    font-size: 3.15rem !important;
+    font-weight: 780 !important;
+    line-height: 0.92 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-period {
+    margin-left: 0.1rem !important;
+    color: rgba(236, 231, 222, 0.74) !important;
+    font-size: 1.2rem !important;
+    font-weight: 620 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-summary {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-features,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li {
+    display: grid !important;
+    grid-template-columns: 28px minmax(0, 1fr) !important;
+    min-height: 44px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li::before {
+    content: attr(data-plan-icon) !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 6px !important;
+    display: grid !important;
+    place-items: center !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: none !important;
+    color: rgba(248, 244, 236, 0.9) !important;
+    font-size: 0.62rem !important;
+    font-weight: 720 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li span {
+    grid-column: 2 !important;
+    display: block !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-field-row {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) !important;
+  }
+}
+
+@media (max-width: 760px) and (orientation: portrait) {
+  html body:not(.is-studio-route).subscribe-open {
+    overflow: auto !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal.is-open {
+    display: block !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    padding: 14px 10px 26px !important;
+    overflow-y: auto !important;
+    background:
+      radial-gradient(circle at 16% 0%, rgba(106, 144, 188, 0.26), transparent 34%),
+      radial-gradient(circle at 58% 29%, rgba(229, 237, 255, 0.11), transparent 23%),
+      rgba(3, 5, 8, 0.94) !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+  html body:not(.is-studio-route) .subscribe-panel {
+    width: min(420px, calc(100vw - 20px)) !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: grid !important;
+    gap: 0 !important;
+    padding: 34px 22px 22px !important;
+    border-radius: 28px !important;
+    border: 1px solid rgba(236, 244, 255, 0.42) !important;
+    background:
+      linear-gradient(155deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.018) 38%, rgba(5, 8, 12, 0.9)),
+      rgba(8, 12, 18, 0.86) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.24),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+      0 30px 80px rgba(0, 0, 0, 0.68),
+      0 0 44px rgba(124, 162, 218, 0.16) !important;
+    margin: 0 auto !important;
+    transform: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-panel::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 28px auto 28px !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.88), transparent) !important;
+    box-shadow: 0 0 22px rgba(176, 210, 255, 0.72) !important;
+    pointer-events: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-close {
+    top: 16px !important;
+    right: 16px !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 999px !important;
+    font-size: 0 !important;
+    z-index: 5 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-close::after {
+    content: "X" !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-kicker,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-copy,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-panel h3,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-highlights {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-grid {
+    display: block !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    cursor: default !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card.is-selected {
+    border-color: transparent !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head {
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: center !important;
+    gap: 20px !important;
+    padding: 22px 0 20px !important;
+    text-align: center !important;
+    border-bottom: 1px solid rgba(214, 229, 255, 0.13) !important;
+    box-shadow: 0 1px 0 rgba(116, 175, 255, 0.22) !important;
+    overflow: hidden !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-title {
+    justify-items: center !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name {
+    font-size: 0 !important;
+    line-height: 1 !important;
+    text-transform: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name::after {
+    content: "VISION PLAN" !important;
+    color: rgba(244, 248, 255, 0.78) !important;
+    font-size: 0.74rem !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.24em !important;
+    white-space: nowrap !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-label {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price {
+    display: block !important;
+    justify-content: center !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price-current {
+    display: grid !important;
+    grid-template-columns: auto auto !important;
+    justify-content: center !important;
+    align-items: start !important;
+    gap: 0.24rem !important;
+    color: rgba(250, 252, 255, 0.96) !important;
+    text-shadow: 0 2px 22px rgba(198, 216, 255, 0.28) !important;
+    white-space: normal !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-symbol {
+    display: block !important;
+    padding-top: 0.48rem !important;
+    color: rgba(250, 252, 255, 0.9) !important;
+    font-size: 1.8rem !important;
+    font-weight: 300 !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-amount {
+    display: block !important;
+    color: rgba(250, 252, 255, 0.94) !important;
+    font-family: Onest, Manrope, system-ui, sans-serif !important;
+    font-size: clamp(4.25rem, 19vw, 4.85rem) !important;
+    font-weight: 200 !important;
+    line-height: 0.86 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-period {
+    grid-column: 1 / -1 !important;
+    display: block !important;
+    margin-top: 0.24rem !important;
+    color: rgba(238, 243, 252, 0.72) !important;
+    font-size: 0.94rem !important;
+    font-weight: 300 !important;
+    letter-spacing: 0.24em !important;
+    line-height: 1 !important;
+    text-transform: uppercase !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-summary {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-features,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    margin: 16px 0 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    list-style: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li {
+    display: grid !important;
+    grid-template-columns: 50px minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 16px !important;
+    min-height: 58px !important;
+    padding: 8px 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(214, 229, 255, 0.1) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: rgba(245, 248, 255, 0.88) !important;
+    font-size: 0.96rem !important;
+    font-weight: 300 !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li::before {
+    content: attr(data-plan-icon) !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 10px !important;
+    display: grid !important;
+    place-items: center !important;
+    background:
+      linear-gradient(150deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.035)),
+      rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.18),
+      0 8px 20px rgba(0, 0, 0, 0.32) !important;
+    color: rgba(248, 251, 255, 0.92) !important;
+    font-size: 0.66rem !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li span {
+    grid-column: 2 !important;
+    display: block !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-form {
+    margin-top: 16px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-label {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-field-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-input {
+    min-height: 46px !important;
+    border-radius: 10px !important;
+    border-color: rgba(236, 244, 255, 0.14) !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+    color: rgba(250, 252, 255, 0.94) !important;
+    font-size: 0.94rem !important;
+    text-align: center !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+    min-height: 62px !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(232, 242, 255, 0.72) !important;
+    background:
+      radial-gradient(circle at 68% 14%, rgba(255, 255, 255, 0.48), transparent 28%),
+      linear-gradient(140deg, rgba(255, 255, 255, 0.12), rgba(102, 125, 158, 0.34), rgba(255, 255, 255, 0.06)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.36),
+      0 16px 34px rgba(0, 0, 0, 0.42) !important;
+    color: rgba(250, 252, 255, 0.94) !important;
+    font-size: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-submit::after {
+    content: "GET STARTED  ->" !important;
+    font-size: 0.94rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.28em !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-note {
+    margin-top: 10px !important;
+    color: rgba(233, 238, 248, 0.5) !important;
+    font-size: 0.86rem !important;
+    text-align: center !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-returning {
+    margin-top: 10px !important;
+    justify-content: center !important;
+    color: rgba(233, 238, 248, 0.5) !important;
+    font-size: 0.78rem !important;
+  }
+}
+
+@media (max-width: 380px) and (orientation: portrait) {
+  html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+  html body:not(.is-studio-route) .subscribe-panel {
+    padding: 30px 18px 20px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-amount {
+    font-size: 4.9rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li {
+    grid-template-columns: 44px minmax(0, 1fr) !important;
+    gap: 13px !important;
+    font-size: 0.94rem !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li::before {
+    width: 38px !important;
+    height: 38px !important;
+  }
+}
+
+/* Desktop checkout split v68 */
+@media (min-width: 761px), (max-width: 760px) and (orientation: landscape) {
+  html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+  html body:not(.is-studio-route) .subscribe-panel {
+    display: block !important;
+    position: relative !important;
+    width: min(1320px, calc(100vw - 72px)) !important;
+    height: min(800px, calc(100svh - 56px)) !important;
+    min-height: 0 !important;
+    max-height: calc(100svh - 56px) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(218, 232, 255, 0.18) !important;
+    border-radius: 8px !important;
+    background:
+      radial-gradient(circle at 17% 45%, rgba(152, 181, 225, 0.18), transparent 30%),
+      radial-gradient(circle at 72% 50%, rgba(109, 145, 195, 0.09), transparent 36%),
+      linear-gradient(110deg, rgba(20, 27, 39, 0.98), rgba(5, 8, 13, 0.98) 52%, rgba(2, 4, 8, 0.98)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 34px 90px rgba(0, 0, 0, 0.62),
+      0 0 70px rgba(90, 124, 172, 0.13) !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-close {
+    z-index: 8 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-kicker,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-copy,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-panel h3,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-highlights,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-summary,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-returning,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-intro,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-grid {
+    display: block !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    gap: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+    display: grid !important;
+    grid-template-columns: minmax(420px, 0.94fr) minmax(460px, 1.06fr) !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    cursor: default !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head {
+    position: relative !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-direction: column !important;
+    gap: 28px !important;
+    padding: 84px 72px 188px !important;
+    overflow: hidden !important;
+    text-align: center !important;
+    border-right: 1px solid rgba(218, 232, 255, 0.12) !important;
+    background:
+      radial-gradient(circle at 50% 67%, rgba(194, 213, 246, 0.1), transparent 34%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%) !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 auto 0 0 !important;
+    width: 126px !important;
+    background:
+      repeating-linear-gradient(90deg, rgba(232, 241, 255, 0.11) 0, rgba(232, 241, 255, 0.11) 3px, rgba(255, 255, 255, 0.02) 4px, transparent 17px),
+      linear-gradient(180deg, rgba(217, 231, 255, 0.14), transparent 74%) !important;
+    opacity: 0.64 !important;
+    pointer-events: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: 112px !important;
+    background:
+      radial-gradient(ellipse at 52% 22%, rgba(234, 242, 255, 0.25), transparent 22%),
+      linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.045) 58%, rgba(0, 0, 0, 0.25)) !important;
+    border-top: 1px solid rgba(221, 235, 255, 0.06) !important;
+    pointer-events: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name {
+    display: block !important;
+    width: 100% !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 1 !important;
+    text-align: center !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name::after {
+    content: "VISION PLAN" !important;
+    display: block !important;
+    color: rgba(244, 248, 255, 0.82) !important;
+    font-size: 1rem !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.46em !important;
+    white-space: nowrap !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-label {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price::after {
+    content: "Everything you need to create.\A Cinematic. Powerful. Unlimited." !important;
+    display: block !important;
+    margin-top: 80px !important;
+    color: rgba(238, 243, 252, 0.62) !important;
+    font-size: 1.12rem !important;
+    font-weight: 300 !important;
+    line-height: 1.55 !important;
+    letter-spacing: 0.02em !important;
+    white-space: pre-line !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price-current {
+    display: grid !important;
+    grid-template-columns: auto auto !important;
+    justify-content: center !important;
+    align-items: start !important;
+    gap: 0.34rem !important;
+    color: rgba(250, 252, 255, 0.94) !important;
+    text-shadow: 0 2px 28px rgba(207, 223, 255, 0.24) !important;
+    white-space: normal !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-symbol {
+    display: block !important;
+    padding-top: 0.96rem !important;
+    font-size: 3rem !important;
+    font-weight: 300 !important;
+    line-height: 1 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-amount {
+    display: block !important;
+    font-family: Onest, Manrope, system-ui, sans-serif !important;
+    font-size: clamp(6.5rem, 8.6vw, 8.8rem) !important;
+    font-weight: 200 !important;
+    line-height: 0.86 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .plan-price-period {
+    grid-column: 1 / -1 !important;
+    display: block !important;
+    margin-top: 0.2rem !important;
+    color: rgba(238, 243, 252, 0.62) !important;
+    font-size: 1.03rem !important;
+    font-weight: 300 !important;
+    letter-spacing: 0.32em !important;
+    text-transform: uppercase !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-features,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    align-content: center !important;
+    margin: 0 !important;
+    padding: 42px clamp(54px, 5.4vw, 86px) !important;
+    list-style: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li {
+    display: grid !important;
+    grid-template-columns: 28px minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 20px !important;
+    min-height: 0 !important;
+    padding: 7px 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(221, 235, 255, 0.08) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: rgba(245, 248, 255, 0.9) !important;
+    font-size: clamp(0.96rem, 1vw, 1.08rem) !important;
+    font-weight: 300 !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li::before {
+    content: "✓" !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(221, 235, 255, 0.06) !important;
+    box-shadow: none !important;
+    color: rgba(107, 237, 134, 0.92) !important;
+    font-size: 0.98rem !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li span {
+    grid-column: 2 !important;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-form {
+    position: absolute !important;
+    z-index: 4 !important;
+    left: clamp(96px, 12vw, 182px) !important;
+    bottom: 64px !important;
+    width: min(400px, 32vw) !important;
+    margin: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-label {
+    display: none !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-field-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-input {
+    min-height: 46px !important;
+    border: 1px solid rgba(230, 240, 255, 0.11) !important;
+    border-radius: 8px !important;
+    background: rgba(0, 0, 0, 0.16) !important;
+    color: rgba(247, 250, 255, 0.86) !important;
+    text-align: center !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+    min-height: 78px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(232, 242, 255, 0.62) !important;
+    background:
+      radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.32), transparent 30%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(71, 91, 124, 0.3), rgba(255, 255, 255, 0.04)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 18px 38px rgba(0, 0, 0, 0.42) !important;
+    color: rgba(250, 252, 255, 0.95) !important;
+    font-size: 0 !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-submit::after {
+    content: "GET STARTED  ->" !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.32em !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-note {
+    color: rgba(238, 243, 252, 0.46) !important;
+    text-align: center !important;
+  }
+}
+
+@media (max-width: 760px) and (orientation: portrait) {
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-title {
+    width: 100% !important;
+    justify-items: center !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    overflow: visible !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name::after {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    font-size: 0.68rem !important;
+    letter-spacing: 0.18em !important;
+    white-space: nowrap !important;
+  }
+}

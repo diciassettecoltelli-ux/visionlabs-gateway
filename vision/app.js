@@ -464,10 +464,28 @@ const formatPackPrice = (pack) => {
 };
 
 const formatPackPriceMonthly = (pack) => {
+  const price = formatPackPriceParts(pack);
+  return price.full;
+};
+
+const formatPackPriceParts = (pack) => {
   const amount = Number(pack?.price_cents ?? defaultPack.price_cents) / 100;
   const currency = String(pack?.currency || defaultPack.currency).toLowerCase();
-  const price = currency === "eur" ? `€${amount.toFixed(2)}` : `${amount.toFixed(2)} ${currency.toUpperCase()}`;
-  return `${price}/month`;
+  if (currency === "eur") {
+    return {
+      symbol: "€",
+      amount: amount.toFixed(2),
+      period: "/month",
+      full: `€${amount.toFixed(2)}/month`,
+    };
+  }
+  const fallback = `${amount.toFixed(2)} ${currency.toUpperCase()}`;
+  return {
+    symbol: "",
+    amount: fallback,
+    period: "/month",
+    full: `${fallback}/month`,
+  };
 };
 
 const formatPackLine = (pack) =>
@@ -1652,16 +1670,20 @@ const renderSubscribePackOptions = () => {
     card.className = `subscribe-pack-card${selected ? " is-selected" : ""}${pack.badge ? " has-badge" : ""}`;
     card.dataset.packId = pack.id;
     card.setAttribute("aria-pressed", selected ? "true" : "false");
+    const featureIcons = ["UP", "FX", "VID", "ED", "4K", "AUD", "PRO", "GAL", "NO", "REF"];
     const studioRows = [
-      pack.total_credit_label || pack.credit_label || "3,000,000 monthly creative credits",
-      pack.video_label || "Up to 50 cinematic videos",
-      pack.image_label || "Up to 200 images",
-      pack.duration_label || "Videos up to 15 seconds",
-      ...(Array.isArray(pack.features) ? pack.features : []),
+      { label: pack.total_credit_label || pack.credit_label || "3,000,000 monthly creative credits", icon: "CR" },
+      { label: pack.video_label || "Up to 50 cinematic videos", icon: "▶" },
+      { label: pack.image_label || "Up to 200 images", icon: "IMG" },
+      { label: pack.duration_label || "Videos up to 15 seconds", icon: "15" },
+      ...(Array.isArray(pack.features) ? pack.features : []).map((label, index) => ({
+        label,
+        icon: featureIcons[index] || "•",
+      })),
     ];
     const featureMarkup = studioRows
-      .filter(Boolean)
-      .map((feature) => `<li><span>${feature}</span></li>`)
+      .filter((row) => row.label)
+      .map((row) => `<li data-plan-icon="${row.icon}"><span>${row.label}</span></li>`)
       .join("");
     const originalPriceCents = Number(pack.original_price_cents || 0);
     const currentPriceCents = Number(pack.price_cents || 0);
@@ -1672,6 +1694,7 @@ const renderSubscribePackOptions = () => {
     const discountMarkup = pack.discount_label ? `<span class="subscribe-pack-offer">${pack.discount_label}</span>` : "";
     const displayName = pack.name || "Vision Studio";
     const shortCtaLabel = "Start";
+    const priceParts = formatPackPriceParts(pack);
     card.innerHTML = `
       <div class="subscribe-pack-head">
         <div class="subscribe-plan-title">
@@ -1680,7 +1703,11 @@ const renderSubscribePackOptions = () => {
         </div>
         <div class="subscribe-pack-price">
           ${originalPriceMarkup}
-          <span class="subscribe-pack-price-current">${formatPackPriceMonthly(pack)}</span>
+          <span class="subscribe-pack-price-current" aria-label="${priceParts.full}">
+            <span class="plan-price-symbol">${priceParts.symbol}</span>
+            <span class="plan-price-amount">${priceParts.amount}</span>
+            <span class="plan-price-period">${priceParts.period}</span>
+          </span>
           ${discountMarkup}
         </div>
         ${pack.badge ? `<span class="subscribe-pack-badge">${pack.badge}</span>` : ""}
@@ -1825,7 +1852,7 @@ const setSubscribeContent = (context = {}) => {
   const copy = pendingPrompt
     ? `Start Studio for this ${pendingMode} idea. Vision will resume your current prompt right after payment so you can keep creating without starting over.`
     : "One monthly plan for cinematic videos, images, uploads, edits, private gallery, and no-watermark exports.";
-  const note = "Secure monthly checkout with Stripe. Vision resumes your prompt automatically after payment.";
+  const note = "Cancel anytime. No hidden fees.";
 
   if (subscribeKicker) {
     subscribeKicker.textContent = "Vision / Studio";
@@ -1863,7 +1890,12 @@ const setSubscribeState = (open, context = {}) => {
   selectedPackId = context.packId || selectedPackId || "studio";
   currentPack = findPackById(selectedPackId, currentPacks);
   setSubscribeContent(context);
-  window.setTimeout(() => subscribeEmail?.focus(), 220);
+  window.setTimeout(() => {
+    const isPhonePortrait = window.matchMedia("(max-width: 760px) and (orientation: portrait)").matches;
+    if (!isPhonePortrait) {
+      subscribeEmail?.focus();
+    }
+  }, 220);
 };
 
 const openAccessVision = async ({ forceEmail = false, email = "", autoSend = false } = {}) => {
