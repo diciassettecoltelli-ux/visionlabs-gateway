@@ -43,6 +43,8 @@ services:
         value: kling-v2-1-master
       - key: KLING_API_BASE_URL
         value: https://api-singapore.klingai.com
+      - key: KLING_API_STATUS_INCLUDE_BALANCE
+        value: true
       - key: VISION_KLING_COOKIE_HEADER
         sync: false
       - key: VISION_KLING_REQUEST_HEADERS_JSON

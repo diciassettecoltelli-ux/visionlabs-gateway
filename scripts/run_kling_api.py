@@ -310,7 +310,7 @@ def status() -> dict[str, Any]:
     secret_key = os.getenv("KLING_SECRET_KEY", "").strip()
     model = _primary_video_model()
     fallback_model = _fallback_video_model()
-    return {
+    state: dict[str, Any] = {
         "ready": bool(access_key and secret_key),
         "mode": "kling_api",
         "base_url": _base_url(),
@@ -320,6 +320,15 @@ def status() -> dict[str, Any]:
         "fallback_model": fallback_model or None,
         "native_15s": _model_supports_native_15(model),
     }
+    if os.getenv("KLING_API_STATUS_INCLUDE_BALANCE", "").strip().lower() in {"1", "true", "yes", "on"}:
+        try:
+            balance_payload = _json_request("/v1/account/balance", method="GET")
+            packages_payload = _json_request("/v1/account/packages", method="GET")
+            state["account_balance"] = balance_payload.get("data", balance_payload)
+            state["resource_packages"] = packages_payload.get("data", packages_payload)
+        except Exception as exc:
+            state["account_balance_error"] = str(exc)
+    return state
 
 
 def generate_video(
