@@ -618,13 +618,15 @@
                 <div class="pricing-badge">Monthly</div>
                 <div class="pricing-plan">Vision Studio</div>
                 <div class="pricing-price">
-                  <span class="pricing-price-current">24,99 €</span>
-                  <span class="pricing-price-note">/ month</span>
+                  <span class="pricing-price-current">€24.99</span>
+                  <span class="pricing-price-note">/month</span>
                 </div>
               </div>
               <p class="pricing-meta">Premium monthly access for visual creators.</p>
-              <div class="pricing-volume">Up to 50 cinematic videos and 200 images.</div>
+              <div class="pricing-volume">3,000,000 monthly creative credits.</div>
               <ul class="pricing-list">
+                <li>Up to 50 cinematic videos</li>
+                <li>Up to 200 images</li>
                 <li>Upload your own images</li>
                 <li>Animate and edit your images</li>
                 <li>Upload your own videos</li>
@@ -635,7 +637,7 @@
                 <li>Prompt enhancement included</li>
                 <li>Private gallery</li>
                 <li>No watermark</li>
-                <li>Monthly refresh</li>
+                <li>Credits refresh monthly</li>
               </ul>
               <a class="pricing-button" href="/studio/" data-enter-studio>Start Vision Studio</a>
             </article>
@@ -899,7 +901,7 @@
             .catch(() => null)
             .then(() => appendScript("/vision-tracking.js?v=2"))
             .catch(() => null)
-            .then(() => appendScript("/studio-shell-new.js?v=131"));
+            .then(() => appendScript("/studio-shell-new.js?v=132"));
           return;
         }
 
@@ -908,7 +910,7 @@
           .catch(() => null)
           .then(() => appendScript("/vision-tracking.js?v=2"))
           .catch(() => null)
-          .then(() => appendScript("/app.js?v=64"))
+          .then(() => appendScript("/app.js?v=65"))
           .catch((error) => {
             console.error("Vision bootstrap failed", error);
           });

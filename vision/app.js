@@ -97,7 +97,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "131";
+const STUDIO_SHELL_ASSET_VERSION = "132";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -124,9 +124,9 @@ const defaultPacks = [
     price_cents: 2499,
     original_price_cents: 2499,
     currency: "eur",
-    vision_credits: 0,
-    credit_label: "",
-    total_credit_label: "",
+    vision_credits: 3000000,
+    credit_label: "3,000,000 monthly creative credits",
+    total_credit_label: "3,000,000 monthly creative credits",
     discount_label: "",
     video_credits: 50,
     image_credits: 200,
@@ -464,8 +464,15 @@ const formatPackPrice = (pack) => {
   }
 };
 
+const formatPackPriceMonthly = (pack) => {
+  const amount = Number(pack?.price_cents ?? defaultPack.price_cents) / 100;
+  const currency = String(pack?.currency || defaultPack.currency).toLowerCase();
+  const price = currency === "eur" ? `€${amount.toFixed(2)}` : `${amount.toFixed(2)} ${currency.toUpperCase()}`;
+  return `${price}/month`;
+};
+
 const formatPackLine = (pack) =>
-  `${formatPackPrice(pack)} / month · Vision Studio`;
+  `${formatPackPriceMonthly(pack)} · Vision Studio`;
 
 const normalizePack = (pack = {}) => ({
   ...defaultPack,
@@ -1646,9 +1653,15 @@ const renderSubscribePackOptions = () => {
     card.className = `subscribe-pack-card${selected ? " is-selected" : ""}${pack.badge ? " has-badge" : ""}`;
     card.dataset.packId = pack.id;
     card.setAttribute("aria-pressed", selected ? "true" : "false");
-    const featureMarkup = (Array.isArray(pack.features) ? pack.features : [])
-      .slice(0, 7)
-      .map((feature) => `<li>${feature}</li>`)
+    const studioRows = [
+      pack.total_credit_label || pack.credit_label || "3,000,000 monthly creative credits",
+      pack.video_label || "Up to 50 cinematic videos",
+      pack.image_label || "Up to 200 images",
+      ...(Array.isArray(pack.features) ? pack.features : []),
+    ];
+    const featureMarkup = studioRows
+      .filter(Boolean)
+      .map((feature) => `<li><span>${feature}</span></li>`)
       .join("");
     const originalPriceCents = Number(pack.original_price_cents || 0);
     const currentPriceCents = Number(pack.price_cents || 0);
@@ -1657,25 +1670,28 @@ const renderSubscribePackOptions = () => {
         ? `<del class="subscribe-pack-price-was">${formatPackPrice({ ...pack, price_cents: originalPriceCents })}</del>`
         : "";
     const discountMarkup = pack.discount_label ? `<span class="subscribe-pack-offer">${pack.discount_label}</span>` : "";
-    const displayName = String(pack.name || "").replace(/^Vision\s+/i, "") || "Pack";
-    const shortCtaLabel = displayName;
+    const displayName = pack.name || "Vision Studio";
+    const shortCtaLabel = "Start";
     card.innerHTML = `
       <div class="subscribe-pack-head">
-        <div>
+        <div class="subscribe-plan-title">
           <span class="subscribe-pack-name">${displayName}</span>
-          <span class="subscribe-pack-price">${originalPriceMarkup}<span class="subscribe-pack-price-current">${formatPackPrice(pack)}</span><em>/ month</em>${discountMarkup}</span>
+          <span class="subscribe-pack-credit-label">${pack.credit_label || "3,000,000 monthly creative credits"}</span>
+        </div>
+        <div class="subscribe-pack-price">
+          ${originalPriceMarkup}
+          <span class="subscribe-pack-price-current">${formatPackPriceMonthly(pack)}</span>
+          ${discountMarkup}
         </div>
         ${pack.badge ? `<span class="subscribe-pack-badge">${pack.badge}</span>` : ""}
       </div>
-      ${pack.subtitle ? `<p class="subscribe-pack-subtitle">${pack.subtitle}</p>` : ""}
-      <p class="subscribe-pack-description">${pack.description}</p>
-      ${pack.value_label ? `<p class="subscribe-pack-value">${pack.value_label}</p>` : ""}
-      <div class="subscribe-pack-specs">
-        <span>${pack.video_label}</span>
-        <span>${pack.image_label}</span>
+      <div class="subscribe-plan-summary">
+        <span>${pack.video_label || "Up to 50 cinematic videos"}</span>
+        <span>${pack.image_label || "Up to 200 images"}</span>
+        <span>${pack.duration_label || "Videos up to 15 seconds"}</span>
       </div>
-      <ul class="subscribe-pack-features">${featureMarkup}</ul>
-      <span class="subscribe-pack-card-cta" data-short-label="${shortCtaLabel}">${pack.cta_label || "Choose pack"}</span>
+      <ul class="subscribe-pack-features subscribe-plan-table">${featureMarkup}</ul>
+      <span class="subscribe-pack-card-cta" data-short-label="${shortCtaLabel}">${pack.cta_label || "Start Vision Studio"}</span>
     `;
     card.addEventListener("click", () => {
       selectedPackId = pack.id;

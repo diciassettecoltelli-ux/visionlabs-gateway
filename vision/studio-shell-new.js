@@ -70,9 +70,9 @@
     price_cents: 2499,
     original_price_cents: 2499,
     currency: "EUR",
-    vision_credits: 0,
-    credit_label: "",
-    total_credit_label: "",
+    vision_credits: 3000000,
+    credit_label: "3,000,000 monthly creative credits",
+    total_credit_label: "3,000,000 monthly creative credits",
     discount_label: "",
   };
 

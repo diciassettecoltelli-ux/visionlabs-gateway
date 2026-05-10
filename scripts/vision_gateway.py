@@ -569,8 +569,8 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "original_price_cents": 2499,
             "currency": "eur",
             "vision_credits": 3000000,
-            "credit_label": "3M monthly creative credits",
-            "total_credit_label": "3.000.000 monthly creative credits",
+            "credit_label": "3,000,000 monthly creative credits",
+            "total_credit_label": "3,000,000 monthly creative credits",
             "discount_label": "",
             "video_credits": 50,
             "image_credits": 200,
@@ -599,7 +599,7 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
 def _format_pack_price_display(price_cents: int, currency: str) -> str:
     amount = price_cents / 100
     if currency.lower() == "eur":
-        return f"€{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"€{amount:.2f}"
     return f"{amount:.2f} {currency.upper()}"
 
 
@@ -613,10 +613,7 @@ def _packs_summary() -> list[dict[str, Any]]:
 
 
 def _public_pack(summary: dict[str, Any]) -> dict[str, Any]:
-    public_summary = copy.deepcopy(summary)
-    for key in ("vision_credits", "credit_label", "total_credit_label"):
-        public_summary.pop(key, None)
-    return public_summary
+    return copy.deepcopy(summary)
 
 
 def _should_reveal_pack_credits(access_summary: dict[str, Any] | None) -> bool:

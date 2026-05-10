@@ -14428,3 +14428,255 @@ html body:not(.is-studio-route) .pricing-grid--single .pricing-list {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* Single Studio plan checkout v66 */
+html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+html body:not(.is-studio-route) .subscribe-panel {
+  width: min(1120px, calc(100vw - 36px)) !important;
+  max-height: calc(100svh - 28px) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  padding: clamp(18px, 2.4vw, 28px) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-intro {
+  gap: clamp(12px, 1.7vh, 18px) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-panel h3 {
+  font-size: clamp(2rem, 4.5vw, 4.2rem) !important;
+  line-height: 0.94 !important;
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-areas: none !important;
+  gap: clamp(14px, 2vh, 20px) !important;
+  width: 100% !important;
+  padding: clamp(18px, 2.6vw, 28px) !important;
+  text-align: left !important;
+  border-radius: 8px !important;
+  border-color: rgba(244, 240, 230, 0.18) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.062), rgba(255, 255, 255, 0.018)),
+    rgba(255, 255, 255, 0.028) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card.is-selected {
+  border-color: rgba(249, 245, 234, 0.42) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: clamp(14px, 2vw, 28px) !important;
+  align-items: start !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-title {
+  display: grid !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-name {
+  color: rgba(250, 248, 242, 0.98) !important;
+  font-size: clamp(1.05rem, 2vw, 1.55rem) !important;
+  font-weight: 720 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-credit-label {
+  display: inline-flex !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  padding: 8px 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 999px !important;
+  color: rgba(232, 226, 216, 0.82) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  font-size: clamp(0.78rem, 1vw, 0.94rem) !important;
+  line-height: 1.1 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price {
+  justify-content: end !important;
+  text-align: right !important;
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price-current {
+  display: block !important;
+  color: rgba(255, 252, 244, 0.99) !important;
+  font-size: clamp(1.85rem, 3.6vw, 3.35rem) !important;
+  font-weight: 780 !important;
+  line-height: 0.92 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-offer {
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-summary {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-summary span {
+  min-height: 46px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  color: rgba(246, 242, 234, 0.92) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+  font-size: clamp(0.78rem, 1vw, 0.95rem) !important;
+  line-height: 1.15 !important;
+  letter-spacing: 0 !important;
+  text-align: center !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-features,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 40px !important;
+  gap: 10px !important;
+  padding: 9px 11px !important;
+  border: 1px solid rgba(255, 255, 255, 0.085) !important;
+  border-radius: 8px !important;
+  color: rgba(225, 220, 211, 0.86) !important;
+  background: rgba(255, 255, 255, 0.018) !important;
+  font-size: clamp(0.78rem, 0.95vw, 0.93rem) !important;
+  line-height: 1.16 !important;
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li::before {
+  content: "" !important;
+  flex: 0 0 auto !important;
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 999px !important;
+  background: rgba(244, 239, 226, 0.86) !important;
+  box-shadow: 0 0 14px rgba(244, 239, 226, 0.28) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li span {
+  min-width: 0 !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-card-cta {
+  display: none !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-field-row {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) !important;
+  gap: 12px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-input,
+html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+  min-height: 62px !important;
+  border-radius: 8px !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-input {
+  font-size: clamp(1rem, 1.4vw, 1.28rem) !important;
+}
+
+html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+  font-size: 0.78rem !important;
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single {
+  grid-template-columns: minmax(0, 58rem) !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single .pricing-card {
+  padding: clamp(2rem, 4vw, 3.2rem) !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single .pricing-price-current {
+  font-size: clamp(3rem, 7vw, 6rem) !important;
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single .pricing-price-note,
+html body:not(.is-studio-route) .pricing-grid--single .pricing-badge,
+html body:not(.is-studio-route) .pricing-grid--single .pricing-plan {
+  letter-spacing: 0 !important;
+}
+
+html body:not(.is-studio-route) .pricing-grid--single .pricing-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.65rem 1.15rem !important;
+}
+
+@media (max-width: 760px) {
+  html body:not(.is-studio-route) .subscribe-modal.is-open {
+    align-items: flex-start !important;
+    overflow-y: auto !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal.is-open .subscribe-panel,
+  html body:not(.is-studio-route) .subscribe-panel {
+    width: calc(100vw - 16px) !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 12px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-panel h3 {
+    font-size: clamp(1.65rem, 9vw, 2.5rem) !important;
+    padding-right: 42px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-head {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price {
+    justify-content: start !important;
+    text-align: left !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-summary,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-features,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-field-row,
+  html body:not(.is-studio-route) .pricing-grid--single .pricing-list {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-input,
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-submit {
+    min-height: 52px !important;
+  }
+}
