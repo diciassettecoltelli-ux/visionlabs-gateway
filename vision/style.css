@@ -15733,3 +15733,25 @@ html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge {
     display: none !important;
   }
 }
+
+/* Phone checkout verified checks v70 */
+@media (max-width: 760px) and (orientation: portrait) {
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li {
+    grid-template-columns: 24px minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  html body:not(.is-studio-route) .subscribe-modal .subscribe-plan-table li::before {
+    content: "✓" !important;
+    width: 24px !important;
+    height: 24px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: rgba(92, 245, 119, 0.95) !important;
+    font-size: 1rem !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+  }
+}
