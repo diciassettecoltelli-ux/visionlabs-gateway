@@ -39,6 +39,8 @@ from run_google_veo31 import generate_video as generate_google_veo_video
 from run_google_veo31 import status as google_video_status
 from run_kling_api import generate_video as generate_kling_api_video
 from run_kling_api import status as kling_api_status
+from run_openai_image import generate_image as generate_openai_image
+from run_openai_image import status as openai_image_status
 from run_seedance_modelark import generate_video as generate_seedance_video
 from run_seedance_modelark import status as seedance_status
 from vision_kling_session_bridge import SessionBridgeNotReadyError
@@ -130,9 +132,16 @@ def _default_generation_provider() -> str:
     return _normalize_generation_provider(os.environ.get("VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER", "auto"))
 
 
+def _default_image_provider() -> str:
+    configured = os.environ.get("VISION_GATEWAY_DEFAULT_IMAGE_PROVIDER", "").strip()
+    if configured:
+        return _normalize_generation_provider(configured)
+    return _normalize_generation_provider(os.environ.get("VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER", "auto"))
+
+
 def _normalize_generation_provider(value: str | None) -> str:
     requested = str(value or "auto").strip().lower()
-    return requested if requested in {"auto", "seedance", "google", "kling"} else "auto"
+    return requested if requested in {"auto", "seedance", "google", "kling", "openai"} else "auto"
 
 
 def _normalize_quality(value: str | None) -> str:
@@ -497,23 +506,52 @@ def _google_status() -> dict[str, Any]:
     }
 
 
-def _select_image_route() -> dict[str, str]:
-    kling_state = kling_image_status()
-    if kling_state.get("ready"):
-        return {
-            "provider": "kling_image",
-            "model": os.environ.get("VISION_KLING_IMAGE_MODEL", "kling-image-web"),
-            "fallback_models": "",
-        }
-    google_state = _google_status()
-    image_state = google_state["image"]
-    if image_state.get("ready"):
-        return {
-            "provider": "google_image",
-            "model": str(image_state.get("model") or os.environ.get("GOOGLE_IMAGE_MODEL", "imagen-4.0-generate-001")),
-            "fallback_models": str(image_state.get("fallback_models") or os.environ.get("GOOGLE_IMAGE_FALLBACK_MODELS", "imagen-4.0-fast-generate-001")),
-        }
-    raise RuntimeError("Google image generation is not ready yet for this Vision deployment.")
+def _image_route_for_provider(provider: str) -> dict[str, str] | None:
+    if provider == "openai":
+        openai_state = openai_image_status()
+        if openai_state.get("ready"):
+            return {
+                "provider": "openai_image",
+                "model": str(openai_state.get("model") or os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1.5")),
+                "size": str(openai_state.get("size") or os.environ.get("OPENAI_IMAGE_SIZE", "1024x1536")),
+                "fallback_models": "",
+            }
+        return None
+    if provider == "kling":
+        kling_state = kling_image_status()
+        if kling_state.get("ready"):
+            return {
+                "provider": "kling_image",
+                "model": os.environ.get("VISION_KLING_IMAGE_MODEL", "kling-image-web"),
+                "fallback_models": "",
+            }
+        return None
+    if provider == "google":
+        google_state = _google_status()
+        image_state = google_state["image"]
+        if image_state.get("ready"):
+            return {
+                "provider": "google_image",
+                "model": str(image_state.get("model") or os.environ.get("GOOGLE_IMAGE_MODEL", "imagen-4.0-generate-001")),
+                "fallback_models": str(image_state.get("fallback_models") or os.environ.get("GOOGLE_IMAGE_FALLBACK_MODELS", "imagen-4.0-fast-generate-001")),
+            }
+        return None
+    return None
+
+
+def _select_image_route(preferred_provider: str | None = None) -> dict[str, str]:
+    requested = _normalize_generation_provider(preferred_provider) if preferred_provider else _default_image_provider()
+    if requested != "auto":
+        route = _image_route_for_provider(requested)
+        if route:
+            return route
+        raise RuntimeError(f"{requested.capitalize()} image generation is not ready yet for this Vision deployment.")
+
+    for provider in ("openai", "kling", "google"):
+        route = _image_route_for_provider(provider)
+        if route:
+            return route
+    raise RuntimeError("No image generation provider is ready yet for this Vision deployment.")
 
 
 def _now_iso() -> str:
@@ -3463,8 +3501,9 @@ def _process_job(job_id: str) -> None:
         return
     output_dir = OUTPUT_ROOT / job_id
     try:
+        generation_settings = job.get("generation_settings") if isinstance(job.get("generation_settings"), dict) else {}
         if job.get("mode") == "image":
-            route = _select_image_route()
+            route = _select_image_route(generation_settings.get("provider"))
             JOBS.update(
                 job_id,
                 provider=route["provider"],
@@ -3477,6 +3516,15 @@ def _process_job(job_id: str) -> None:
                     prompt=job["prompt"],
                     output_dir=output_dir,
                     quality=str(job.get("quality") or "studio"),
+                )
+            elif route["provider"] == "openai_image":
+                output_image = generate_openai_image(
+                    prompt=job["prompt"],
+                    output_dir=output_dir,
+                    model=route["model"],
+                    size=route.get("size"),
+                    quality=str(job.get("quality") or "studio"),
+                    aspect_ratio=str(generation_settings.get("aspect_ratio") or "9:16"),
                 )
             else:
                 output_image = generate_google_image(
@@ -3496,7 +3544,6 @@ def _process_job(job_id: str) -> None:
             )
             return
 
-        generation_settings = job.get("generation_settings") if isinstance(job.get("generation_settings"), dict) else {}
         routes = _candidate_generation_routes(str(job.get("prompt") or ""), str(job.get("quality") or "auto"), job_id, generation_settings)
         attempt_log: list[dict[str, Any]] = []
         output_video = None
@@ -3672,9 +3719,11 @@ def engine_status() -> dict[str, Any]:
         "kling_api": kling_api_status(),
         "kling_session_bridge": kling_session_bridge_status(),
         "kling_image_bridge": kling_image_status(),
+        "openai_image": openai_image_status(),
         "seedance": seedance_status(),
         "google": _google_status(),
         "default_provider": _default_generation_provider(),
+        "default_image_provider": _default_image_provider(),
         "default_quality": _default_generation_quality(),
         "access_storage": _access_storage_label(),
     }
@@ -3991,10 +4040,12 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
     aspect_ratio = _normalize_aspect_ratio(payload.aspect_ratio)
     sound_enabled = bool(payload.sound_enabled) if mode == "video" else False
     provider = _normalize_generation_provider(payload.provider)
+    if mode == "video" and provider == "openai":
+        provider = "auto"
     generation_settings = {
         "duration_seconds": duration_seconds if mode == "video" else None,
         "resolution": resolution,
-        "aspect_ratio": aspect_ratio if mode == "video" else None,
+        "aspect_ratio": aspect_ratio,
         "sound_enabled": sound_enabled,
         "provider": provider if provider != "auto" else None,
     }

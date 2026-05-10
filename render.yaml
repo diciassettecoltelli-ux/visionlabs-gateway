@@ -27,6 +27,8 @@ services:
         value: https://visionlabs.cloud,https://www.visionlabs.cloud,https://visionstudiolab.com,https://www.visionstudiolab.com,https://vision-frontend-6g09.onrender.com
       - key: VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER
         value: auto
+      - key: VISION_GATEWAY_DEFAULT_IMAGE_PROVIDER
+        value: auto
       - key: VISION_GATEWAY_DEFAULT_GENERATION_QUALITY
         value: auto
       - key: VISION_KLING_API_FIRST
@@ -97,6 +99,16 @@ services:
         value: imagen-4.0-fast-generate-001
       - key: GOOGLE_PROMPT_MODEL
         value: gemini-2.5-pro
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_IMAGE_MODEL
+        value: gpt-image-1.5
+      - key: OPENAI_IMAGE_SIZE
+        value: auto
+      - key: OPENAI_IMAGE_QUALITY
+        value: auto
+      - key: OPENAI_IMAGE_BACKGROUND
+        value: auto
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: VISION_NOTIFY_EMAIL_TO

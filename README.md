@@ -5,9 +5,10 @@ Public backend for Vision generation.
 ## Purpose
 
 This service exposes the Vision job API used by the public site and runs the
-Kling integrations server-side. Video generation can use the official Kling API
-when API keys are configured; image generation can still use the Kling web
-session bridge for the unlimited image lane.
+generation providers server-side. Video generation can use the official Kling,
+Seedance, or Google lanes when API keys are configured. Image generation uses
+OpenAI first when `OPENAI_API_KEY` is present, then falls back to the existing
+Kling/Google image lanes.
 
 ## Endpoints
 
@@ -30,6 +31,17 @@ Required secrets on the deploy target:
 - `VISION_KLING_COOKIE_HEADER`
 - `VISION_KLING_REQUEST_HEADERS_JSON`
 - `VISION_KLING_SUBMIT_PAYLOAD_JSON`
+- `OPENAI_API_KEY`
+
+OpenAI image controls:
+
+- `VISION_GATEWAY_DEFAULT_IMAGE_PROVIDER=auto` uses OpenAI first when it is
+  ready, then falls back to Kling/Google. Set it to `openai` to force OpenAI
+  image generation only.
+- `OPENAI_IMAGE_MODEL` defaults to `gpt-image-1.5`.
+- `OPENAI_IMAGE_SIZE=auto` lets Vision map 9:16, 16:9, and 1:1 requests to the
+  matching OpenAI image size.
+- `OPENAI_IMAGE_QUALITY=auto` lets Vision map pack quality to the API quality.
 
 Optional Kling API controls:
 
