@@ -320,13 +320,23 @@ def status() -> dict[str, Any]:
         "fallback_model": fallback_model or None,
         "native_15s": _model_supports_native_15(model),
     }
-    try:
-        balance_payload = _json_request("/v1/account/balance", method="GET")
-        packages_payload = _json_request("/v1/account/packages", method="GET")
-        state["account_balance"] = balance_payload.get("data", balance_payload)
-        state["resource_packages"] = packages_payload.get("data", packages_payload)
-    except Exception as exc:
-        state["account_balance_error"] = str(exc)
+    balance_errors: list[str] = []
+    for candidate_base in [
+        _base_url(),
+        "https://api-beijing.klingai.com",
+        "https://api.klingai.com",
+    ]:
+        try:
+            balance_payload = _json_request(f"{candidate_base}/v1/account/balance", method="GET")
+            packages_payload = _json_request(f"{candidate_base}/v1/account/packages", method="GET")
+            state["account_balance"] = balance_payload.get("data", balance_payload)
+            state["resource_packages"] = packages_payload.get("data", packages_payload)
+            state["account_balance_base_url"] = candidate_base
+            break
+        except Exception as exc:
+            balance_errors.append(f"{candidate_base}: {exc}")
+    if "account_balance" not in state:
+        state["account_balance_error"] = " | ".join(balance_errors)
     return state
 
 
