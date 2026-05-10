@@ -612,6 +612,29 @@ def _packs_summary() -> list[dict[str, Any]]:
     return packs
 
 
+def _public_pack(summary: dict[str, Any]) -> dict[str, Any]:
+    public_summary = copy.deepcopy(summary)
+    for key in ("vision_credits", "credit_label", "total_credit_label"):
+        public_summary.pop(key, None)
+    return public_summary
+
+
+def _should_reveal_pack_credits(access_summary: dict[str, Any] | None) -> bool:
+    if not access_summary:
+        return False
+    return bool(access_summary.get("admin") or access_summary.get("access_id") or access_summary.get("has_access"))
+
+
+def _pack_summary_for_access(access_summary: dict[str, Any] | None, pack_id: str | None = None) -> dict[str, Any]:
+    summary = _pack_summary(pack_id)
+    return summary if _should_reveal_pack_credits(access_summary) else _public_pack(summary)
+
+
+def _packs_summary_for_access(access_summary: dict[str, Any] | None) -> list[dict[str, Any]]:
+    summaries = _packs_summary()
+    return summaries if _should_reveal_pack_credits(access_summary) else [_public_pack(summary) for summary in summaries]
+
+
 def _pack_by_id(pack_id: str | None) -> dict[str, Any]:
     normalized = str(pack_id or "").strip().lower()
     packs = _packs_summary()
@@ -3776,11 +3799,12 @@ def access_me(request: Request) -> dict[str, Any]:
             restored = None
         if restored:
             access = restored
+    access_summary = _access_summary(access)
     return {
         "user": _user_summary(user),
-        "access": _access_summary(access),
-        "pack": _pack_summary(),
-        "packs": _packs_summary(),
+        "access": access_summary,
+        "pack": _pack_summary_for_access(access_summary),
+        "packs": _packs_summary_for_access(access_summary),
     }
 
 
@@ -3798,7 +3822,7 @@ def request_auth_code(payload: RequestAuthCodeRequest) -> dict[str, Any]:
         "ok": True,
         "email": normalized,
         "message": "A Vision access code is on its way.",
-        "packs": _packs_summary(),
+        "packs": _packs_summary_for_access(None),
     }
 
 
@@ -3839,13 +3863,14 @@ def verify_auth_code(payload: VerifyAuthCodeRequest, request: Request) -> JSONRe
         except Exception:
             attached_entry = None
 
+    access_summary = _access_summary(attached_entry)
     response = JSONResponse(
         {
             "ok": True,
             "user": _user_summary(user),
-            "access": _access_summary(attached_entry),
-            "pack": _pack_summary(),
-            "packs": _packs_summary(),
+            "access": access_summary,
+            "pack": _pack_summary_for_access(access_summary),
+            "packs": _packs_summary_for_access(access_summary),
             "access_token": _access_token_for_entry(attached_entry) if attached_entry else None,
         }
     )
@@ -3857,13 +3882,14 @@ def verify_auth_code(payload: VerifyAuthCodeRequest, request: Request) -> JSONRe
 
 @APP.post("/api/auth/logout")
 def logout(request: Request) -> JSONResponse:
+    access_summary = _access_summary(None)
     response = JSONResponse(
         {
             "ok": True,
             "user": _user_summary(None),
-            "access": _access_summary(None),
-            "pack": _pack_summary(),
-            "packs": _packs_summary(),
+            "access": access_summary,
+            "pack": _pack_summary_for_access(access_summary),
+            "packs": _packs_summary_for_access(access_summary),
         }
     )
     _clear_user_cookie(response, request)
@@ -3915,12 +3941,13 @@ def admin_unlock(payload: AdminUnlockRequest, request: Request) -> JSONResponse:
         "video_remaining": None,
         "image_remaining": None,
     }
+    access_summary = _access_summary(entry)
     response = JSONResponse(
         {
             "ok": True,
-            "access": _access_summary(entry),
-            "pack": _pack_summary(),
-            "packs": _packs_summary(),
+            "access": access_summary,
+            "pack": _pack_summary_for_access(access_summary),
+            "packs": _packs_summary_for_access(access_summary),
             "access_token": _access_token_for_entry(entry),
         }
     )
@@ -3948,8 +3975,8 @@ def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Requ
     return {
         "session_id": session.get("id"),
         "url": checkout_url,
-        "pack": selected_pack,
-        "packs": _packs_summary(),
+        "pack": _public_pack(selected_pack),
+        "packs": _packs_summary_for_access(None),
     }
 
 
@@ -3982,13 +4009,14 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
     )
     if ACCESS.claim_notification(normalized_session_id):
         _notify_purchase_async(session=session, entry=entry)
+    access_summary = _access_summary(entry)
     response = JSONResponse(
         {
             "ok": True,
             "user": _user_summary(current_user),
-            "access": _access_summary(entry),
-            "pack": session_pack,
-            "packs": _packs_summary(),
+            "access": access_summary,
+            "pack": _pack_summary_for_access(access_summary, str(session_pack.get("id") or "")),
+            "packs": _packs_summary_for_access(access_summary),
             "access_token": _access_token_for_entry(entry),
         }
     )
@@ -4129,9 +4157,8 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
                 "code": "payment_required",
                 "message": "Start Vision Studio to turn this idea into a cinematic result.",
                 "access": summary,
-                "pack": _pack_summary(),
-                "packs": _packs_summary(),
-                "credit_cost": credit_cost,
+                "pack": _pack_summary_for_access(summary),
+                "packs": _packs_summary_for_access(summary),
             },
         )
 
@@ -4149,8 +4176,8 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
                     "code": "insufficient_credits",
                     "message": "Renew Vision Studio to keep creating inside Vision.",
                     "access": summary,
-                    "pack": _pack_summary(),
-                    "packs": _packs_summary(),
+                    "pack": _pack_summary_for_access(summary),
+                    "packs": _packs_summary_for_access(summary),
                     "credit_cost": credit_cost,
                 },
             )

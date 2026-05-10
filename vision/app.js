@@ -97,7 +97,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "130";
+const STUDIO_SHELL_ASSET_VERSION = "131";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -124,9 +124,9 @@ const defaultPacks = [
     price_cents: 2499,
     original_price_cents: 2499,
     currency: "eur",
-    vision_credits: 3000000,
-    credit_label: "3M monthly creative credits",
-    total_credit_label: "3.000.000 monthly creative credits",
+    vision_credits: 0,
+    credit_label: "",
+    total_credit_label: "",
     discount_label: "",
     video_credits: 50,
     image_credits: 200,
