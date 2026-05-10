@@ -141,13 +141,12 @@ const defaultPacks = [
       "Animate and edit your images",
       "Upload your own videos",
       "Edit and transform videos",
-      "Videos up to 15 seconds",
       "4K mode available",
       "Audio generation available",
       "Prompt enhancement included",
       "Private gallery",
       "No watermark",
-      "Monthly refresh",
+      "Credits refresh monthly",
     ],
   },
 ];
@@ -1657,6 +1656,7 @@ const renderSubscribePackOptions = () => {
       pack.total_credit_label || pack.credit_label || "3,000,000 monthly creative credits",
       pack.video_label || "Up to 50 cinematic videos",
       pack.image_label || "Up to 200 images",
+      pack.duration_label || "Videos up to 15 seconds",
       ...(Array.isArray(pack.features) ? pack.features : []),
     ];
     const featureMarkup = studioRows
