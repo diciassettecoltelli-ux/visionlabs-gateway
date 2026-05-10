@@ -4256,7 +4256,8 @@ if (VISION_ROOT / "index.html").exists():
 def main() -> None:
     if DISABLE_FILE.exists():
         raise SystemExit("Vision gateway is disabled on this workstation.")
-    host = os.environ.get("VISION_GATEWAY_HOST", "127.0.0.1")
+    default_host = "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"
+    host = os.environ.get("VISION_GATEWAY_HOST", default_host)
     port = int(os.environ.get("PORT", os.environ.get("VISION_GATEWAY_PORT", "8787")))
     uvicorn.run(APP, host=host, port=port, log_level="warning")
 
