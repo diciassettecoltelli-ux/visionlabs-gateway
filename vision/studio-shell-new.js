@@ -1020,6 +1020,10 @@
     return !!state.access.admin || !!state.access.access_id || counts.vision > 0 || counts.video > 0 || counts.image > 0;
   };
   const hasAccountContext = () => !!state.user.authenticated || !!state.user.email || hasPackContext();
+  const isCompactStudioViewport = () =>
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(max-width: 720px)").matches;
 
   const getAccessLabel = () => {
     if (state.access.admin) {
@@ -1780,6 +1784,8 @@
   const renderHeader = () => {
     const pill = getAccountPillState();
     const hasAccess = !!state.access.admin || hasPackContext();
+    const compact = isCompactStudioViewport();
+    const checkoutLabel = state.checkoutLoading ? (compact ? "Opening" : "Opening...") : hasAccess ? (compact ? "Renew" : "Renew Vision Studio") : compact ? "Start" : "Start Vision Studio";
     return `
       <header class="vss-header">
         <div class="vss-brand-cluster">
@@ -1793,13 +1799,13 @@
           ${
             state.access.admin
               ? ""
-              : `<button class="vss-credit-topup" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : hasAccess ? "Renew Vision Studio" : "Start Vision Studio"}</button>`
+              : `<button class="vss-credit-topup" type="button" data-buy-credits>${checkoutLabel}</button>`
           }
           <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Access Vision" : "Vision account and credits"}" aria-haspopup="dialog" aria-expanded="${state.accountPanelOpen ? "true" : "false"}">
             ${
               pill.variant === "guest"
                 ? `<span class="vss-account-guest-copy">
-                    <span class="vss-account-guest-label">${escapeHtml(pill.label)}</span>
+                    <span class="vss-account-guest-label">${escapeHtml(compact ? "Access" : pill.label)}</span>
                     <span class="vss-account-guest-note">${escapeHtml(pill.subtitle)}</span>
                   </span>`
                 : `<span class="vss-account-avatar">${escapeHtml(pill.avatar)}</span>
@@ -2002,7 +2008,9 @@
     `;
   };
 
-  const renderDock = () => `
+  const renderDock = () => {
+    const compact = isCompactStudioViewport();
+    return `
     <div class="vss-dock">
       <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" />
       <div class="vss-dock-settings" aria-label="Studio generation controls">
@@ -2024,7 +2032,7 @@
           class="vss-prompt-input"
           id="vss-prompt-input"
           type="text"
-          placeholder="Describe your video or image, or add a reference..."
+          placeholder="${compact ? "Describe..." : "Describe your video or image, or add a reference..."}"
           value="${escapeHtml(state.prompt)}"
         />
         <div class="vss-prompt-actions">
@@ -2056,6 +2064,7 @@
       }>Refine your prompt before you generate.</p>
     </div>
   `;
+  };
 
   const renderViewer = () => {
     if (!state.viewer.open || !state.viewer.assetUrl) {

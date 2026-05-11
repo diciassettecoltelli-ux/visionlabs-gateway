@@ -896,12 +896,12 @@
           if (studioRoot) {
             studioRoot.hidden = false;
           }
-          appendStylesheet("/studio-shell-new.css?v=128");
+          appendStylesheet("/studio-shell-new.css?v=129");
           appendScript("/vision-config.js?v=41")
             .catch(() => null)
             .then(() => appendScript("/vision-tracking.js?v=2"))
             .catch(() => null)
-            .then(() => appendScript("/studio-shell-new.js?v=132"));
+            .then(() => appendScript("/studio-shell-new.js?v=133"));
           return;
         }
 

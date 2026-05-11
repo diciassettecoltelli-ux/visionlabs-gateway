@@ -2580,3 +2580,251 @@ body.vss-viewer-open {
     border-radius: 16px;
   }
 }
+
+/* Studio mobile repair v129: keep the phone layout in normal document flow. */
+@media (max-width: 720px) {
+  html.vss-html,
+  html.vss-html body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  #studio-shell-new-root,
+  .vss-shell,
+  .vss-app,
+  .vss-main,
+  .vss-stage,
+  .vss-dock,
+  .vss-dock-settings,
+  .vss-prompt-bar,
+  .vss-mode-row,
+  .vss-generation-controls,
+  .vss-control-group,
+  .vss-sound-toggle,
+  .vss-credit-cost,
+  .vss-rail {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  #studio-shell-new-root {
+    overflow-x: hidden;
+  }
+
+  .vss-app {
+    padding: max(12px, env(safe-area-inset-top)) 12px 20px;
+    overflow-x: hidden;
+  }
+
+  .vss-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding: 8px 0 10px;
+  }
+
+  .vss-brand-cluster,
+  .vss-brand,
+  .vss-header-actions {
+    min-width: 0;
+  }
+
+  .vss-header-actions {
+    justify-content: flex-end;
+    gap: 7px;
+  }
+
+  .vss-credit-topup {
+    width: auto;
+    min-width: 78px;
+    max-width: 92px;
+    min-height: 38px;
+    padding: 0 10px;
+    overflow: hidden;
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+    text-overflow: ellipsis;
+  }
+
+  .vss-credit-topup::after {
+    content: none;
+  }
+
+  .vss-account-pill {
+    width: 42px;
+    max-width: 42px;
+    min-height: 42px;
+    justify-content: center;
+    padding: 6px;
+  }
+
+  .vss-account-copy,
+  .vss-account-chevron {
+    display: none;
+  }
+
+  .vss-account-pill.is-guest {
+    width: 74px;
+    max-width: 74px;
+    padding: 0 10px;
+  }
+
+  .vss-account-guest-copy {
+    display: flex;
+    align-items: center;
+  }
+
+  .vss-account-guest-label {
+    font-size: 0.56rem;
+    letter-spacing: 0.12em;
+  }
+
+  .vss-account-guest-note {
+    display: none;
+  }
+
+  .vss-main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    width: 100%;
+  }
+
+  .vss-stage {
+    display: grid;
+    gap: 12px;
+    padding-bottom: 0;
+  }
+
+  .vss-canvas {
+    width: 100%;
+    height: clamp(300px, 42svh, 370px);
+    min-height: 300px;
+    border-radius: 24px;
+  }
+
+  .vss-dock {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    z-index: 2;
+    width: 100%;
+    transform: none;
+    gap: 8px;
+  }
+
+  .vss-dock-settings {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .vss-mode-row {
+    width: 100%;
+    margin: 0;
+    padding: 9px 12px;
+    overflow: hidden;
+  }
+
+  .vss-mode-switch {
+    gap: 22px;
+  }
+
+  .vss-mode-access {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vss-generation-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .vss-control-group,
+  .vss-sound-toggle,
+  .vss-credit-cost {
+    width: 100%;
+    min-height: 42px;
+    padding: 5px 8px 5px 12px;
+  }
+
+  .vss-control-pills {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .vss-control-pill {
+    min-height: 30px;
+    padding: 0 10px;
+  }
+
+  .vss-credit-cost strong {
+    max-width: 46vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .vss-prompt-bar {
+    width: 100%;
+    grid-template-columns: 42px minmax(0, 1fr) 48px;
+    min-height: 62px;
+    padding: 7px;
+    border-radius: 24px;
+  }
+
+  .vss-prompt-input {
+    min-width: 0;
+    font-size: 0.92rem;
+    letter-spacing: -0.02em;
+  }
+
+  .vss-prompt-input::placeholder {
+    font-size: 0.88rem;
+  }
+
+  .vss-add-ref {
+    width: 38px;
+    height: 38px;
+  }
+
+  .vss-submit {
+    width: 48px;
+    height: 48px;
+  }
+
+  .vss-rail {
+    padding-top: 4px;
+    padding-bottom: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .vss-brand-name {
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+  }
+
+  .vss-credit-topup {
+    min-width: 66px;
+    max-width: 72px;
+  }
+
+  .vss-credit-topup::after {
+    content: none;
+  }
+
+  .vss-mode-switch {
+    gap: 16px;
+  }
+
+  .vss-control-pill {
+    padding: 0 8px;
+  }
+}
