@@ -15294,7 +15294,7 @@ html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge {
     grid-template-columns: auto auto !important;
     justify-content: center !important;
     align-items: start !important;
-    gap: 0.34rem !important;
+    gap: 0.28rem !important;
     color: rgba(250, 252, 255, 0.94) !important;
     text-shadow: 0 2px 28px rgba(207, 223, 255, 0.24) !important;
     white-space: normal !important;
@@ -15956,9 +15956,9 @@ html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge {
 
   html body:not(.is-studio-route) .subscribe-modal .plan-price-symbol {
     display: block !important;
-    padding-top: 0.92rem !important;
+    padding-top: 0.66rem !important;
     color: rgba(250, 252, 255, 0.88) !important;
-    font-size: 3rem !important;
+    font-size: 2.3rem !important;
     font-weight: 300 !important;
     line-height: 1 !important;
     letter-spacing: 0 !important;
@@ -15968,7 +15968,7 @@ html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge {
     display: block !important;
     color: rgba(250, 252, 255, 0.94) !important;
     font-family: Onest, Manrope, system-ui, sans-serif !important;
-    font-size: 8rem !important;
+    font-size: clamp(5.8rem, 6.2vw, 6.75rem) !important;
     font-weight: 200 !important;
     line-height: 0.86 !important;
     letter-spacing: 0 !important;
@@ -15979,7 +15979,7 @@ html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge {
     display: block !important;
     margin-top: 0.28rem !important;
     color: rgba(238, 243, 252, 0.62) !important;
-    font-size: 1.02rem !important;
+    font-size: 0.9rem !important;
     font-weight: 300 !important;
     line-height: 1 !important;
     letter-spacing: 0 !important;
@@ -16127,12 +16127,12 @@ html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-badge {
   }
 
   html body:not(.is-studio-route) .subscribe-modal .plan-price-symbol {
-    padding-top: 0.72rem !important;
-    font-size: 2.25rem !important;
+    padding-top: 0.54rem !important;
+    font-size: 1.9rem !important;
   }
 
   html body:not(.is-studio-route) .subscribe-modal .plan-price-amount {
-    font-size: 6.4rem !important;
+    font-size: 5.35rem !important;
   }
 
   html body:not(.is-studio-route) .subscribe-modal .subscribe-pack-price::after {
