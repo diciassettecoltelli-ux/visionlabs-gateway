@@ -67,8 +67,8 @@
   const defaultPack = {
     id: DEFAULT_PACK_ID,
     name: "Vision Studio",
-    price_cents: 499,
-    original_price_cents: 499,
+    price_cents: 1999,
+    original_price_cents: 1999,
     currency: "EUR",
     vision_credits: 3000000,
     credit_label: "3,000,000 monthly creative credits",
@@ -1232,8 +1232,8 @@
     return packs.map((pack) => ({
       id: String(pack && pack.id ? pack.id : DEFAULT_PACK_ID).toLowerCase(),
       name: String(pack && pack.name ? pack.name : "Vision Studio"),
-      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 499),
-      original_price_cents: Number(pack && pack.original_price_cents ? pack.original_price_cents : 499),
+      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 1999),
+      original_price_cents: Number(pack && pack.original_price_cents ? pack.original_price_cents : 1999),
       currency: String(pack && pack.currency ? pack.currency : "EUR"),
       vision_credits: Number(pack && pack.vision_credits ? pack.vision_credits : 0),
       credit_label: String(pack && pack.credit_label ? pack.credit_label : ""),
@@ -1245,7 +1245,7 @@
     state.packs[0] || { ...defaultPack };
 
   const formatPackPrice = (pack) => {
-    const amount = Number((pack && pack.price_cents) || 499) / 100;
+    const amount = Number((pack && pack.price_cents) || 1999) / 100;
     const currency = String((pack && pack.currency) || "EUR").toUpperCase();
     try {
       return new Intl.NumberFormat("it-IT", {
