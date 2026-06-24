@@ -565,8 +565,8 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "name": "Vision Studio",
             "subtitle": "Monthly cinematic creation",
             "description": "Monthly access for cinematic videos, images, uploads, edits, and private no-watermark exports.",
-            "price_cents": 1999,
-            "original_price_cents": 1999,
+            "price_cents": 299,
+            "original_price_cents": 299,
             "currency": "eur",
             "vision_credits": 3000000,
             "credit_label": "3,000,000 monthly creative credits",
@@ -599,7 +599,7 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
 def _format_pack_price_display(price_cents: int, currency: str) -> str:
     amount = price_cents / 100
     if currency.lower() == "eur":
-        return f"€{amount:.2f}"
+        return f"€{amount:.2f}".replace(".", ",")
     return f"{amount:.2f} {currency.upper()}"
 
 
@@ -642,7 +642,7 @@ def _pack_by_id(pack_id: str | None) -> dict[str, Any]:
 
 
 def _pack_price_cents() -> int:
-    return int(_pack_summary().get("price_cents") or 1999)
+    return int(_pack_summary().get("price_cents") or 299)
 
 
 def _pack_currency() -> str:
@@ -1058,7 +1058,7 @@ def _create_stripe_checkout_session(
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",
         "line_items[0][price_data][currency]": str(pack.get("currency") or "eur"),
-        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 1999),
+        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 299),
         "line_items[0][price_data][recurring][interval]": "month",
         "line_items[0][price_data][recurring][interval_count]": "1",
         "line_items[0][price_data][product_data][name]": str(pack.get("name") or "Vision Studio"),

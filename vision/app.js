@@ -97,7 +97,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "132";
+const STUDIO_SHELL_ASSET_VERSION = "134";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -121,8 +121,8 @@ const defaultPacks = [
     name: "Vision Studio",
     subtitle: "Monthly cinematic creation",
     description: "Premium monthly access for visual creators.",
-    price_cents: 1999,
-    original_price_cents: 1999,
+    price_cents: 299,
+    original_price_cents: 299,
     currency: "eur",
     vision_credits: 3000000,
     credit_label: "3,000,000 monthly creative credits",
@@ -472,11 +472,12 @@ const formatPackPriceParts = (pack) => {
   const amount = Number(pack?.price_cents ?? defaultPack.price_cents) / 100;
   const currency = String(pack?.currency || defaultPack.currency).toLowerCase();
   if (currency === "eur") {
+    const formattedAmount = amount.toFixed(2).replace(".", ",");
     return {
       symbol: "€",
-      amount: amount.toFixed(2),
+      amount: formattedAmount,
       period: "/month",
-      full: `€${amount.toFixed(2)}/month`,
+      full: `€${formattedAmount}/month`,
     };
   }
   const fallback = `${amount.toFixed(2)} ${currency.toUpperCase()}`;
