@@ -7,7 +7,7 @@
     <base href="/" />
     <meta
       name="description"
-      content="Vision is a cinematic creation interface for turning prompts into premium visual worlds, images, and moving scenes."
+      content="Vision is a cinematic image creation interface for turning prompts into premium 4K images and visual worlds."
     />
     <link rel="canonical" href="https://visionstudiolab.com/" />
     <meta property="og:title" content="Vision" />
@@ -72,7 +72,7 @@
 
       <main class="hero">
         <div class="hero-media" aria-hidden="true">
-          <video class="hero-video" src="./assets/home-hero-red-dress.mp4" autoplay muted loop playsinline preload="auto"></video>
+          <img class="hero-image" src="./assets/burgundy-editorial-portrait.jpg" alt="" />
         </div>
         <div class="hero-architecture" aria-hidden="true">
           <div class="hero-canopy"></div>
@@ -101,7 +101,7 @@
             <button class="search-plus-button" type="button" aria-label="Add reference">
               <span aria-hidden="true">+</span>
             </button>
-            <input id="vision-prompt" type="text" name="q" placeholder="Describe your video or image..." autocomplete="off" tabindex="-1" />
+            <input id="vision-prompt" type="text" name="q" placeholder="Describe your 4K image..." autocomplete="off" tabindex="-1" />
             <button class="search-launch-button" type="submit" aria-label="Search" tabindex="-1">
               <span class="search-launch-ring" aria-hidden="true"></span>
               <span class="search-launch-core" aria-hidden="true">
@@ -114,8 +114,7 @@
           </form>
           <div class="search-tools">
             <div class="generation-mode-switch" role="tablist" aria-label="Generation mode">
-              <button class="mode-toggle is-active" type="button" data-generation-mode="video" aria-pressed="true">Video</button>
-              <button class="mode-toggle" type="button" data-generation-mode="image" aria-pressed="false">Image</button>
+              <button class="mode-toggle is-active" type="button" data-generation-mode="image" aria-pressed="true">Image</button>
             </div>
             <div class="studio-dock-actions">
               <button class="access-pill" id="vision-access-pill" type="button">Locked · Vision access required</button>
@@ -127,10 +126,6 @@
           </div>
           <div class="studio-compose-footer">
             <div class="studio-credit-grid studio-credit-grid--compose">
-              <div class="studio-credit-tile studio-credit-tile--compose">
-                <span class="studio-credit-label">Videos</span>
-                <strong class="studio-credit-value" id="studio-video-credits">0</strong>
-              </div>
               <div class="studio-credit-tile studio-credit-tile--compose">
                 <span class="studio-credit-label">Images</span>
                 <strong class="studio-credit-value" id="studio-image-credits">0</strong>
@@ -169,14 +164,14 @@
                 </div>
                 <div class="studio-output-copy">
                   <strong id="studio-output-stage-label">Your cinematic output will appear here.</strong>
-                  <span id="studio-output-stage-note">Generate an image or video and Vision will keep the newest result live in this canvas while it builds.</span>
+                  <span id="studio-output-stage-note">Generate a 4K image and Vision will keep the newest result live in this canvas while it builds.</span>
                 </div>
               </div>
             </button>
 
             <div class="studio-output-footer">
               <div class="studio-output-meta-block">
-                <div class="studio-output-meta" id="studio-output-meta">Your most recent image or video stays live here while Vision generates and after delivery.</div>
+                <div class="studio-output-meta" id="studio-output-meta">Your most recent 4K image stays live here while Vision generates and after delivery.</div>
               </div>
             </div>
 
@@ -188,7 +183,7 @@
               <div class="studio-history-grid studio-history-grid--strip" id="studio-history-grid"></div>
               <div class="studio-history-empty" id="studio-history-empty">
                 <strong>No saved generations yet.</strong>
-                <span>Your latest images and videos will collect here once you start creating inside Vision.</span>
+                <span>Your latest images will collect here once you start creating inside Vision.</span>
               </div>
             </aside>
           </article>
@@ -199,191 +194,13 @@
         <div class="gallery-shell">
           <div class="gallery-header">
             <h2 class="gallery-title">Gallery</h2>
-            <p class="gallery-intro-text">A gallery of cinematic videos created with Vision.</p>
-          </div>
-
-          <div class="gallery-stack">
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/golden-dune-motion.mp4"
-                data-video-title="Golden Dune Motion"
-                data-video-caption="A cinematic drift over sculpted desert dunes, held in warm low sun and soft atmospheric haze."
-                aria-label="Open Golden Dune Motion video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/golden-dune-motion.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/coastal-wave-rocks.mp4"
-                data-video-title="Coastal Wave Rocks"
-                data-video-caption="A powerful ocean wave breaking into dark coastal rocks with white spray and crisp natural motion."
-                aria-label="Open Coastal Wave Rocks video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/coastal-wave-rocks.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/golden-eagle-flight.mp4"
-                data-video-title="Golden Eagle Flight"
-                data-video-caption="A solitary eagle gliding through pale sky with clean wing motion and warm cinematic backlight."
-                aria-label="Open Golden Eagle Flight video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/golden-eagle-flight.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/red-dress.mp4"
-                data-video-title="Red Dress"
-                data-video-caption="A poised woman in a red dress turning through soft architectural light with clean luxury-film atmosphere."
-                aria-label="Open Red Dress video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/red-dress.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/lighthouse-blue-hour.mp4"
-                data-video-title="Lighthouse Blue Hour"
-                data-video-caption="A lone lighthouse on a storm cliff at blue hour with sea spray, cold wind and restrained cinematic tension."
-                aria-label="Open Lighthouse Blue Hour video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/lighthouse-blue-hour.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/city-window-couple.mp4"
-                data-video-title="City Window Couple"
-                data-video-caption="A man and woman looking out over the city from a high apartment, held in a quiet premium interior frame."
-                aria-label="Open City Window Couple video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/city-window-couple.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/night-bokeh-portrait.mp4"
-                data-video-title="Night Bokeh Portrait"
-                data-video-caption="A quiet night portrait framed against city bokeh with soft cinematic depth and clean skin tones."
-                aria-label="Open Night Bokeh Portrait video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/night-bokeh-portrait.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/desert-glass-house.mp4"
-                data-video-title="Desert Glass House"
-                data-video-caption="A modern glass house sitting in desert light with warm sand ripples and reflective architectural calm."
-                aria-label="Open Desert Glass House video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/desert-glass-house.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/rain-window-blue-hour.mp4"
-                data-video-title="Rain Window Blue Hour"
-                data-video-caption="Rain sliding down glass at blue hour with distant city lights and restrained cinematic mood."
-                aria-label="Open Rain Window Blue Hour video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/rain-window-blue-hour.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/city-walk-denim.mp4"
-                data-video-title="City Walk Denim"
-                data-video-caption="A woman walking through a clean city street with soft daylight, glass reflections and natural movement."
-                aria-label="Open City Walk Denim video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/city-walk-denim.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
-
-            <article class="gallery-tile gallery-tile--stack">
-              <button
-                class="gallery-open"
-                type="button"
-                data-video-src="./assets/city-walk-trench.mp4"
-                data-video-title="City Walk Trench"
-                data-video-caption="A poised woman in a trench coat walking through a modern glass-lined city corridor with clean lifestyle energy."
-                aria-label="Open City Walk Trench video"
-              >
-                <span class="gallery-frame">
-                  <video class="gallery-video" src="./assets/city-walk-trench.mp4" autoplay muted loop playsinline preload="metadata"></video>
-                  <span class="gallery-overlay"></span>
-                </span>
-              </button>
-            </article>
+            <p class="gallery-intro-text">A gallery of cinematic 4K images created with Vision.</p>
           </div>
 
           <div class="still-gallery" aria-labelledby="still-gallery-title">
             <div class="still-gallery-header">
-              <h3 class="still-gallery-title" id="still-gallery-title">Images</h3>
-              <p class="still-gallery-intro-text">A gallery of images created with Vision.</p>
+              <h3 class="still-gallery-title" id="still-gallery-title">4K image gallery</h3>
+              <p class="still-gallery-intro-text">Image-only previews for the new Vision monthly plan.</p>
             </div>
 
             <div class="still-gallery-grid">
@@ -608,7 +425,7 @@
               <h2 class="pricing-title">One Studio plan.</h2>
             </div>
             <p class="pricing-copy">
-              Create cinematic videos, images, and edited visual assets inside one private monthly workspace.
+              Create unlimited 4K images inside one private monthly workspace.
             </p>
           </div>
 
@@ -618,34 +435,29 @@
                 <div class="pricing-badge">Monthly</div>
                 <div class="pricing-plan">Vision Studio</div>
                 <div class="pricing-price">
-                  <span class="pricing-price-current">€2,99</span>
+                  <span class="pricing-price-current">€0,99</span>
                   <span class="pricing-price-note">/month</span>
                 </div>
               </div>
-              <p class="pricing-meta">Premium monthly access for visual creators.</p>
-              <div class="pricing-volume">3,000,000 monthly creative credits.</div>
+              <p class="pricing-meta">Unlimited 4K image creation for visual creators.</p>
+              <div class="pricing-volume">Unlimited 4K images every month.</div>
               <ul class="pricing-list">
-                <li>Up to 50 cinematic videos</li>
-                <li>Up to 200 images</li>
+                <li>Unlimited 4K images</li>
                 <li>Upload your own images</li>
                 <li>Animate and edit your images</li>
-                <li>Upload your own videos</li>
-                <li>Edit and transform videos</li>
-                <li>Videos up to 15 seconds</li>
                 <li>4K mode available</li>
-                <li>Audio generation available</li>
                 <li>Prompt enhancement included</li>
-                <li>Private gallery</li>
+                <li>Private image gallery</li>
                 <li>No watermark</li>
-                <li>Credits refresh monthly</li>
+                <li>Images refresh monthly</li>
               </ul>
               <a class="pricing-button" href="/studio/" data-enter-studio>Start Vision Studio</a>
             </article>
           </div>
 
           <div class="pricing-credit-info">
-            <h3>Built for cinema-style creation</h3>
-            <p>Start from text, image, or video references and keep every result inside your private Vision gallery.</p>
+            <h3>Built for cinema-style images</h3>
+            <p>Start from text or image references and keep every result inside your private Vision image gallery.</p>
           </div>
 
         </div>
@@ -668,7 +480,7 @@
 
             <div class="about-manifest">
               <p class="about-copy">
-                Vision is a creative interface for people who think in images, motion, atmosphere, and worlds. It is built to turn a raw idea into
+                Vision is a creative interface for people who think in images, atmosphere, texture, and worlds. It is built to turn a raw idea into
                 something sharper, more visual, and more intentional without losing taste.
               </p>
               <p class="about-copy about-copy--secondary">
@@ -694,7 +506,7 @@
                 <span class="about-card-pulse" aria-hidden="true"></span>
               </div>
               <h3>Direct the outcome</h3>
-              <p>Refine tone, motion, atmosphere, and detail until the result feels authored, not generic.</p>
+              <p>Refine tone, atmosphere, texture, and detail until the result feels authored, not generic.</p>
             </article>
 
             <article class="about-card">
@@ -703,7 +515,7 @@
                 <span class="about-card-pulse" aria-hidden="true"></span>
               </div>
               <h3>Build visual worlds</h3>
-              <p>Move from concept to image to video inside one system designed for cinematic creation.</p>
+              <p>Move from concept to polished 4K image inside one system designed for cinematic creation.</p>
             </article>
           </div>
         </div>
@@ -717,7 +529,6 @@
       <button class="gallery-lightbox-close" type="button" aria-label="Close gallery item">Close</button>
       <div class="gallery-lightbox-panel" role="dialog" aria-modal="true" aria-labelledby="gallery-lightbox-title">
         <div class="gallery-lightbox-media">
-          <video id="gallery-lightbox-video" controls playsinline preload="metadata"></video>
           <img id="gallery-lightbox-image" alt="" hidden />
         </div>
         <div class="gallery-lightbox-copy">
@@ -734,10 +545,10 @@
         <div class="subscribe-intro">
           <div class="subscribe-kicker">Vision / Access</div>
           <h3 id="subscribe-title">Start Vision Studio.</h3>
-          <p class="subscribe-copy">One monthly plan for cinematic videos, images, uploads, edits, private gallery, and no-watermark exports.</p>
+          <p class="subscribe-copy">One monthly plan for unlimited 4K images, uploads, edits, private gallery, and no-watermark exports.</p>
           <div class="subscribe-pack-grid" id="subscribe-pack-grid" aria-live="polite"></div>
           <ul class="subscribe-highlights">
-            <li>Videos up to 15 seconds</li>
+            <li>Unlimited 4K images</li>
             <li>Prompt enhancement included</li>
             <li>Watermark-free private downloads</li>
           </ul>
@@ -789,7 +600,7 @@
         <div class="auth-account" id="auth-account" hidden>
           <div class="auth-account-kicker">Vision account</div>
           <div class="auth-account-line auth-account-line--email" id="auth-account-email">Vision account</div>
-          <div class="auth-account-line auth-account-line--credits" id="auth-account-credits">0 videos · 0 images</div>
+          <div class="auth-account-line auth-account-line--credits" id="auth-account-credits">0 images</div>
           <button class="auth-submit auth-submit--full" id="auth-enter-studio" type="button">Enter Studio</button>
           <button class="auth-secondary auth-secondary--full" id="auth-buy-pack" type="button">Start Vision Studio</button>
           <button class="auth-secondary auth-secondary--full" id="auth-logout" type="button">Log out</button>
@@ -816,7 +627,7 @@
         <p class="generation-prompt" id="generation-prompt"></p>
         <div class="generation-ready" id="generation-ready" hidden>
           <div class="generation-ready-shell">
-            <button class="generation-preview" id="generation-preview" type="button" aria-label="Open generated video">
+            <button class="generation-preview" id="generation-preview" type="button" aria-label="Open generated image">
               <video id="generation-video" muted loop playsinline preload="metadata"></video>
               <img id="generation-image" alt="" hidden />
               <div class="generation-preview-placeholder" id="generation-preview-placeholder" aria-hidden="true">
@@ -827,7 +638,7 @@
                 </div>
                 <div class="generation-preview-copy">
                   <strong id="generation-preview-stage">Queued inside Vision</strong>
-                  <span id="generation-preview-note">Vision is shaping your prompt into a cinematic render with stronger realism, lighting, and motion.</span>
+                  <span id="generation-preview-note">Vision is shaping your prompt into a cinematic 4K image with stronger realism, lighting, and detail.</span>
                 </div>
               </div>
               <span class="generation-preview-badge">Tap to expand</span>
@@ -839,7 +650,7 @@
                 <span id="generation-delivery-note">Preview it in miniature, open it full-size, or download the original output.</span>
               </div>
               <div class="generation-actions">
-                <button class="generation-expand" id="generation-expand" type="button">Open video</button>
+                <button class="generation-expand" id="generation-expand" type="button">Open image</button>
                 <a class="generation-download" id="generation-download" href="#" download>Download</a>
               </div>
             </div>
@@ -901,7 +712,7 @@
             .catch(() => null)
             .then(() => appendScript("/vision-tracking.js?v=2"))
             .catch(() => null)
-            .then(() => appendScript("/studio-shell-new.js?v=134"));
+            .then(() => appendScript("/studio-shell-new.js?v=136"));
           return;
         }
 
@@ -910,7 +721,7 @@
           .catch(() => null)
           .then(() => appendScript("/vision-tracking.js?v=2"))
           .catch(() => null)
-          .then(() => appendScript("/app.js?v=68"))
+          .then(() => appendScript("/app.js?v=70"))
           .catch((error) => {
             console.error("Vision bootstrap failed", error);
           });

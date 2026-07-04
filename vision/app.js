@@ -11,7 +11,6 @@ const modeButtons = document.querySelectorAll("[data-generation-mode]");
 const accessPill = document.querySelector("#vision-access-pill");
 const galleryButtons = document.querySelectorAll(".gallery-open");
 const galleryLightbox = document.querySelector("#gallery-lightbox");
-const galleryLightboxVideo = document.querySelector("#gallery-lightbox-video");
 const galleryLightboxImage = document.querySelector("#gallery-lightbox-image");
 const galleryLightboxTitle = document.querySelector("#gallery-lightbox-title");
 const galleryLightboxCaption = document.querySelector("#gallery-lightbox-caption");
@@ -97,7 +96,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "134";
+const STUDIO_SHELL_ASSET_VERSION = "136";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -119,34 +118,31 @@ const defaultPacks = [
   {
     id: "studio",
     name: "Vision Studio",
-    subtitle: "Monthly cinematic creation",
-    description: "Premium monthly access for visual creators.",
-    price_cents: 299,
-    original_price_cents: 299,
+    subtitle: "Unlimited 4K images",
+    description: "Unlimited 4K image creation for visual creators.",
+    price_cents: 99,
+    original_price_cents: 99,
     currency: "eur",
-    vision_credits: 3000000,
-    credit_label: "3,000,000 monthly creative credits",
-    total_credit_label: "3,000,000 monthly creative credits",
+    vision_credits: 0,
+    credit_label: "Unlimited 4K images",
+    total_credit_label: "Unlimited 4K images every month",
     discount_label: "",
-    video_credits: 50,
-    image_credits: 200,
-    video_label: "Up to 50 cinematic videos",
-    duration_label: "Videos up to 15 seconds",
-    image_label: "Up to 200 images",
-    value_label: "Up to 50 cinematic videos and 200 images.",
+    video_credits: 0,
+    image_credits: 999999,
+    video_label: "",
+    duration_label: "",
+    image_label: "Unlimited 4K images",
+    value_label: "Unlimited 4K images every month.",
     badge: "Monthly",
     cta_label: "Start Vision Studio",
     features: [
       "Upload your own images",
       "Animate and edit your images",
-      "Upload your own videos",
-      "Edit and transform videos",
       "4K mode available",
-      "Audio generation available",
       "Prompt enhancement included",
-      "Private gallery",
+      "Private image gallery",
       "No watermark",
-      "Credits refresh monthly",
+      "Images refresh monthly",
     ],
   },
 ];
@@ -172,7 +168,7 @@ const defaultUser = {
 
 const promptHelperDefaults = {
   video: "Describe the subject first. Vision sharpens lighting, motion, framing, and realism before generation begins.",
-  image: "Describe the image first. Vision sharpens atmosphere, texture, framing, and still-frame impact before generation begins.",
+  image: "Describe the 4K image first. Vision sharpens atmosphere, texture, framing, and still-frame impact before generation begins.",
 };
 
 const visionApiUrl = (path) => `${VISION_API_BASE}${path}`;
@@ -260,7 +256,7 @@ const readPendingPrompt = () => {
     }
     return {
       prompt: String(parsed.prompt),
-      mode: parsed.mode === "image" ? "image" : "video",
+      mode: "image",
     };
   } catch (error) {
     return null;
@@ -554,7 +550,7 @@ const buildDownloadFilename = ({ prompt, outputType, jobId, url }) => {
   return `vision-${outputType}-${base}${suffix}.${extension}`;
 };
 
-let selectedMode = "video";
+let selectedMode = "image";
 let activeGenerationJobId = null;
 let generationPollHandle = null;
 let visionFocusGuardHandle = null;
@@ -688,13 +684,14 @@ const hasStudioCredits = () => {
 };
 
 const formatVisionCredits = (value) => Math.max(0, Number(value || 0)).toLocaleString("it-IT");
+const isUnlimitedImageCount = (value) => Math.max(0, Number(value || 0)) >= 999000;
 
 const getStudioCreditLabel = () => {
   const counts = getStudioCreditCounts();
   if (counts.vision > 0 || counts.visionPurchased > 0) {
     return `${formatVisionCredits(counts.vision)} Vision credits`;
   }
-  return `${counts.video} videos · ${counts.image} images`;
+  return isUnlimitedImageCount(counts.image) ? "Unlimited 4K images" : `${counts.image} images`;
 };
 
 const hasStudioPackContext = () => !!accessState.admin || !!accessState.access_id || hasStudioCredits();
@@ -761,11 +758,11 @@ const hasStudioOutputMedia = () => {
 
 const setStudioOutputState = ({
   state = "empty",
-  type = "video",
+  type = "image",
   src = "",
   prompt = "",
   label = "Your output will appear here.",
-  note = "Generate an image or video and Vision will keep the newest result live in this canvas while it builds.",
+  note = "Generate a 4K image and Vision will keep the newest result live in this canvas while it builds.",
   meta = "No generation yet. Your latest prompt and result will live here.",
 } = {}) => {
   if (
@@ -991,7 +988,7 @@ const renderStudioDashboard = () => {
     studioVideoCredits.textContent = adminMode ? "∞" : String(counts.video);
   }
   if (studioImageCredits) {
-    studioImageCredits.textContent = adminMode ? "∞" : String(counts.image);
+    studioImageCredits.textContent = adminMode || isUnlimitedImageCount(counts.image) ? "∞" : String(counts.image);
   }
   if (studioPackStatus) {
     if (adminMode) {
@@ -1037,7 +1034,7 @@ const renderStudioDashboard = () => {
   setStudioOutputState({
     state: "empty",
     label: "Your cinematic output will appear here.",
-    note: "Generate an image or video and Vision will keep the newest result live in this canvas while it builds.",
+    note: "Generate a 4K image and Vision will keep the newest result live in this canvas while it builds.",
     meta: currentUser.authenticated
       ? "No generation yet. Start with a prompt and Vision will build directly into this live canvas."
       : "Access Vision, then generate directly into this live output canvas.",
@@ -1050,7 +1047,7 @@ const setStudioLoaderState = (open) => {
   studioLoader?.setAttribute("aria-hidden", open ? "false" : "true");
 };
 
-const generationUiCopy = (status, outputType = "video") => {
+const generationUiCopy = (status, outputType = "image") => {
   const isImage = outputType === "image";
   const typeLabel = isImage ? "image" : "render";
   const states = {
@@ -1259,12 +1256,12 @@ const setGalleryLightboxState = (open, payload = {}) => {
   galleryLightbox?.classList.toggle("is-open", open);
   galleryLightbox?.setAttribute("aria-hidden", open ? "false" : "true");
 
-  if (!galleryLightboxVideo || !galleryLightboxImage) {
+  if (!galleryLightboxImage) {
     return;
   }
 
   if (open) {
-    const mediaType = payload.mediaType || "video";
+    const mediaType = "image";
     trackVisionEvent("ViewerOpened", {
       job_id: payload.jobId,
       asset_id: normalizeGeneratedAssetPath(payload.src) || payload.src || "",
@@ -1274,33 +1271,12 @@ const setGalleryLightboxState = (open, payload = {}) => {
     if (galleryLightboxTitle) galleryLightboxTitle.textContent = payload.title || "Untitled";
     if (galleryLightboxCaption) galleryLightboxCaption.textContent = payload.caption || "";
 
-    if (mediaType === "image") {
-      galleryLightboxVideo.pause();
-      galleryLightboxVideo.hidden = true;
-      galleryLightboxVideo.removeAttribute("src");
-      galleryLightboxVideo.load();
-      galleryLightboxImage.hidden = false;
-      galleryLightboxImage.src = payload.src || "";
-      galleryLightboxImage.alt = payload.title || "Vision image";
-      return;
-    }
-
-    galleryLightboxImage.hidden = true;
-    galleryLightboxImage.removeAttribute("src");
-    galleryLightboxImage.alt = "";
-    galleryLightboxVideo.hidden = false;
-    if (payload.src && galleryLightboxVideo.getAttribute("src") !== payload.src) {
-      galleryLightboxVideo.src = payload.src;
-    }
-    galleryLightboxVideo.currentTime = 0;
-    galleryLightboxVideo.play().catch(() => {});
+    galleryLightboxImage.hidden = false;
+    galleryLightboxImage.src = payload.src || "";
+    galleryLightboxImage.alt = payload.title || "Vision image";
     return;
   }
 
-  galleryLightboxVideo.pause();
-  galleryLightboxVideo.hidden = true;
-  galleryLightboxVideo.removeAttribute("src");
-  galleryLightboxVideo.load();
   galleryLightboxImage.hidden = true;
   galleryLightboxImage.removeAttribute("src");
   galleryLightboxImage.alt = "";
@@ -1601,14 +1577,14 @@ const pollGenerationJob = async () => {
 };
 
 const setMode = (mode) => {
-  selectedMode = mode === "image" ? "image" : "video";
+  selectedMode = "image";
   modeButtons.forEach((button) => {
     const active = button.dataset.generationMode === selectedMode;
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
   if (promptInput) {
-    promptInput.placeholder = selectedMode === "image" ? "Describe your image..." : "Describe your video or image...";
+    promptInput.placeholder = "Describe your 4K image...";
   }
   if (!improvePromptInFlight) {
     resetPromptHelper();
@@ -1671,12 +1647,10 @@ const renderSubscribePackOptions = () => {
     card.className = `subscribe-pack-card${selected ? " is-selected" : ""}${pack.badge ? " has-badge" : ""}`;
     card.dataset.packId = pack.id;
     card.setAttribute("aria-pressed", selected ? "true" : "false");
-    const featureIcons = ["UP", "FX", "VID", "ED", "4K", "AUD", "PRO", "GAL", "NO", "REF"];
+    const featureIcons = ["UP", "FX", "4K", "PRO", "GAL", "NO", "REF"];
     const studioRows = [
-      { label: pack.total_credit_label || pack.credit_label || "3,000,000 monthly creative credits", icon: "CR" },
-      { label: pack.video_label || "Up to 50 cinematic videos", icon: "▶" },
-      { label: pack.image_label || "Up to 200 images", icon: "IMG" },
-      { label: pack.duration_label || "Videos up to 15 seconds", icon: "15" },
+      { label: pack.total_credit_label || pack.credit_label || "Unlimited 4K images every month", icon: "∞" },
+      { label: pack.image_label || "Unlimited 4K images", icon: "IMG" },
       ...(Array.isArray(pack.features) ? pack.features : []).map((label, index) => ({
         label,
         icon: featureIcons[index] || "•",
@@ -1700,7 +1674,7 @@ const renderSubscribePackOptions = () => {
       <div class="subscribe-pack-head">
         <div class="subscribe-plan-title">
           <span class="subscribe-pack-name">${displayName}</span>
-          <span class="subscribe-pack-credit-label">${pack.credit_label || "3,000,000 monthly creative credits"}</span>
+          <span class="subscribe-pack-credit-label">${pack.credit_label || "Unlimited 4K images"}</span>
         </div>
         <div class="subscribe-pack-price">
           ${originalPriceMarkup}
@@ -1714,9 +1688,9 @@ const renderSubscribePackOptions = () => {
         ${pack.badge ? `<span class="subscribe-pack-badge">${pack.badge}</span>` : ""}
       </div>
       <div class="subscribe-plan-summary">
-        <span>${pack.video_label || "Up to 50 cinematic videos"}</span>
-        <span>${pack.image_label || "Up to 200 images"}</span>
-        <span>${pack.duration_label || "Videos up to 15 seconds"}</span>
+        <span>${pack.image_label || "Unlimited 4K images"}</span>
+        <span>Private image gallery</span>
+        <span>No watermark</span>
       </div>
       <ul class="subscribe-pack-features subscribe-plan-table">${featureMarkup}</ul>
       <span class="subscribe-pack-card-cta" data-short-label="${shortCtaLabel}">${pack.cta_label || "Start Vision Studio"}</span>
@@ -1743,7 +1717,7 @@ const renderAuthState = () => {
   }
   if (authCopy) {
     authCopy.textContent = showAccount
-      ? "See your remaining monthly creative credits and manage your Studio access."
+      ? "See your monthly image access and manage your Studio plan."
       : "Enter your email and Vision will send you a one-time access code to return to your Studio from any device.";
   }
   if (authAccount) {
@@ -1761,7 +1735,8 @@ const renderAuthState = () => {
     if (accessState.admin) {
       authAccountCredits.textContent = "Vision engine unlocked";
     } else if (hasPack) {
-      authAccountCredits.textContent = `${getStudioCreditLabel()} remaining`;
+      const creditLabel = getStudioCreditLabel();
+      authAccountCredits.textContent = creditLabel.toLowerCase().includes("unlimited") ? creditLabel : `${creditLabel} remaining`;
     } else {
       authAccountCredits.textContent = "No active Studio plan yet.";
     }
@@ -1845,14 +1820,14 @@ const setSubscribeLoading = (loading, label = null) => {
 const setSubscribeContent = (context = {}) => {
   const reason = context.reason || "unlock";
   const pendingPrompt = context.prompt || "";
-  const pendingMode = context.mode === "image" ? "image" : "video";
+  const pendingMode = "image";
   const title =
     reason === "insufficient_credits" || accessState.access_id
       ? "Renew Vision Studio."
       : "Start Vision Studio.";
   const copy = pendingPrompt
     ? `Start Studio for this ${pendingMode} idea. Vision will resume your current prompt right after payment so you can keep creating without starting over.`
-    : "One monthly plan for cinematic videos, images, uploads, edits, private gallery, and no-watermark exports.";
+    : "One monthly plan for unlimited 4K images, uploads, edits, private gallery, and no-watermark exports.";
   const note = "Cancel anytime. No hidden fees.";
 
   if (subscribeKicker) {
@@ -2328,7 +2303,7 @@ const unlockAdminIfNeeded = async () => {
 setSearchState(false);
 setSubscribeState(false);
 setGenerationState(false);
-setMode("video");
+setMode("image");
 renderAccessState(defaultAccess, defaultPack, defaultUser, defaultPacks);
 
 if (atomGuideText) {
@@ -2405,12 +2380,11 @@ promptInput?.addEventListener("blur", () => {
 
 galleryButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    const mediaType = button.dataset.mediaType || (button.dataset.imageSrc ? "image" : "video");
     setGalleryLightboxState(true, {
-      mediaType,
-      src: mediaType === "image" ? button.dataset.imageSrc : button.dataset.videoSrc,
-      title: button.dataset.imageTitle || button.dataset.videoTitle,
-      caption: button.dataset.imageCaption || button.dataset.videoCaption,
+      mediaType: "image",
+      src: button.dataset.imageSrc,
+      title: button.dataset.imageTitle,
+      caption: button.dataset.imageCaption,
     });
   });
 });

@@ -1190,16 +1190,6 @@ body {
   filter: saturate(1.03);
 }
 
-.gallery-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.02);
-  filter: saturate(0.95) contrast(1.02) brightness(0.88);
-}
-
 .gallery-overlay {
   position: absolute;
   inset: 0;
@@ -4531,10 +4521,6 @@ body.search-open .search-cluster {
   min-height: 31rem;
 }
 
-.gallery-video {
-  filter: saturate(1.05) contrast(1.05) brightness(0.92);
-}
-
 .gallery-overlay {
   background:
     linear-gradient(180deg, rgba(6, 11, 24, 0.03), rgba(5, 11, 24, 0.08) 24%, rgba(5, 11, 24, 0.22) 56%, rgba(4, 8, 19, 0.82) 100%),
@@ -5331,10 +5317,6 @@ body {
   box-shadow: 0 18px 40px rgba(94, 67, 39, 0.12), inset 0 0 0 1px rgba(255, 246, 231, 0.28);
 }
 
-.gallery-video {
-  filter: saturate(0.92) contrast(1.01) brightness(0.96);
-}
-
 .gallery-overlay {
   background: linear-gradient(180deg, rgba(255, 248, 236, 0.04), rgba(57, 43, 30, 0.04) 28%, rgba(54, 40, 28, 0.14) 58%, rgba(39, 29, 22, 0.5) 100%), linear-gradient(90deg, rgba(64, 47, 31, 0.1), rgba(64, 47, 31, 0) 28%, rgba(64, 47, 31, 0) 72%, rgba(64, 47, 31, 0.08));
 }
@@ -5429,7 +5411,7 @@ body {
   }
 }
 
-/* Hero video override */
+/* Hero media override */
 .hero-media {
   position: absolute;
   inset: 0;
@@ -5438,7 +5420,8 @@ body {
   pointer-events: none;
 }
 
-.hero-video {
+.hero-image {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -5599,7 +5582,7 @@ body {
 }
 
 @media (max-width: 720px) {
-  .hero-video {
+  .hero-image {
     object-position: 58% center;
   }
 }
@@ -5718,37 +5701,6 @@ body.is-studio-route .atom-guide {
   pointer-events: none;
 }
 
-.gallery-stack {
-  display: grid;
-  gap: 1.6rem;
-}
-
-.gallery-tile--stack .gallery-open {
-  display: block;
-}
-
-.gallery-tile--stack .gallery-frame {
-  position: relative;
-  display: block;
-  min-height: 0;
-  aspect-ratio: 16 / 9;
-  border-radius: 0;
-  background: rgba(34, 36, 41, 1);
-  box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.26),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-}
-
-.gallery-tile--stack .gallery-video {
-  display: block;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: brightness(0.96) saturate(0.96) contrast(1.02);
-}
-
 .gallery-overlay {
   background: linear-gradient(180deg, rgba(10, 11, 14, 0.02), rgba(10, 11, 14, 0.06) 42%, rgba(10, 11, 14, 0.22) 100%);
 }
@@ -5759,13 +5711,6 @@ body.is-studio-route .atom-guide {
     padding-bottom: 4.25rem;
   }
 
-  .gallery-stack {
-    gap: 1rem;
-  }
-
-  .gallery-tile--stack .gallery-frame {
-    border-radius: 0;
-  }
 }
 
 /* Remove warm cream from lower sections */
@@ -6100,8 +6045,7 @@ body.is-studio-route .atom-guide {
   background: #03060f;
 }
 
-#gallery-lightbox-image[hidden],
-#gallery-lightbox-video[hidden] {
+#gallery-lightbox-image[hidden] {
   display: none !important;
 }
 

@@ -67,12 +67,12 @@
   const defaultPack = {
     id: DEFAULT_PACK_ID,
     name: "Vision Studio",
-    price_cents: 299,
-    original_price_cents: 299,
+    price_cents: 99,
+    original_price_cents: 99,
     currency: "EUR",
-    vision_credits: 3000000,
-    credit_label: "3,000,000 monthly creative credits",
-    total_credit_label: "3,000,000 monthly creative credits",
+    vision_credits: 0,
+    credit_label: "Unlimited 4K images",
+    total_credit_label: "Unlimited 4K images every month",
     discount_label: "",
   };
 
@@ -88,7 +88,7 @@
   const generationPhases = ["Queued", "Preparing", "Generating", "Finishing", "Ready"];
 
   const state = {
-    mode: "video",
+    mode: "image",
     durationSeconds: 5,
     resolution: "720p",
     soundEnabled: false,
@@ -598,7 +598,7 @@
         VISION_PENDING_PROMPT_KEY,
         JSON.stringify({
           prompt: String(prompt || ""),
-          mode: mode === "image" ? "image" : "video",
+          mode: "image",
           saved_at: Date.now(),
         }),
       );
@@ -619,7 +619,7 @@
       }
       return {
         prompt: String(parsed.prompt || ""),
-        mode: parsed.mode === "image" ? "image" : "video",
+        mode: "image",
       };
     } catch (error) {
       return null;
@@ -832,8 +832,13 @@
       return;
     }
 
-    clearReferenceAsset();
     const kind = String(file.type || "").startsWith("video/") ? "video" : "image";
+    if (kind !== "image") {
+      state.currentError = "Vision now accepts image references for this plan.";
+      return;
+    }
+
+    clearReferenceAsset();
     const url = window.URL.createObjectURL(file);
     state.referenceAsset = {
       name: String(file.name || `${kind}-reference`),
@@ -1014,6 +1019,7 @@
     video: Math.max(0, Number(state.access.video_remaining ?? 0) || 0),
     image: Math.max(0, Number(state.access.image_remaining ?? 0) || 0),
   });
+  const isUnlimitedImageCount = (value) => Math.max(0, Number(value || 0)) >= 999000;
 
   const hasPackContext = () => {
     const counts = getCreditCounts();
@@ -1034,7 +1040,7 @@
       if (counts.vision > 0 || counts.visionPurchased > 0) {
         return `${formatVisionCredits(counts.vision)} Vision credits`;
       }
-      return `${counts.video} videos · ${counts.image} images`;
+      return isUnlimitedImageCount(counts.image) ? "Unlimited 4K images" : `${counts.image} images`;
     }
     return "Access required";
   };
@@ -1057,7 +1063,7 @@
         ? "Unlimited Vision"
         : counts.vision > 0 || counts.visionPurchased > 0
           ? `${formatVisionCredits(counts.vision)} Vision credits`
-          : `${counts.video} videos · ${counts.image} images`,
+          : isUnlimitedImageCount(counts.image) ? "Unlimited 4K images" : `${counts.image} images`,
     };
   };
 
@@ -1232,8 +1238,8 @@
     return packs.map((pack) => ({
       id: String(pack && pack.id ? pack.id : DEFAULT_PACK_ID).toLowerCase(),
       name: String(pack && pack.name ? pack.name : "Vision Studio"),
-      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 299),
-      original_price_cents: Number(pack && pack.original_price_cents ? pack.original_price_cents : 299),
+      price_cents: Number(pack && pack.price_cents ? pack.price_cents : 99),
+      original_price_cents: Number(pack && pack.original_price_cents ? pack.original_price_cents : 99),
       currency: String(pack && pack.currency ? pack.currency : "EUR"),
       vision_credits: Number(pack && pack.vision_credits ? pack.vision_credits : 0),
       credit_label: String(pack && pack.credit_label ? pack.credit_label : ""),
@@ -1245,7 +1251,7 @@
     state.packs[0] || { ...defaultPack };
 
   const formatPackPrice = (pack) => {
-    const amount = Number((pack && pack.price_cents) || 299) / 100;
+    const amount = Number((pack && pack.price_cents) || 99) / 100;
     const currency = String((pack && pack.currency) || "EUR").toUpperCase();
     try {
       return new Intl.NumberFormat("it-IT", {
@@ -1948,7 +1954,7 @@
     return `
       <div class="vss-canvas-empty">
         <div class="vss-canvas-empty-copy">
-          <div class="vss-canvas-empty-label">Describe your video or image</div>
+          <div class="vss-canvas-empty-label">Describe your 4K image</div>
           <div class="vss-canvas-empty-caret" aria-hidden="true"></div>
         </div>
       </div>
@@ -2012,11 +2018,10 @@
     const compact = isCompactStudioViewport();
     return `
     <div class="vss-dock">
-      <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/*,video/mp4,video/webm,video/quicktime" />
+      <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/*" />
       <div class="vss-dock-settings" aria-label="Studio generation controls">
         <div class="vss-mode-row vss-mode-row--elevated">
           <div class="vss-mode-switch" role="tablist" aria-label="Mode switch">
-            <button type="button" data-mode="video" class="${state.mode === "video" ? "is-active" : ""}">Video</button>
             <button type="button" data-mode="image" class="${state.mode === "image" ? "is-active" : ""}">Image</button>
           </div>
           <span class="vss-mode-separator" aria-hidden="true"></span>
@@ -2025,14 +2030,14 @@
         ${renderGenerationControls()}
       </div>
       <form class="vss-prompt-bar" id="vss-prompt-form">
-        <button class="vss-add-ref" type="button" aria-label="Upload image or short video reference" title="Add image or short video reference">
+        <button class="vss-add-ref" type="button" aria-label="Upload image reference" title="Add image reference">
           <span class="vss-add-ref-symbol" aria-hidden="true">+</span>
         </button>
         <input
           class="vss-prompt-input"
           id="vss-prompt-input"
           type="text"
-          placeholder="${compact ? "Describe..." : "Describe your video or image, or add a reference..."}"
+          placeholder="${compact ? "Describe..." : "Describe your 4K image, or add a reference..."}"
           value="${escapeHtml(state.prompt)}"
         />
         <div class="vss-prompt-actions">
@@ -2057,7 +2062,7 @@
               </span>
               <button class="vss-reference-clear" id="vss-reference-clear" type="button">Remove</button>
             </div>`
-          : `<p class="vss-reference-hint">Use + to add an image or short video reference.</p>`
+          : `<p class="vss-reference-hint">Use + to add an image reference.</p>`
       }
       <p class="vss-improve-note vss-improve-note--inline" id="vss-improve-note" ${
         state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
@@ -2238,12 +2243,12 @@
                 </div>
                   <div class="vss-account-grid">
                     <div class="vss-account-tile">
-                      <span>${counts.vision > 0 || counts.visionPurchased > 0 ? "Vision credits" : "Available credits"}</span>
-                      <strong>${state.access.admin ? "∞" : counts.vision > 0 || counts.visionPurchased > 0 ? formatVisionCredits(counts.vision) : `${counts.video} video · ${counts.image} image`}</strong>
+                      <span>${counts.vision > 0 || counts.visionPurchased > 0 ? "Vision credits" : "Available images"}</span>
+                      <strong>${state.access.admin ? "∞" : counts.vision > 0 || counts.visionPurchased > 0 ? formatVisionCredits(counts.vision) : isUnlimitedImageCount(counts.image) ? "∞ images" : `${counts.image} images`}</strong>
                     </div>
                     <div class="vss-account-tile">
                       <span>Current output cost</span>
-                      <strong>${state.access.admin ? "Included" : `${formatVisionCredits(getGenerationCost().amount)} credits`}</strong>
+                      <strong>Included</strong>
                     </div>
                   </div>
                   <div class="vss-account-actions">
@@ -2355,7 +2360,7 @@
       }
       setReferenceAsset(file);
       trackVisionEvent("ReferenceUploaded", {
-        media_type: String(file.type || "").startsWith("video/") ? "video" : "image",
+        media_type: "image",
         platform_context: "web",
         payload: {
           mime_type: String(file.type || ""),
@@ -2373,7 +2378,7 @@
 
     root.querySelectorAll("[data-mode]").forEach((button) => {
       button.addEventListener("click", () => {
-        state.mode = button.getAttribute("data-mode") === "image" ? "image" : "video";
+        state.mode = "image";
         render();
       });
     });

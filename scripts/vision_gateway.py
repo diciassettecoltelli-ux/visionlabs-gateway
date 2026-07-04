@@ -153,9 +153,9 @@ def _normalize_quality(value: str | None) -> str:
 
 def _normalize_mode(value: str | None) -> str:
     if not value:
-        return "video"
+        return "image"
     normalized = value.strip().lower()
-    return normalized if normalized in {"video", "image"} else "video"
+    return normalized if normalized in {"video", "image"} else "image"
 
 
 def _normalize_duration_seconds(value: int | None) -> int:
@@ -563,34 +563,31 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
         {
             "id": "studio",
             "name": "Vision Studio",
-            "subtitle": "Monthly cinematic creation",
-            "description": "Monthly access for cinematic videos, images, uploads, edits, and private no-watermark exports.",
-            "price_cents": 299,
-            "original_price_cents": 299,
+            "subtitle": "Unlimited 4K images",
+            "description": "Monthly access for unlimited 4K images, image uploads, edits, private gallery, and no-watermark exports.",
+            "price_cents": 99,
+            "original_price_cents": 99,
             "currency": "eur",
-            "vision_credits": 3000000,
-            "credit_label": "3,000,000 monthly creative credits",
-            "total_credit_label": "3,000,000 monthly creative credits",
+            "vision_credits": 0,
+            "credit_label": "Unlimited 4K images",
+            "total_credit_label": "Unlimited 4K images every month",
             "discount_label": "",
-            "video_credits": 50,
-            "image_credits": 200,
-            "video_label": "Up to 50 cinematic videos",
-            "duration_label": "Videos up to 15 seconds",
-            "image_label": "Up to 200 images",
-            "value_label": "Up to 50 cinematic videos and 200 images every month.",
+            "video_credits": 0,
+            "image_credits": 999999,
+            "video_label": "",
+            "duration_label": "",
+            "image_label": "Unlimited 4K images",
+            "value_label": "Unlimited 4K images every month.",
             "badge": "Monthly",
             "cta_label": "Start Vision Studio",
             "features": [
                 "Upload your own images",
                 "Animate and edit your images",
-                "Upload your own videos",
-                "Edit and transform videos",
                 "4K mode available",
-                "Audio generation available",
                 "Prompt enhancement included",
-                "Private gallery",
+                "Private image gallery",
                 "No watermark",
-                "Credits refresh monthly",
+                "Images refresh monthly",
             ],
         },
     ]
@@ -642,7 +639,7 @@ def _pack_by_id(pack_id: str | None) -> dict[str, Any]:
 
 
 def _pack_price_cents() -> int:
-    return int(_pack_summary().get("price_cents") or 299)
+    return int(_pack_summary().get("price_cents") or 99)
 
 
 def _pack_currency() -> str:
@@ -650,11 +647,11 @@ def _pack_currency() -> str:
 
 
 def _pack_video_credits() -> int:
-    return max(int(_pack_summary().get("video_credits") or 50), 1)
+    return max(int(_pack_summary().get("video_credits") or 0), 0)
 
 
 def _pack_image_credits() -> int:
-    return max(int(_pack_summary().get("image_credits") or 200), 0)
+    return max(int(_pack_summary().get("image_credits") or 999999), 0)
 
 
 def _pack_vision_credits() -> int:
@@ -666,7 +663,7 @@ def _pack_name() -> str:
 
 
 def _pack_description() -> str:
-    return str(_pack_summary().get("description") or f"{_pack_video_credits()} videos + {_pack_image_credits()} images").strip() or f"{_pack_video_credits()} videos + {_pack_image_credits()} images"
+    return str(_pack_summary().get("description") or "Unlimited 4K images").strip() or "Unlimited 4K images"
 
 
 def _access_cookie_name() -> str:
@@ -866,7 +863,7 @@ def _send_purchase_notification_email(record: dict[str, Any]) -> None:
         f"Email: {record.get('email') or 'not provided'}",
         f"Pack: {record.get('pack_name')}",
         f"Credits: {record.get('vision_credits') or 'legacy'} Vision credits",
-        f"Legacy capacity: {record.get('video_credits')} videos + {record.get('image_credits')} images",
+        f"Image capacity: {record.get('image_credits')} images",
         f"Amount: {record.get('amount_total')} {str(record.get('currency') or '').upper()}",
         f"Access ID: {record.get('access_id')}",
         f"Checkout session: {record.get('session_id')}",
@@ -918,7 +915,7 @@ def _send_auth_code_email(*, email: str, code: str) -> None:
         f"Access code: {code}",
         "",
         f"This code expires in {_auth_code_ttl_minutes()} minutes.",
-        "It keeps your access secure and helps you recover your videos and images from any device.",
+        "It keeps your access secure and helps you recover your images from any device.",
         "If you did not request this code, you can ignore this message.",
     ]
     _send_email(
@@ -1058,7 +1055,7 @@ def _create_stripe_checkout_session(
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",
         "line_items[0][price_data][currency]": str(pack.get("currency") or "eur"),
-        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") or 299),
+        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") if pack.get("price_cents") is not None else 99),
         "line_items[0][price_data][recurring][interval]": "month",
         "line_items[0][price_data][recurring][interval_count]": "1",
         "line_items[0][price_data][product_data][name]": str(pack.get("name") or "Vision Studio"),
@@ -1066,13 +1063,13 @@ def _create_stripe_checkout_session(
         "metadata[vision_pack_id]": str(pack.get("id") or "studio"),
         "metadata[vision_pack_name]": str(pack.get("name") or "Vision Studio"),
         "metadata[vision_pack_vision_credits]": str(pack.get("vision_credits") or ""),
-        "metadata[vision_pack_video_credits]": str(pack.get("video_credits") or 50),
-        "metadata[vision_pack_image_credits]": str(pack.get("image_credits") or 200),
+        "metadata[vision_pack_video_credits]": str(pack.get("video_credits") if pack.get("video_credits") is not None else 0),
+        "metadata[vision_pack_image_credits]": str(pack.get("image_credits") if pack.get("image_credits") is not None else 999999),
         "subscription_data[metadata][vision_pack_id]": str(pack.get("id") or "studio"),
         "subscription_data[metadata][vision_pack_name]": str(pack.get("name") or "Vision Studio"),
         "subscription_data[metadata][vision_pack_vision_credits]": str(pack.get("vision_credits") or ""),
-        "subscription_data[metadata][vision_pack_video_credits]": str(pack.get("video_credits") or 50),
-        "subscription_data[metadata][vision_pack_image_credits]": str(pack.get("image_credits") or 200),
+        "subscription_data[metadata][vision_pack_video_credits]": str(pack.get("video_credits") if pack.get("video_credits") is not None else 0),
+        "subscription_data[metadata][vision_pack_image_credits]": str(pack.get("image_credits") if pack.get("image_credits") is not None else 999999),
     }
     for key, value in _tracking_metadata(tracking).items():
         payload[f"metadata[{key}]"] = value
@@ -1473,7 +1470,7 @@ class CreateJobRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=5000)
     quality: str | None = Field(default=None, min_length=4, max_length=16)
     provider: str | None = Field(default=None, min_length=4, max_length=16)
-    mode: str | None = Field(default="video", min_length=5, max_length=16)
+    mode: str | None = Field(default="image", min_length=5, max_length=16)
     duration_seconds: int | None = Field(default=None, ge=3, le=15)
     resolution: str | None = Field(default=None, min_length=2, max_length=8)
     aspect_ratio: str | None = Field(default=None, min_length=3, max_length=16)
@@ -1496,7 +1493,7 @@ class AdminUnlockRequest(BaseModel):
 
 class ImprovePromptRequest(BaseModel):
     prompt: str = Field(min_length=3, max_length=1500)
-    mode: str | None = Field(default="video", min_length=5, max_length=16)
+    mode: str | None = Field(default="image", min_length=5, max_length=16)
 
 
 class RequestAuthCodeRequest(BaseModel):
