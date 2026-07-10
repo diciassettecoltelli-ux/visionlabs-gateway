@@ -547,7 +547,7 @@ def _select_image_route(preferred_provider: str | None = None) -> dict[str, str]
             return route
         raise RuntimeError(f"{requested.capitalize()} image generation is not ready yet for this Vision deployment.")
 
-    for provider in ("openai", "kling", "google"):
+    for provider in ("kling", "google", "openai"):
         route = _image_route_for_provider(provider)
         if route:
             return route
@@ -1245,6 +1245,17 @@ def _access_token_for_entry(entry: dict[str, Any]) -> str:
     return _sign_access_token(_access_token_payload(entry))
 
 
+def _admin_access_entry() -> dict[str, Any]:
+    return {
+        "id": "admin",
+        "admin": True,
+        "vision_credits_remaining": None,
+        "vision_credits_purchased": None,
+        "video_remaining": None,
+        "image_remaining": None,
+    }
+
+
 def _user_summary(user: dict[str, Any] | None) -> dict[str, Any]:
     if not user:
         return {
@@ -1291,19 +1302,29 @@ def _request_access_token(request: Request) -> str | None:
     return cookie_token or None
 
 
+def _test_admin_from_request(request: Request) -> dict[str, Any] | None:
+    provided = request.headers.get("x-vision-test-admin", "").strip()
+    if not provided:
+        return None
+    configured = (
+        os.environ.get("VISION_TEST_ADMIN_TOKEN", "").strip()
+        or os.environ.get("VISION_ADMIN_TOKEN", "").strip()
+    )
+    if configured and hmac.compare_digest(provided, configured):
+        return _admin_access_entry()
+    return None
+
+
 def _access_from_request(request: Request) -> dict[str, Any] | None:
+    test_admin = _test_admin_from_request(request)
+    if test_admin:
+        return test_admin
+
     token = _request_access_token(request)
     payload = _verify_access_token(token)
     if payload:
         if payload.get("admin"):
-            return {
-                "id": "admin",
-                "admin": True,
-                "vision_credits_remaining": None,
-                "vision_credits_purchased": None,
-                "video_remaining": None,
-                "image_remaining": None,
-            }
+            return _admin_access_entry()
         access_id = str(payload.get("access_id") or "")
         if access_id:
             entry = ACCESS.get(access_id)
@@ -3929,12 +3950,7 @@ def admin_unlock(payload: AdminUnlockRequest, request: Request) -> JSONResponse:
         raise HTTPException(status_code=503, detail="Admin unlock is not configured for this deployment.")
     if payload.token.strip() != configured:
         raise HTTPException(status_code=403, detail="Invalid admin token.")
-    entry = {
-        "id": "admin",
-        "admin": True,
-        "video_remaining": None,
-        "image_remaining": None,
-    }
+    entry = _admin_access_entry()
     access_summary = _access_summary(entry)
     response = JSONResponse(
         {

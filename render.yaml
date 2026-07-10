@@ -28,7 +28,7 @@ services:
       - key: VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER
         value: auto
       - key: VISION_GATEWAY_DEFAULT_IMAGE_PROVIDER
-        value: auto
+        value: kling
       - key: VISION_GATEWAY_DEFAULT_GENERATION_QUALITY
         value: auto
       - key: VISION_KLING_API_FIRST
@@ -138,6 +138,8 @@ services:
       - key: VISION_USER_SECRET
         sync: false
       - key: VISION_ADMIN_TOKEN
+        sync: false
+      - key: VISION_TEST_ADMIN_TOKEN
         sync: false
       - key: VISION_FRONTEND_BASE_URL
         value: https://visionstudiolab.com

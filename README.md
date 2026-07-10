@@ -32,12 +32,18 @@ Required secrets on the deploy target:
 - `VISION_KLING_REQUEST_HEADERS_JSON`
 - `VISION_KLING_SUBMIT_PAYLOAD_JSON`
 - `OPENAI_API_KEY`
+- `VISION_TEST_ADMIN_TOKEN` enables native-app Debug builds to bypass the paid
+  gate for internal testing when sent as `x-vision-test-admin`. Do not ship this
+  value in release builds.
 
-OpenAI image controls:
+Image provider controls:
 
-- `VISION_GATEWAY_DEFAULT_IMAGE_PROVIDER=auto` uses OpenAI first when it is
-  ready, then falls back to Kling/Google. Set it to `openai` to force OpenAI
-  image generation only.
+- `VISION_GATEWAY_DEFAULT_IMAGE_PROVIDER=kling` makes Vision image generation use
+  the Kling image bridge by default.
+- `VISION_GATEWAY_DEFAULT_IMAGE_PROVIDER=auto` now tries Kling first, then
+  Google, then OpenAI.
+- Set `VISION_GATEWAY_DEFAULT_IMAGE_PROVIDER=openai` only when you explicitly
+  want OpenAI image generation.
 - `OPENAI_IMAGE_MODEL` defaults to `gpt-image-1.5`.
 - `OPENAI_IMAGE_SIZE=auto` lets Vision map 9:16, 16:9, and 1:1 requests to the
   matching OpenAI image size.
