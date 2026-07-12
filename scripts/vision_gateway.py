@@ -2268,9 +2268,11 @@ class JobsStore:
             self.jobs = json.loads(self.path.read_text(encoding="utf-8"))
             for job in self.jobs.values():
                 if job.get("status") in {"queued", "preparing", "generating", "downloading"}:
-                    job["status"] = "failed"
-                    job["message"] = "Generation was interrupted before Vision could import the result."
-                    job["error"] = "Gateway restarted before completion."
+                    job["status"] = "queued"
+                    job["message"] = "Resuming generation after a gateway restart."
+                    job["error"] = None
+                    job["recovery_count"] = int(job.get("recovery_count") or 0) + 1
+            self.save()
 
     def save(self) -> None:
         self.path.write_text(json.dumps(self.jobs, indent=2), encoding="utf-8")
@@ -2329,6 +2331,159 @@ class JobsStore:
             job["updated_at"] = _now_iso()
             self.save()
             return dict(job)
+
+    def pending_ids(self) -> list[str]:
+        with self.lock:
+            return [job_id for job_id, job in self.jobs.items() if job.get("status") == "queued"]
+
+
+class PostgresJobsStore:
+    def __init__(self, database_url: str) -> None:
+        try:
+            import psycopg
+            from psycopg.types.json import Jsonb
+        except ImportError as exc:
+            raise TrackingStoreUnavailable("psycopg is required for persistent generation jobs.") from exc
+        self.database_url = database_url
+        self.psycopg = psycopg
+        self.Jsonb = Jsonb
+        self.lock = threading.Lock()
+        self._ensure_schema()
+
+    def _connect(self):
+        return self.psycopg.connect(self.database_url)
+
+    def _ensure_schema(self) -> None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS vision_generation_jobs (
+                        job_id TEXT PRIMARY KEY,
+                        payload JSONB NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+
+    def create(
+        self,
+        prompt: str,
+        quality: str,
+        *,
+        mode: str,
+        charged_access_id: str | None,
+        charged_mode: str | None,
+        charged_amount: int | None = None,
+        charged_credit_type: str | None = None,
+        credit_cost: dict[str, Any] | None = None,
+        generation_settings: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        with self.lock:
+            job_id = uuid.uuid4().hex[:12]
+            now = _now_iso()
+            job = {
+                "id": job_id,
+                "prompt": prompt,
+                "provider": "auto",
+                "mode": mode,
+                "quality": quality,
+                "status": "queued",
+                "message": "Queued inside Vision.",
+                "created_at": now,
+                "updated_at": now,
+                "output_url": None,
+                "output_path": None,
+                "output_type": mode,
+                "error": None,
+                "charged_access_id": charged_access_id,
+                "charged_mode": charged_mode,
+                "charged_amount": charged_amount,
+                "charged_credit_type": charged_credit_type,
+                "credit_cost": credit_cost or {},
+                "generation_settings": generation_settings or {},
+                "credit_refunded": False,
+            }
+            with self._connect() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO vision_generation_jobs (job_id, payload) VALUES (%s, %s)",
+                        (job_id, self.Jsonb(job)),
+                    )
+            return dict(job)
+
+    def get(self, job_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT payload FROM vision_generation_jobs WHERE job_id = %s", (job_id,))
+                row = cursor.fetchone()
+        if not row:
+            return None
+        return dict(row[0])
+
+    def update(self, job_id: str, **changes: Any) -> dict[str, Any]:
+        with self.lock:
+            with self._connect() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT payload FROM vision_generation_jobs WHERE job_id = %s FOR UPDATE",
+                        (job_id,),
+                    )
+                    row = cursor.fetchone()
+                    if not row:
+                        raise KeyError(job_id)
+                    job = dict(row[0])
+                    job.update(changes)
+                    job["updated_at"] = _now_iso()
+                    cursor.execute(
+                        """
+                        UPDATE vision_generation_jobs
+                        SET payload = %s, updated_at = NOW()
+                        WHERE job_id = %s
+                        """,
+                        (self.Jsonb(job), job_id),
+                    )
+            return dict(job)
+
+    def pending_ids(self) -> list[str]:
+        active = {"queued", "preparing", "generating", "downloading"}
+        recovered: list[str] = []
+        with self.lock:
+            with self._connect() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        SELECT job_id, payload
+                        FROM vision_generation_jobs
+                        WHERE payload->>'status' = ANY(%s)
+                        ORDER BY created_at ASC
+                        """,
+                        (list(active),),
+                    )
+                    for job_id, payload in cursor.fetchall():
+                        job = dict(payload)
+                        job["status"] = "queued"
+                        job["message"] = "Resuming generation after a gateway restart."
+                        job["error"] = None
+                        job["recovery_count"] = int(job.get("recovery_count") or 0) + 1
+                        job["updated_at"] = _now_iso()
+                        cursor.execute(
+                            "UPDATE vision_generation_jobs SET payload = %s, updated_at = NOW() WHERE job_id = %s",
+                            (self.Jsonb(job), job_id),
+                        )
+                        recovered.append(str(job_id))
+        return recovered
+
+
+def _create_jobs_store() -> JobsStore | PostgresJobsStore:
+    database_url = _tracking_database_url()
+    if database_url:
+        try:
+            return PostgresJobsStore(database_url)
+        except Exception as exc:
+            print(f"[vision] persistent job storage unavailable; using local fallback: {_safe_tracking_error(str(exc))}")
+    return JobsStore(JOBS_FILE)
 
 
 class AccessStore:
@@ -3204,7 +3359,7 @@ class UserStore:
             return dict(user)
 
 
-JOBS = JobsStore(JOBS_FILE)
+JOBS = _create_jobs_store()
 ACCESS = _create_access_store()
 USERS = UserStore(USERS_FILE)
 TRACKING = _create_tracking_store()
@@ -3746,6 +3901,13 @@ def _process_job(job_id: str) -> None:
 def _worker_loop() -> None:
     while True:
         job_id = QUEUE.get()
+        keepalive_stop = threading.Event()
+        keepalive_worker = threading.Thread(
+            target=_job_keepalive_loop,
+            args=(keepalive_stop,),
+            daemon=True,
+        )
+        keepalive_worker.start()
         try:
             try:
                 _process_job(job_id)
@@ -3762,7 +3924,34 @@ def _worker_loop() -> None:
                 except Exception:
                     pass
         finally:
+            keepalive_stop.set()
             QUEUE.task_done()
+
+
+def _job_keepalive_url() -> str:
+    configured = os.environ.get("VISION_GATEWAY_PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if configured:
+        return f"{configured}/api/health"
+    hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()
+    if hostname:
+        return f"https://{hostname}/api/health"
+    return ""
+
+
+def _job_keepalive_loop(stop: threading.Event) -> None:
+    url = _job_keepalive_url()
+    if not url:
+        return
+    while not stop.wait(240):
+        try:
+            with urllib.request.urlopen(url, timeout=20) as response:
+                response.read(64)
+        except Exception:
+            continue
+
+
+for recovered_job_id in JOBS.pending_ids():
+    QUEUE.put(recovered_job_id)
 
 
 WORKER = threading.Thread(target=_worker_loop, daemon=True)
