@@ -759,7 +759,11 @@ def _image_quality_settings(quality: str) -> dict[str, Any]:
 def _override_image_quality(payload: dict[str, Any], quality: str) -> dict[str, Any]:
     tuned = json.loads(json.dumps(payload))
     settings = _image_quality_settings(quality)
+    if _env_bool("VISION_KLING_IMAGE_TEXT_ONLY", True):
+        tuned["inputs"] = []
     _set_argument_value(tuned, "img_resolution", settings["resolution"], set_by_user=True)
+    _set_argument_value(tuned, "imageCount", "1", set_by_user=True)
+    _set_argument_value(tuned, "story_mode", False)
     _set_argument_value(tuned, "showPrice", settings["show_price"])
     _set_argument_value(tuned, "__isUnLimited", settings["unlimited"])
     return tuned
