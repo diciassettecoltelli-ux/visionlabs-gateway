@@ -31,7 +31,7 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Onest:wght@200;300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link id="vision-legacy-style" rel="stylesheet" href="/style.css?v=60" />
+    <link id="vision-legacy-style" rel="stylesheet" href="/style.css?v=83" />
     <link rel="stylesheet" href="/brand-logo-shared.css?v=3" />
     <link rel="stylesheet" href="/public-footer.css?v=7" />
   </head>
@@ -98,9 +98,6 @@
             <p class="studio-compose-copy">Write a prompt, refine it, then generate directly into your live output canvas without leaving the Studio.</p>
           </div>
           <form class="search-panel" id="vision-search-form" action="#" method="get">
-            <button class="search-plus-button" type="button" aria-label="Add reference">
-              <span aria-hidden="true">+</span>
-            </button>
             <input id="vision-prompt" type="text" name="q" placeholder="Describe your 4K image..." autocomplete="off" tabindex="-1" />
             <button class="search-launch-button" type="submit" aria-label="Search" tabindex="-1">
               <span class="search-launch-ring" aria-hidden="true"></span>
@@ -425,7 +422,7 @@
               <h2 class="pricing-title">One Studio plan.</h2>
             </div>
             <p class="pricing-copy">
-              Create unlimited 4K images inside one private monthly workspace.
+              Create unlimited 4K images inside one focused monthly workspace.
             </p>
           </div>
 
@@ -439,17 +436,13 @@
                   <span class="pricing-price-note">/month</span>
                 </div>
               </div>
-              <p class="pricing-meta">Unlimited 4K image creation for visual creators.</p>
-              <div class="pricing-volume">Unlimited 4K images every month.</div>
+              <p class="pricing-meta">A simple monthly workspace for visual creators.</p>
+              <div class="pricing-volume">Everything you need to create.</div>
               <ul class="pricing-list">
-                <li>Unlimited 4K images</li>
-                <li>Upload your own images</li>
-                <li>Animate and edit your images</li>
-                <li>4K mode available</li>
+                <li>Unlimited 4K image generation</li>
                 <li>Prompt enhancement included</li>
-                <li>Private image gallery</li>
-                <li>No watermark</li>
-                <li>Images refresh monthly</li>
+                <li>Recent image history</li>
+                <li>Watermark-free downloads</li>
               </ul>
               <a class="pricing-button" href="/studio/" data-enter-studio>Start Vision Studio</a>
             </article>
@@ -457,7 +450,7 @@
 
           <div class="pricing-credit-info">
             <h3>Built for cinema-style images</h3>
-            <p>Start from text or image references and keep every result inside your private Vision image gallery.</p>
+            <p>Start from text and keep every result in your personal Vision image history.</p>
           </div>
 
         </div>
@@ -539,28 +532,29 @@
       </div>
     </div>
 
-    <div class="subscribe-modal" id="subscribe-modal" aria-hidden="true">
+    <div class="subscribe-modal" id="subscribe-modal" aria-hidden="true" hidden>
       <div class="subscribe-panel" role="dialog" aria-modal="true" aria-labelledby="subscribe-title">
         <button class="subscribe-close" type="button" aria-label="Close subscribe panel">Close</button>
         <div class="subscribe-intro">
           <div class="subscribe-kicker">Vision / Access</div>
           <h3 id="subscribe-title">Start Vision Studio.</h3>
-          <p class="subscribe-copy">One monthly plan for unlimited 4K images, uploads, edits, private gallery, and no-watermark exports.</p>
+          <p class="subscribe-copy">Unlimited 4K image generation, prompt enhancement, recent image history, and watermark-free downloads.</p>
           <div class="subscribe-pack-grid" id="subscribe-pack-grid" aria-live="polite"></div>
           <ul class="subscribe-highlights">
-            <li>Unlimited 4K images</li>
+            <li>Unlimited 4K image generation</li>
             <li>Prompt enhancement included</li>
-            <li>Watermark-free private downloads</li>
+            <li>Recent image history</li>
+            <li>Watermark-free downloads</li>
           </ul>
         </div>
 
         <form class="subscribe-form" id="subscribe-form">
-          <label class="subscribe-label" for="subscribe-email">Email</label>
+          <label class="subscribe-label" for="subscribe-email">Account email</label>
           <div class="subscribe-field-row">
             <input class="subscribe-input" id="subscribe-email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
-            <button class="subscribe-submit" type="submit">Start Vision Studio</button>
+            <button class="subscribe-submit" type="submit">Verify &amp; continue</button>
           </div>
-          <p class="subscribe-note" id="subscribe-note">Secure monthly checkout with Stripe. Vision resumes your prompt automatically after payment.</p>
+          <p class="subscribe-note" id="subscribe-note">We’ll verify your email before Stripe checkout. Cancel anytime.</p>
           <p class="subscribe-returning">
             Already have Studio access?
             <button class="subscribe-returning-link" id="subscribe-returning-link" type="button">Access Vision</button>
@@ -574,13 +568,13 @@
       </div>
     </div>
 
-    <div class="auth-modal" id="auth-modal" aria-hidden="true">
+    <div class="auth-modal" id="auth-modal" aria-hidden="true" hidden>
       <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
         <button class="auth-close" type="button" aria-label="Close Vision account panel">Close</button>
         <div class="auth-intro">
           <div class="auth-kicker">Vision / Account</div>
-          <h3 id="auth-title">Access Vision Studio.</h3>
-          <p class="auth-copy" id="auth-copy">Enter your email and Vision will send you a one-time access code to return to your Studio from any device.</p>
+          <h3 id="auth-title">Sign in to Vision</h3>
+          <p class="auth-copy" id="auth-copy">Use your email to continue. No password needed.</p>
         </div>
 
         <form class="auth-form" id="auth-form">
@@ -591,10 +585,10 @@
             <input class="auth-input" id="auth-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" />
           </div>
           <div class="auth-actions">
-            <button class="auth-submit" id="auth-submit" type="submit">Send access code</button>
+            <button class="auth-submit" id="auth-submit" type="submit">Continue with email</button>
             <button class="auth-secondary" id="auth-reset" type="button" hidden>Use another email</button>
           </div>
-          <p class="auth-note" id="auth-note">We’ll send a one-time access code so your Studio access follows you when you come back.</p>
+          <p class="auth-note" id="auth-note">We’ll email you a one-time sign-in code.</p>
         </form>
 
         <div class="auth-account" id="auth-account" hidden>
@@ -707,12 +701,12 @@
           if (studioRoot) {
             studioRoot.hidden = false;
           }
-          appendStylesheet("/studio-shell-new.css?v=129");
+          appendStylesheet("/studio-shell-new.css?v=143");
           appendScript("/vision-config.js?v=41")
             .catch(() => null)
             .then(() => appendScript("/vision-tracking.js?v=2"))
             .catch(() => null)
-            .then(() => appendScript("/studio-shell-new.js?v=136"));
+            .then(() => appendScript("/studio-shell-new.js?v=143"));
           return;
         }
 
@@ -721,7 +715,7 @@
           .catch(() => null)
           .then(() => appendScript("/vision-tracking.js?v=2"))
           .catch(() => null)
-          .then(() => appendScript("/app.js?v=70"))
+          .then(() => appendScript("/app.js?v=80"))
           .catch((error) => {
             console.error("Vision bootstrap failed", error);
           });

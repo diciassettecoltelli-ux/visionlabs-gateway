@@ -2828,3 +2828,823 @@ body.vss-viewer-open {
     padding: 0 8px;
   }
 }
+
+/* Vision Studio minimal system v140 */
+html.vss-html,
+html.vss-html body {
+  background: #101112;
+  color: #f4f1eb;
+}
+
+#studio-shell-new-root {
+  --vss-bg: #101112;
+  --vss-bg-elevated: #17181a;
+  --vss-surface: #17181a;
+  --vss-surface-strong: #131416;
+  --vss-border: rgba(255, 255, 255, 0.075);
+  --vss-border-soft: rgba(255, 255, 255, 0.045);
+  --vss-text-primary: #f4f1eb;
+  --vss-text-secondary: rgba(244, 241, 235, 0.62);
+  --vss-text-muted: rgba(244, 241, 235, 0.38);
+  --vss-ivory: #eee8dc;
+  --vss-radius-xl: 18px;
+  --vss-radius-lg: 14px;
+  background: #101112;
+}
+
+#studio-shell-new-root::before,
+#studio-shell-new-root::after,
+.vss-canvas::before {
+  display: none;
+}
+
+.vss-shell,
+.vss-app {
+  min-height: 100svh;
+}
+
+.vss-app {
+  height: 100svh;
+  padding: 22px 36px 26px;
+}
+
+.vss-header {
+  min-height: 44px;
+  margin: 0 0 22px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--vss-border-soft);
+}
+
+.vss-brand-cluster {
+  gap: 18px;
+}
+
+.vss-brand {
+  gap: 12px;
+}
+
+.vss-brand-mark,
+.vss-brand-mark-image {
+  width: 21px;
+  height: 21px;
+}
+
+.vss-brand-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+}
+
+.vss-home-link {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--vss-text-muted);
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+}
+
+.vss-home-link::before {
+  content: "←";
+  margin-right: 7px;
+  font-size: 0.86rem;
+  letter-spacing: 0;
+}
+
+.vss-home-link:hover,
+.vss-home-link:focus-visible {
+  border: 0;
+  background: transparent;
+  color: var(--vss-text-primary);
+}
+
+.vss-account-pill,
+.vss-account-pill.is-guest {
+  min-height: 40px;
+  padding: 5px 12px 5px 5px;
+  gap: 9px;
+  border-color: var(--vss-border);
+  border-radius: 999px;
+  background: #151618;
+  box-shadow: none;
+}
+
+.vss-account-pill.is-guest {
+  padding-left: 14px;
+}
+
+.vss-account-pill:hover,
+.vss-account-pill:focus-visible {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #191a1c;
+  box-shadow: none;
+  outline: none;
+}
+
+.vss-account-avatar {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: #242527;
+  font-size: 0.72rem;
+}
+
+.vss-account-label,
+.vss-account-guest-label {
+  font-size: 0.73rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+
+.vss-account-note,
+.vss-account-guest-note {
+  display: none;
+  font-size: 0.64rem;
+  color: var(--vss-text-muted);
+}
+
+.vss-account-chevron {
+  margin-left: 2px;
+  font-size: 0.84rem;
+}
+
+.vss-main {
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 32px;
+  overflow: hidden;
+}
+
+.vss-stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.vss-page-title {
+  margin: 0;
+  color: var(--vss-text-primary);
+  font-size: clamp(1.65rem, 2.15vw, 2.15rem);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+.vss-canvas {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  border: 1px solid var(--vss-border);
+  border-radius: 18px;
+  background: #17181a;
+  box-shadow: none;
+}
+
+.vss-canvas-empty,
+.vss-canvas-loading,
+.vss-canvas-result-meta,
+.vss-canvas-reference-meta {
+  padding: clamp(24px, 5vw, 56px);
+}
+
+.vss-canvas-empty-copy {
+  gap: 15px;
+}
+
+.vss-empty-icon {
+  width: 54px;
+  height: 54px;
+  color: rgba(244, 241, 235, 0.2);
+}
+
+.vss-canvas-empty-label {
+  max-width: 340px;
+  color: rgba(244, 241, 235, 0.42);
+  font-size: 0.8rem;
+  font-weight: 450;
+  line-height: 1.55;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.vss-canvas-empty-caret {
+  display: none;
+}
+
+.vss-dock {
+  position: static;
+  left: auto;
+  bottom: auto;
+  width: 100%;
+  transform: none;
+  justify-items: stretch;
+  gap: 8px;
+  z-index: 4;
+}
+
+.vss-prompt-bar {
+  grid-template-columns: minmax(0, 1fr) 66px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 86px;
+  padding: 8px 9px 8px 18px;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  background: #17181a;
+  box-shadow: none;
+}
+
+.vss-prompt-field {
+  position: relative;
+  display: grid;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding-right: 74px;
+}
+
+.vss-prompt-input {
+  display: block;
+  min-width: 0;
+  min-height: 50px;
+  max-height: 72px;
+  padding: 13px 0 8px;
+  resize: none;
+  line-height: 1.45;
+  font-size: 0.96rem;
+  letter-spacing: -0.01em;
+}
+
+.vss-prompt-input::placeholder {
+  color: rgba(244, 241, 235, 0.38);
+}
+
+.vss-improve--inline {
+  position: absolute;
+  right: 9px;
+  bottom: 7px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(244, 241, 235, 0.58);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: none;
+}
+
+.vss-improve--inline:hover,
+.vss-improve--inline:focus-visible {
+  transform: none;
+  border: 0;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--vss-text-primary);
+}
+
+.vss-prompt-actions {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.vss-submit {
+  width: 54px;
+  height: 54px;
+  background: var(--vss-ivory);
+  box-shadow: none;
+}
+
+.vss-submit:hover,
+.vss-submit:focus-visible {
+  transform: none;
+  background: #f8f3e9;
+  box-shadow: none;
+  outline: 2px solid rgba(238, 232, 220, 0.2);
+}
+
+.vss-submit-label {
+  color: var(--vss-text-muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+
+.vss-dock-settings {
+  width: 100%;
+  justify-items: start;
+}
+
+.vss-generation-controls {
+  width: auto;
+  margin: 0;
+  justify-content: flex-start;
+}
+
+.vss-control-group {
+  min-height: 34px;
+  gap: 10px;
+  padding: 3px 4px 3px 10px;
+  border-color: var(--vss-border);
+  background: #151618;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.vss-control-group > span {
+  font-size: 0.56rem;
+  color: var(--vss-text-muted);
+}
+
+.vss-control-pill {
+  min-height: 27px;
+  min-width: 38px;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--vss-text-secondary);
+}
+
+.vss-control-pill.is-active {
+  background: var(--vss-ivory);
+  color: #17181a;
+}
+
+.vss-rail {
+  height: auto;
+  min-height: 0;
+  padding: 48px 0 0 28px;
+  border-left: 1px solid var(--vss-border-soft);
+  overflow: hidden;
+}
+
+.vss-rail-inner {
+  gap: 20px;
+}
+
+.vss-rail-head {
+  align-items: flex-start;
+  padding: 0;
+}
+
+.vss-rail-kicker {
+  color: rgba(244, 241, 235, 0.7);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.17em;
+}
+
+.vss-rail-subtitle {
+  margin-top: 7px;
+  color: var(--vss-text-muted);
+  font-size: 0.74rem;
+}
+
+.vss-rail-count {
+  min-width: 24px;
+  color: var(--vss-text-muted);
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+.vss-rail-empty {
+  align-content: start;
+  justify-items: start;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.vss-rail-empty-icon {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 7px;
+  color: rgba(244, 241, 235, 0.15);
+}
+
+.vss-rail-empty-title {
+  color: rgba(244, 241, 235, 0.66);
+  font-size: 0.84rem;
+}
+
+.vss-rail-empty-copy {
+  max-width: 200px;
+  color: var(--vss-text-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.vss-recent-list {
+  flex: 1 1 auto;
+  gap: 10px;
+  padding-right: 7px;
+}
+
+.vss-recent-card,
+.vss-recent-card.is-media-only {
+  padding: 5px;
+  border-radius: 12px;
+  background: transparent;
+}
+
+.vss-recent-thumb {
+  border-radius: 9px;
+}
+
+.vss-account-overlay {
+  position: fixed;
+  background: rgba(4, 5, 6, 0.64);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.vss-account-panel {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(420px, 100vw);
+  align-content: start;
+  gap: 26px;
+  padding: 30px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  border: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0;
+  background: #131416;
+  box-shadow: -24px 0 70px rgba(0, 0, 0, 0.32);
+}
+
+.vss-account-panel-head {
+  gap: 18px;
+}
+
+.vss-account-panel-kicker {
+  color: var(--vss-text-muted);
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+}
+
+.vss-account-panel-title {
+  margin: 10px 0 8px;
+  font-size: 1.72rem;
+  letter-spacing: -0.035em;
+}
+
+.vss-account-panel-copy,
+.vss-account-panel-note {
+  color: var(--vss-text-secondary);
+  font-size: 0.84rem;
+}
+
+.vss-account-panel-note:empty {
+  display: none;
+}
+
+.vss-account-panel-close {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-color: var(--vss-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--vss-text-secondary);
+  font-size: 1.24rem;
+  font-weight: 300;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: none;
+}
+
+.vss-account-summary,
+.vss-access-form {
+  gap: 18px;
+}
+
+.vss-account-summary {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.vss-account-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.vss-subscription-card {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--vss-border);
+  border-radius: 13px;
+  background: #17181a;
+}
+
+.vss-subscription-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vss-text-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.vss-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #777a7e;
+}
+
+.vss-subscription-card.is-active .vss-status-dot {
+  background: #67c982;
+  box-shadow: 0 0 0 3px rgba(103, 201, 130, 0.1);
+}
+
+.vss-subscription-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.vss-subscription-heading > div {
+  display: grid;
+  gap: 5px;
+}
+
+.vss-subscription-heading strong {
+  color: var(--vss-text-primary);
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+
+.vss-subscription-heading span,
+.vss-subscription-renewal {
+  color: var(--vss-text-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.vss-subscription-price {
+  flex: 0 0 auto;
+  font-size: 0.76rem !important;
+  font-weight: 500 !important;
+}
+
+.vss-subscription-renewal {
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--vss-border-soft);
+}
+
+.vss-account-actions {
+  display: grid;
+  gap: 9px;
+}
+
+.vss-account-primary,
+.vss-account-secondary {
+  min-height: 46px;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.vss-account-primary {
+  background: var(--vss-ivory);
+  color: #17181a;
+}
+
+.vss-account-primary:hover,
+.vss-account-primary:focus-visible {
+  transform: none;
+  background: #f8f3e9;
+}
+
+.vss-account-secondary {
+  border-color: var(--vss-border);
+  background: transparent;
+  color: var(--vss-text-secondary);
+}
+
+.vss-form-label {
+  color: var(--vss-text-secondary);
+  font-size: 0.69rem;
+  letter-spacing: 0.05em;
+  text-transform: none;
+}
+
+.vss-form-input {
+  min-height: 48px;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  background: #17181a;
+  font-size: 0.9rem;
+}
+
+.vss-form-input--code {
+  font-size: 1.08rem;
+  letter-spacing: 0.3em;
+}
+
+@media (max-width: 1040px) {
+  html.vss-html,
+  html.vss-html body {
+    overflow-y: auto;
+  }
+
+  #studio-shell-new-root {
+    position: relative;
+    min-height: 100svh;
+    overflow: visible;
+  }
+
+  .vss-app {
+    height: auto;
+    min-height: 100svh;
+  }
+
+  .vss-main {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    overflow: visible;
+  }
+
+  .vss-stage {
+    grid-template-rows: auto auto auto;
+    overflow: visible;
+  }
+
+  .vss-canvas {
+    height: clamp(360px, 55svh, 620px);
+  }
+
+  .vss-rail {
+    padding: 26px 0 20px;
+    border-top: 1px solid var(--vss-border-soft);
+    border-left: 0;
+    overflow: visible;
+  }
+
+  .vss-recent-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+  }
+}
+
+@media (max-width: 720px) {
+  .vss-app {
+    padding: max(14px, env(safe-area-inset-top)) 14px 24px;
+  }
+
+  .vss-header {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+  }
+
+  .vss-brand-cluster {
+    gap: 12px;
+  }
+
+  .vss-brand-name {
+    font-size: 0.76rem;
+    letter-spacing: 0.25em;
+  }
+
+  .vss-home-link {
+    width: 26px;
+    overflow: hidden;
+    color: transparent;
+    white-space: nowrap;
+  }
+
+  .vss-home-link::before {
+    color: var(--vss-text-secondary);
+  }
+
+  .vss-account-pill,
+  .vss-account-pill.is-guest {
+    width: auto;
+    max-width: 112px;
+    min-height: 38px;
+    padding: 5px 11px;
+  }
+
+  .vss-account-pill:not(.is-guest) {
+    width: 38px;
+    padding: 4px;
+  }
+
+  .vss-account-pill:not(.is-guest) .vss-account-copy,
+  .vss-account-pill:not(.is-guest) .vss-account-chevron,
+  .vss-account-guest-note {
+    display: none;
+  }
+
+  .vss-account-guest-copy {
+    align-items: center;
+  }
+
+  .vss-account-guest-label {
+    font-size: 0.68rem;
+  }
+
+  .vss-page-title {
+    font-size: 1.56rem;
+  }
+
+  .vss-canvas {
+    height: clamp(320px, 50svh, 440px);
+    min-height: 320px;
+    border-radius: 14px;
+  }
+
+  .vss-canvas-empty {
+    padding: 24px;
+  }
+
+  .vss-empty-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .vss-canvas-empty-label {
+    font-size: 0.69rem;
+    line-height: 1.55;
+  }
+
+  .vss-prompt-bar {
+    grid-template-columns: minmax(0, 1fr) 54px;
+    min-height: 76px;
+    padding: 7px 7px 7px 13px;
+    border-radius: 13px;
+  }
+
+  .vss-prompt-field {
+    padding-right: 0;
+  }
+
+  .vss-prompt-input {
+    min-height: 48px;
+    padding-right: 4px;
+    font-size: 0.9rem;
+  }
+
+  .vss-improve--inline {
+    display: none;
+  }
+
+  .vss-submit {
+    width: 48px;
+    height: 48px;
+  }
+
+  .vss-submit-label {
+    display: none;
+  }
+
+  .vss-dock-settings {
+    padding-top: 1px;
+  }
+
+  .vss-rail {
+    padding-top: 22px;
+  }
+
+  .vss-recent-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vss-account-panel {
+    width: 100vw;
+    padding: max(22px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 420px) {
+  .vss-canvas {
+    height: min(48svh, 380px);
+  }
+
+  .vss-recent-list {
+    grid-template-columns: 1fr;
+  }
+
+  .vss-subscription-heading {
+    display: grid;
+  }
+}

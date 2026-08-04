@@ -51,6 +51,11 @@ from vision_kling_session_bridge import status_image as kling_image_status
 from vision_kling_session_bridge import status as kling_session_bridge_status
 
 
+PROCESS_ACCESS_SECRET = secrets.token_urlsafe(48)
+STRIPE_BILLING_CACHE_LOCK = threading.Lock()
+STRIPE_BILLING_CACHE: dict[str, dict[str, Any]] = {}
+
+
 def _resolve_default_vision_root() -> Path:
     candidates = [
         os.environ.get("VISION_GATEWAY_VISION_ROOT", "").strip(),
@@ -564,7 +569,7 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "id": "studio",
             "name": "Vision Studio",
             "subtitle": "Unlimited 4K images",
-            "description": "Monthly access for unlimited 4K images, image uploads, edits, private gallery, and no-watermark exports.",
+            "description": "Monthly access for unlimited 4K image generation, prompt enhancement, recent image history, and watermark-free downloads.",
             "price_cents": 99,
             "original_price_cents": 99,
             "currency": "eur",
@@ -581,13 +586,10 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "badge": "Monthly",
             "cta_label": "Start Vision Studio",
             "features": [
-                "Upload your own images",
-                "Animate and edit your images",
-                "4K mode available",
+                "Unlimited 4K image generation",
                 "Prompt enhancement included",
-                "Private image gallery",
-                "No watermark",
-                "Images refresh monthly",
+                "Recent image history",
+                "Watermark-free downloads",
             ],
         },
     ]
@@ -638,6 +640,16 @@ def _pack_by_id(pack_id: str | None) -> dict[str, Any]:
     return packs[0]
 
 
+def _pack_by_exact_id(pack_id: str | None) -> dict[str, Any] | None:
+    normalized = str(pack_id or "").strip().lower()
+    if not normalized:
+        return None
+    for pack in _packs_summary():
+        if str(pack.get("id") or "").strip().lower() == normalized:
+            return pack
+    return None
+
+
 def _pack_price_cents() -> int:
     return int(_pack_summary().get("price_cents") or 99)
 
@@ -671,7 +683,7 @@ def _access_cookie_name() -> str:
 
 
 def _access_secret() -> str:
-    return os.environ.get("VISION_ACCESS_SECRET", "vision-dev-access-secret").strip()
+    return os.environ.get("VISION_ACCESS_SECRET", "").strip() or PROCESS_ACCESS_SECRET
 
 
 def _user_cookie_name() -> str:
@@ -697,6 +709,28 @@ def _auth_code_ttl_minutes() -> int:
         return 15
 
 
+def _auth_code_resend_seconds() -> int:
+    try:
+        return max(15, min(300, int(os.environ.get("VISION_AUTH_CODE_RESEND_SECONDS", "60"))))
+    except ValueError:
+        return 60
+
+
+def _auth_code_max_attempts() -> int:
+    try:
+        return max(3, min(10, int(os.environ.get("VISION_AUTH_CODE_MAX_ATTEMPTS", "5"))))
+    except ValueError:
+        return 5
+
+
+def _user_token_ttl_seconds() -> int:
+    try:
+        hours = max(1, min(2160, int(os.environ.get("VISION_USER_TOKEN_TTL_HOURS", "720"))))
+    except ValueError:
+        hours = 720
+    return hours * 60 * 60
+
+
 def _normalize_email(value: str | None) -> str:
     return (value or "").strip().lower()
 
@@ -707,7 +741,13 @@ def _hash_auth_code(email: str, code: str) -> str:
 
 
 def _sign_user_token(payload: dict[str, Any]) -> str:
-    serialized = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    issued_at = int(datetime.now(timezone.utc).timestamp())
+    token_payload = {
+        **payload,
+        "iat": issued_at,
+        "exp": issued_at + _user_token_ttl_seconds(),
+    }
+    serialized = json.dumps(token_payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
     body = base64.urlsafe_b64encode(serialized).rstrip(b"=").decode("ascii")
     signature = hmac.new(_user_secret().encode("utf-8"), body.encode("ascii"), hashlib.sha256).hexdigest()
     return f"{body}.{signature}"
@@ -726,7 +766,15 @@ def _verify_user_token(token: str | None) -> dict[str, Any] | None:
         payload = json.loads(raw.decode("utf-8"))
     except Exception:
         return None
-    return payload if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return None
+    try:
+        expires_at = int(payload.get("exp") or 0)
+    except (TypeError, ValueError):
+        return None
+    if expires_at <= int(datetime.now(timezone.utc).timestamp()):
+        return None
+    return payload
 
 
 def _notification_log_path() -> Path:
@@ -915,7 +963,7 @@ def _send_auth_code_email(*, email: str, code: str) -> None:
         f"Access code: {code}",
         "",
         f"This code expires in {_auth_code_ttl_minutes()} minutes.",
-        "It keeps your access secure and helps you recover your images from any device.",
+        "It keeps your access secure and lets you return to your Studio from any device.",
         "If you did not request this code, you can ignore this message.",
     ]
     _send_email(
@@ -966,6 +1014,33 @@ def _frontend_base_url(request: Request) -> str:
     return "https://visionstudiolab.com"
 
 
+def _safe_frontend_return_path(value: str | None, *, default: str = "/") -> str:
+    fallback = default if default.startswith("/") and not default.startswith("//") else "/"
+    raw = str(value or "").strip()
+    if not raw:
+        return fallback
+    if len(raw) > 512 or not raw.startswith("/") or raw.startswith("//"):
+        return fallback
+    if "\\" in raw or any(ord(character) < 32 for character in raw):
+        return fallback
+    parsed = urllib.parse.urlsplit(raw)
+    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+        return fallback
+    decoded_path = parsed.path
+    for _ in range(2):
+        decoded_path = urllib.parse.unquote(decoded_path)
+    if decoded_path.startswith("//") or "\\" in decoded_path or any(ord(character) < 32 for character in decoded_path):
+        return fallback
+    segments = [segment for segment in decoded_path.split("/") if segment]
+    if any(segment in {".", ".."} for segment in segments):
+        return fallback
+    return parsed.path or fallback
+
+
+def _frontend_return_url(request: Request, return_path: str | None, *, default: str = "/") -> str:
+    return f"{_frontend_base_url(request)}{_safe_frontend_return_path(return_path, default=default)}"
+
+
 def _cookie_settings(request: Request) -> dict[str, Any]:
     host = (request.url.hostname or "").lower()
     secure = host not in {"127.0.0.1", "localhost"}
@@ -987,10 +1062,12 @@ def _set_access_cookie(response: Response, request: Request, payload: dict[str, 
 
 
 def _set_user_cookie(response: Response, request: Request, payload: dict[str, Any]) -> None:
+    settings = _cookie_settings(request)
+    settings["max_age"] = _user_token_ttl_seconds()
     response.set_cookie(
         key=_user_cookie_name(),
         value=_sign_user_token(payload),
-        **_cookie_settings(request),
+        **settings,
     )
 
 
@@ -1013,6 +1090,10 @@ def _stripe_secret_key() -> str:
     return secret
 
 
+def _stripe_api_version() -> str:
+    return os.environ.get("STRIPE_API_VERSION", "2026-02-25.clover").strip() or "2026-02-25.clover"
+
+
 def _stripe_request(method: str, path: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
     method_name = method.upper()
     url = f"https://api.stripe.com{path}"
@@ -1020,6 +1101,7 @@ def _stripe_request(method: str, path: str, data: dict[str, Any] | None = None) 
     headers = {
         "Authorization": "Basic "
         + base64.b64encode(f"{_stripe_secret_key()}:".encode("utf-8")).decode("ascii"),
+        "Stripe-Version": _stripe_api_version(),
     }
     if data is not None:
         encoded = urllib.parse.urlencode(_strip_none_values(data), doseq=True)
@@ -1041,16 +1123,20 @@ def _stripe_request(method: str, path: str, data: dict[str, Any] | None = None) 
 def _create_stripe_checkout_session(
     *,
     request: Request,
-    email: str | None,
+    email: str,
+    user_id: str,
     pack_id: str | None,
+    return_path: str | None = None,
+    customer_id: str | None = None,
     tracking: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    frontend_base = _frontend_base_url(request)
+    return_url = _frontend_return_url(request, return_path)
     pack = _pack_by_id(pack_id)
     payload: dict[str, Any] = {
         "mode": "subscription",
-        "success_url": f"{frontend_base}/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
-        "cancel_url": f"{frontend_base}/?checkout=cancel",
+        "success_url": f"{return_url}?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": f"{return_url}?checkout=cancel",
+        "client_reference_id": user_id,
         "allow_promotion_codes": "true",
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",
@@ -1065,15 +1151,21 @@ def _create_stripe_checkout_session(
         "metadata[vision_pack_vision_credits]": str(pack.get("vision_credits") or ""),
         "metadata[vision_pack_video_credits]": str(pack.get("video_credits") if pack.get("video_credits") is not None else 0),
         "metadata[vision_pack_image_credits]": str(pack.get("image_credits") if pack.get("image_credits") is not None else 999999),
+        "metadata[vision_user_id]": user_id,
+        "metadata[vision_user_email]": _normalize_email(email),
         "subscription_data[metadata][vision_pack_id]": str(pack.get("id") or "studio"),
         "subscription_data[metadata][vision_pack_name]": str(pack.get("name") or "Vision Studio"),
         "subscription_data[metadata][vision_pack_vision_credits]": str(pack.get("vision_credits") or ""),
         "subscription_data[metadata][vision_pack_video_credits]": str(pack.get("video_credits") if pack.get("video_credits") is not None else 0),
         "subscription_data[metadata][vision_pack_image_credits]": str(pack.get("image_credits") if pack.get("image_credits") is not None else 999999),
+        "subscription_data[metadata][vision_user_id]": user_id,
+        "subscription_data[metadata][vision_user_email]": _normalize_email(email),
     }
     for key, value in _tracking_metadata(tracking).items():
         payload[f"metadata[{key}]"] = value
-    if email:
+    if customer_id:
+        payload["customer"] = customer_id
+    else:
         payload["customer_email"] = email
     return _stripe_request("POST", "/v1/checkout/sessions", payload)
 
@@ -1093,6 +1185,17 @@ def _retrieve_stripe_customer(customer_id: str) -> dict[str, Any]:
     return _stripe_request("GET", f"/v1/customers/{encoded_customer_id}")
 
 
+def _create_stripe_customer_portal_session(*, customer_id: str, return_url: str) -> dict[str, Any]:
+    return _stripe_request(
+        "POST",
+        "/v1/billing_portal/sessions",
+        {
+            "customer": customer_id,
+            "return_url": return_url,
+        },
+    )
+
+
 def _list_stripe_checkout_sessions_by_email(email: str, *, limit: int = 100) -> list[dict[str, Any]]:
     normalized = _normalize_email(email)
     if not normalized:
@@ -1109,58 +1212,561 @@ def _list_stripe_checkout_sessions_by_email(email: str, *, limit: int = 100) -> 
     return [item for item in items if isinstance(item, dict)]
 
 
-def _credits_from_session(session: dict[str, Any]) -> tuple[int, int, int]:
-    metadata = session.get("metadata") or {}
-    session_pack = _pack_by_id(metadata.get("vision_pack_id"))
-    try:
-        vision_credits = int(metadata.get("vision_pack_vision_credits") or session_pack.get("vision_credits") or _pack_vision_credits())
-    except (TypeError, ValueError):
-        vision_credits = int(session_pack.get("vision_credits") or _pack_vision_credits())
-    try:
-        video_credits = int(metadata.get("vision_pack_video_credits") or session_pack.get("video_credits") or _pack_video_credits())
-    except (TypeError, ValueError):
-        video_credits = int(session_pack.get("video_credits") or _pack_video_credits())
-    try:
-        image_credits = int(metadata.get("vision_pack_image_credits") or session_pack.get("image_credits") or _pack_image_credits())
-    except (TypeError, ValueError):
-        image_credits = int(session_pack.get("image_credits") or _pack_image_credits())
-    return max(vision_credits, 0), max(video_credits, 0), max(image_credits, 0)
+def _stripe_object_id(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("id") or "").strip()
+    return str(value or "").strip()
 
 
-def _subscription_metadata_from_invoice(invoice: dict[str, Any]) -> dict[str, Any]:
-    metadata: dict[str, Any] = {}
-    parent = invoice.get("parent")
-    if isinstance(parent, dict):
-        parent_subscription_details = parent.get("subscription_details")
-        if isinstance(parent_subscription_details, dict) and isinstance(parent_subscription_details.get("metadata"), dict):
-            metadata.update(parent_subscription_details["metadata"])
-    subscription_details = invoice.get("subscription_details")
-    if isinstance(subscription_details, dict) and isinstance(subscription_details.get("metadata"), dict):
-        metadata.update(subscription_details["metadata"])
+def _stripe_metadata(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    metadata = value.get("metadata")
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _has_vision_plan_metadata(metadata: dict[str, Any]) -> bool:
+    return any(
+        str(key).startswith("vision_pack_") or key in {"vision_user_id", "vision_user_email"}
+        for key in metadata
+    )
+
+
+def _vision_pack_from_metadata(metadata: dict[str, Any]) -> dict[str, Any] | None:
+    pack = _pack_by_exact_id(metadata.get("vision_pack_id"))
+    if not pack:
+        return None
+
+    expected_metadata = {
+        "vision_pack_vision_credits": int(pack.get("vision_credits") or 0),
+        "vision_pack_video_credits": int(pack.get("video_credits") or 0),
+        "vision_pack_image_credits": int(pack.get("image_credits") or 0),
+    }
+    for key, expected_value in expected_metadata.items():
+        if key not in metadata:
+            continue
+        try:
+            actual_value = int(metadata.get(key) or 0)
+        except (TypeError, ValueError):
+            return None
+        if actual_value != expected_value:
+            return None
+    metadata_pack_name = str(metadata.get("vision_pack_name") or "").strip()
+    if metadata_pack_name and metadata_pack_name != str(pack.get("name") or "").strip():
+        return None
+    return pack
+
+
+def _credits_for_validated_pack(pack: dict[str, Any] | None) -> tuple[int, int, int]:
+    exact_pack = _pack_by_exact_id(str((pack or {}).get("id") or ""))
+    if not exact_pack:
+        return 0, 0, 0
+    return (
+        max(int(exact_pack.get("vision_credits") or 0), 0),
+        max(int(exact_pack.get("video_credits") or 0), 0),
+        max(int(exact_pack.get("image_credits") or 0), 0),
+    )
+
+
+def _stripe_optional_int(value: Any) -> tuple[bool, int | None]:
+    if value is None or value == "":
+        return True, None
+    try:
+        return True, int(value)
+    except (TypeError, ValueError):
+        return False, None
+
+
+def _stripe_amounts_match_pack(
+    value: dict[str, Any],
+    pack: dict[str, Any],
+    *,
+    subtotal_keys: tuple[str, ...],
+    total_keys: tuple[str, ...],
+    require_amount: bool,
+) -> bool:
+    expected_currency = str(pack.get("currency") or "").strip().lower()
+    actual_currency = str(value.get("currency") or "").strip().lower()
+    if actual_currency and actual_currency != expected_currency:
+        return False
+    if require_amount and not actual_currency:
+        return False
+
+    subtotal_present = False
+    for key in subtotal_keys:
+        if value.get(key) is None:
+            continue
+        valid, amount = _stripe_optional_int(value.get(key))
+        if not valid or amount != int(pack.get("price_cents") or 0):
+            return False
+        subtotal_present = True
+        break
+
+    total_present = False
+    first_total: int | None = None
+    for key in total_keys:
+        if value.get(key) is None:
+            continue
+        valid, amount = _stripe_optional_int(value.get(key))
+        if not valid or amount is None or amount < 0:
+            return False
+        if first_total is None:
+            first_total = amount
+        total_present = True
+
+    if not subtotal_present and total_present:
+        # Old Stripe objects did not always include a separate subtotal. In that
+        # compatibility case, the exact paid total must identify the Vision plan.
+        return first_total == int(pack.get("price_cents") or 0)
+    if require_amount and not subtotal_present:
+        return False
+    return subtotal_present or total_present or not require_amount
+
+
+def _subscription_price_matches_pack(
+    subscription: dict[str, Any],
+    pack: dict[str, Any],
+    *,
+    require_price: bool,
+) -> bool:
+    items_container = subscription.get("items")
+    items = (items_container.get("data") or []) if isinstance(items_container, dict) else []
+    items = [item for item in items if isinstance(item, dict)]
+    if not items:
+        return not require_price
+    if len(items) != 1:
+        return False
+
+    item = items[0]
+    price = item.get("price") if isinstance(item.get("price"), dict) else {}
+    if not price and isinstance(item.get("plan"), dict):
+        price = item["plan"]
+    recurring = price.get("recurring") if isinstance(price.get("recurring"), dict) else {}
+    if not recurring and price.get("interval"):
+        recurring = {
+            "interval": price.get("interval"),
+            "interval_count": price.get("interval_count"),
+        }
+
+    currency = str(price.get("currency") or "").strip().lower()
+    if currency and currency != str(pack.get("currency") or "").strip().lower():
+        return False
+    valid_amount, unit_amount = _stripe_optional_int(price.get("unit_amount"))
+    if not valid_amount:
+        return False
+    if unit_amount is not None and unit_amount != int(pack.get("price_cents") or 0):
+        return False
+    interval = str(recurring.get("interval") or "").strip().lower()
+    if interval and interval != "month":
+        return False
+    valid_interval_count, interval_count = _stripe_optional_int(recurring.get("interval_count"))
+    if not valid_interval_count or (interval_count is not None and interval_count != 1):
+        return False
+    valid_quantity, quantity = _stripe_optional_int(item.get("quantity"))
+    if not valid_quantity or (quantity is not None and quantity != 1):
+        return False
+    if require_price:
+        return bool(currency and unit_amount is not None and interval == "month")
+    return True
+
+
+def _checkout_session_email(session: dict[str, Any]) -> str:
+    customer_details = session.get("customer_details") if isinstance(session.get("customer_details"), dict) else {}
+    return _normalize_email(customer_details.get("email") or session.get("customer_email"))
+
+
+def _validated_vision_checkout_session(
+    session: dict[str, Any],
+    *,
+    expected_email: str | None = None,
+    allow_legacy: bool = False,
+) -> tuple[dict[str, Any], bool] | None:
+    if not isinstance(session, dict):
+        return None
+    if session.get("object") not in {None, "checkout.session"}:
+        return None
+    if session.get("mode") != "subscription" or not _stripe_object_id(session.get("subscription")):
+        return None
+    if not _stripe_object_id(session.get("customer")):
+        return None
+    if session.get("status") != "complete" or session.get("payment_status") not in {"paid", "no_payment_required"}:
+        return None
+
+    email = _checkout_session_email(session)
+    normalized_expected_email = _normalize_email(expected_email)
+    if "@" not in email or (normalized_expected_email and email != normalized_expected_email):
+        return None
+
+    metadata = _stripe_metadata(session)
+    metadata_pack = _vision_pack_from_metadata(metadata)
+    has_vision_metadata = _has_vision_plan_metadata(metadata)
+    if has_vision_metadata and not metadata_pack:
+        return None
+
+    legacy = metadata_pack is None
+    if legacy and not allow_legacy:
+        return None
+    pack = metadata_pack or _pack_by_exact_id("studio")
+    if not pack:
+        return None
+    if not _stripe_amounts_match_pack(
+        session,
+        pack,
+        subtotal_keys=("amount_subtotal",),
+        total_keys=("amount_total",),
+        require_amount=legacy,
+    ):
+        return None
+
+    metadata_email = _normalize_email(metadata.get("vision_user_email"))
+    if metadata_email and metadata_email != email:
+        return None
+    metadata_user_id = str(metadata.get("vision_user_id") or "").strip()
+    client_reference_id = str(session.get("client_reference_id") or "").strip()
+    if metadata_user_id and client_reference_id and metadata_user_id != client_reference_id:
+        return None
+    return pack, legacy
+
+
+def _validated_vision_subscription(
+    subscription: dict[str, Any],
+    *,
+    expected_pack: dict[str, Any] | None = None,
+    expected_customer_id: str | None = None,
+    expected_email: str | None = None,
+    allow_legacy: bool = False,
+) -> dict[str, Any] | None:
+    if not isinstance(subscription, dict):
+        return None
+    if subscription.get("object") not in {None, "subscription"}:
+        return None
+    if not _stripe_object_id(subscription):
+        return None
+    customer_id = _stripe_object_id(subscription.get("customer"))
+    if not customer_id:
+        return None
+    if expected_customer_id and customer_id and customer_id != expected_customer_id:
+        return None
+    status = str(subscription.get("status") or "").strip().lower()
+    if status not in {"active", "trialing", "past_due", "canceled", "unpaid", "paused", "incomplete", "incomplete_expired"}:
+        return None
+
+    metadata = _stripe_metadata(subscription)
+    metadata_pack = _vision_pack_from_metadata(metadata)
+    has_vision_metadata = _has_vision_plan_metadata(metadata)
+    if has_vision_metadata and not metadata_pack:
+        return None
+    if metadata_pack and expected_pack and metadata_pack.get("id") != expected_pack.get("id"):
+        return None
+
+    legacy = metadata_pack is None
+    if legacy and not allow_legacy:
+        return None
+    pack = metadata_pack or expected_pack or (_pack_by_exact_id("studio") if allow_legacy else None)
+    if not pack or not _subscription_price_matches_pack(subscription, pack, require_price=legacy):
+        return None
+    metadata_email = _normalize_email(metadata.get("vision_user_email"))
+    if metadata_email and expected_email and metadata_email != _normalize_email(expected_email):
+        return None
+    return pack
+
+
+def _stripe_timestamp_iso(value: Any) -> str | None:
+    try:
+        timestamp = int(value)
+    except (TypeError, ValueError):
+        return None
+    if timestamp <= 0:
+        return None
+    try:
+        return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def _subscription_period_timestamp(subscription: dict[str, Any], key: str) -> int | None:
+    direct = subscription.get(key)
+    try:
+        if direct is not None:
+            return int(direct)
+    except (TypeError, ValueError):
+        pass
+    items = ((subscription.get("items") or {}).get("data") or []) if isinstance(subscription.get("items"), dict) else []
+    candidates: list[int] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            candidates.append(int(item.get(key)))
+        except (TypeError, ValueError):
+            continue
+    return max(candidates) if candidates else None
+
+
+def _subscription_summary(subscription: dict[str, Any], *, customer_id: str | None = None) -> dict[str, Any]:
+    status = str(subscription.get("status") or "unknown").strip().lower() or "unknown"
+    items = ((subscription.get("items") or {}).get("data") or []) if isinstance(subscription.get("items"), dict) else []
+    first_item = next((item for item in items if isinstance(item, dict)), {})
+    price = first_item.get("price") if isinstance(first_item.get("price"), dict) else {}
+    recurring = price.get("recurring") if isinstance(price.get("recurring"), dict) else {}
+    current_period_start = _subscription_period_timestamp(subscription, "current_period_start")
+    current_period_end = _subscription_period_timestamp(subscription, "current_period_end")
+    resolved_customer_id = customer_id or _stripe_object_id(subscription.get("customer"))
+    return {
+        "id": _stripe_object_id(subscription),
+        "customer_id": resolved_customer_id or None,
+        "status": status,
+        "active": status in {"active", "trialing"},
+        "cancel_at_period_end": bool(subscription.get("cancel_at_period_end")),
+        "current_period_start": current_period_start,
+        "current_period_start_iso": _stripe_timestamp_iso(current_period_start),
+        "current_period_end": current_period_end,
+        "current_period_end_iso": _stripe_timestamp_iso(current_period_end),
+        "canceled_at": subscription.get("canceled_at"),
+        "canceled_at_iso": _stripe_timestamp_iso(subscription.get("canceled_at")),
+        "price_id": _stripe_object_id(price) or None,
+        "currency": str(price.get("currency") or "").lower() or None,
+        "interval": str(recurring.get("interval") or "").lower() or None,
+    }
+
+
+def _stripe_billing_context_for_user(
+    *,
+    user: dict[str, Any],
+    access_entry: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if not os.environ.get("STRIPE_SECRET_KEY", "").strip():
+        return {"customer_id": None, "subscription": None, "lookup_failed": True}
+    email = _normalize_email(user.get("email"))
+    if not email:
+        return {"customer_id": None, "subscription": None, "lookup_failed": False}
+
+    sessions: list[dict[str, Any]] = []
+    seen_session_ids: set[str] = set()
+    lookup_failed = False
+    recent_access_sessions = list(reversed(list((access_entry or {}).get("stripe_sessions") or [])))[:10]
+    anchored_session_ids = {
+        str(session_id or "").strip()
+        for session_id in recent_access_sessions
+        if str(session_id or "").strip() and not str(session_id or "").strip().startswith("invoice:")
+    }
+    for session_id in recent_access_sessions:
+        clean_session_id = str(session_id or "").strip()
+        if not clean_session_id or clean_session_id.startswith("invoice:") or clean_session_id in seen_session_ids:
+            continue
+        try:
+            session = _retrieve_stripe_checkout_session(clean_session_id)
+        except RuntimeError:
+            lookup_failed = True
+            continue
+        if isinstance(session, dict) and _stripe_object_id(session) == clean_session_id:
+            sessions.append(session)
+            seen_session_ids.add(clean_session_id)
+
+    try:
+        listed_sessions = _list_stripe_checkout_sessions_by_email(email, limit=20)
+    except RuntimeError:
+        lookup_failed = True
+        listed_sessions = []
+    for session in listed_sessions:
+        session_id = _stripe_object_id(session)
+        if session_id and session_id not in seen_session_ids:
+            sessions.append(session)
+            seen_session_ids.add(session_id)
+
+    sessions.sort(key=lambda item: int(item.get("created") or 0), reverse=True)
+    fallback_customer_id: str | None = None
+    fallback_subscription: dict[str, Any] | None = None
+    for session in sessions:
+        validated_session = _validated_vision_checkout_session(
+            session,
+            expected_email=email,
+            allow_legacy=_stripe_object_id(session) in anchored_session_ids,
+        )
+        if not validated_session:
+            continue
+        session_pack, session_is_legacy = validated_session
+        customer_id = _stripe_object_id(session.get("customer")) or None
+        subscription_value = session.get("subscription")
+        subscription_id = _stripe_object_id(subscription_value)
+        if not subscription_id:
+            continue
+        if isinstance(subscription_value, dict):
+            subscription = subscription_value
+        else:
+            try:
+                subscription = _retrieve_stripe_subscription(subscription_id)
+            except RuntimeError:
+                lookup_failed = True
+                continue
+        if not isinstance(subscription, dict):
+            continue
+        subscription_pack = _validated_vision_subscription(
+            subscription,
+            expected_pack=session_pack,
+            expected_customer_id=customer_id,
+            expected_email=email,
+            # A validated legacy checkout is the compatibility anchor for an
+            # old subscription without Vision metadata. Current subscriptions
+            # are expected to carry the metadata copied at checkout.
+            allow_legacy=session_is_legacy,
+        )
+        if not subscription_pack:
+            continue
+        summary = _subscription_summary(subscription, customer_id=customer_id)
+        resolved_customer_id = customer_id or str(summary.get("customer_id") or "").strip() or None
+        fallback_customer_id = fallback_customer_id or resolved_customer_id
+        if summary.get("active"):
+            return {"customer_id": resolved_customer_id, "subscription": summary, "lookup_failed": lookup_failed}
+        if fallback_subscription is None:
+            fallback_subscription = summary
+
+    return {
+        "customer_id": fallback_customer_id,
+        "subscription": fallback_subscription,
+        "lookup_failed": lookup_failed,
+    }
+
+
+def _stripe_billing_cache_ttl_seconds() -> int:
+    try:
+        return max(15, min(300, int(os.environ.get("STRIPE_BILLING_CACHE_TTL_SECONDS", "60"))))
+    except ValueError:
+        return 60
+
+
+def _invalidate_stripe_billing_cache(email: str | None) -> None:
+    normalized = _normalize_email(email)
+    if not normalized:
+        return
+    with STRIPE_BILLING_CACHE_LOCK:
+        STRIPE_BILLING_CACHE.pop(normalized, None)
+
+
+def _cached_stripe_billing_context_for_user(
+    *,
+    user: dict[str, Any],
+    access_entry: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    email = _normalize_email(user.get("email"))
+    if not email:
+        return {"customer_id": None, "subscription": None, "lookup_failed": False}
+    now = datetime.now(timezone.utc).timestamp()
+    with STRIPE_BILLING_CACHE_LOCK:
+        cached = STRIPE_BILLING_CACHE.get(email)
+        if cached and float(cached.get("expires_at") or 0) > now:
+            return copy.deepcopy(cached.get("context") or {})
+    context = _stripe_billing_context_for_user(user=user, access_entry=access_entry)
+    with STRIPE_BILLING_CACHE_LOCK:
+        STRIPE_BILLING_CACHE[email] = {
+            "expires_at": now + _stripe_billing_cache_ttl_seconds(),
+            "context": copy.deepcopy(context),
+        }
+    return context
+
+
+def _validate_checkout_session_for_user(
+    session: dict[str, Any],
+    user: dict[str, Any],
+    *,
+    allow_legacy: bool = False,
+) -> dict[str, Any]:
+    user_id = str(user.get("id") or "").strip()
+    user_email = _normalize_email(user.get("email"))
+    validated_session = _validated_vision_checkout_session(
+        session,
+        expected_email=user_email,
+        allow_legacy=allow_legacy,
+    )
+    if not validated_session:
+        raise HTTPException(status_code=409, detail="This Stripe session is not a valid Vision Studio checkout.")
+    pack, _ = validated_session
+    metadata = session.get("metadata") if isinstance(session.get("metadata"), dict) else {}
+    client_reference_id = str(session.get("client_reference_id") or "").strip()
+    metadata_user_id = str(metadata.get("vision_user_id") or "").strip()
+    metadata_user_email = _normalize_email(metadata.get("vision_user_email"))
+    checkout_email = _checkout_session_email(session)
+
+    if not user_id or not user_email:
+        raise HTTPException(status_code=401, detail="Authenticate your Vision account before confirming checkout.")
+    if checkout_email != user_email:
+        raise HTTPException(status_code=403, detail="This checkout belongs to a different Vision account.")
+    if client_reference_id and client_reference_id != user_id:
+        raise HTTPException(status_code=403, detail="This checkout belongs to a different Vision account.")
+    if metadata_user_id and metadata_user_id != user_id:
+        raise HTTPException(status_code=403, detail="This checkout belongs to a different Vision account.")
+    if metadata_user_email and metadata_user_email != user_email:
+        raise HTTPException(status_code=403, detail="This checkout belongs to a different Vision account.")
+    if not client_reference_id and not metadata_user_id and not metadata_user_email:
+        # Compatibility for sessions created before account binding was deployed:
+        # possession of the session id is insufficient; the verified checkout email must match.
+        if checkout_email != user_email:
+            raise HTTPException(status_code=403, detail="This checkout belongs to a different Vision account.")
+
+    return pack
+
+
+def _subscription_value_from_invoice(invoice: dict[str, Any]) -> Any:
     subscription = invoice.get("subscription")
+    parent = invoice.get("parent")
     if not subscription and isinstance(parent, dict):
         parent_subscription_details = parent.get("subscription_details")
         if isinstance(parent_subscription_details, dict):
             subscription = parent_subscription_details.get("subscription")
-    if isinstance(subscription, dict) and isinstance(subscription.get("metadata"), dict):
-        metadata.update(subscription["metadata"])
-    elif isinstance(subscription, str) and subscription:
-        try:
-            fetched_subscription = _retrieve_stripe_subscription(subscription)
-        except RuntimeError:
-            fetched_subscription = {}
-        fetched_metadata = fetched_subscription.get("metadata") if isinstance(fetched_subscription, dict) else None
-        if isinstance(fetched_metadata, dict):
-            metadata.update(fetched_metadata)
-    return metadata
+    if subscription:
+        return subscription
+
+    lines_container = invoice.get("lines")
+    lines = (lines_container.get("data") or []) if isinstance(lines_container, dict) else []
+    for line in lines:
+        if not isinstance(line, dict):
+            continue
+        line_parent = line.get("parent")
+        if not isinstance(line_parent, dict):
+            continue
+        details = line_parent.get("subscription_item_details")
+        if isinstance(details, dict) and details.get("subscription"):
+            return details.get("subscription")
+    return None
 
 
-def _credits_from_subscription_invoice(invoice: dict[str, Any]) -> tuple[int, int, int]:
-    metadata = _subscription_metadata_from_invoice(invoice)
-    session_like = {
-        "metadata": metadata,
+def _subscription_metadata_sources_from_invoice(invoice: dict[str, Any]) -> list[dict[str, Any]]:
+    sources: list[dict[str, Any]] = []
+    parent = invoice.get("parent")
+    if isinstance(parent, dict):
+        parent_subscription_details = parent.get("subscription_details")
+        if isinstance(parent_subscription_details, dict) and isinstance(parent_subscription_details.get("metadata"), dict):
+            sources.append(parent_subscription_details["metadata"])
+    subscription_details = invoice.get("subscription_details")
+    if isinstance(subscription_details, dict) and isinstance(subscription_details.get("metadata"), dict):
+        sources.append(subscription_details["metadata"])
+    subscription = _subscription_value_from_invoice(invoice)
+    if isinstance(subscription, dict):
+        metadata = _stripe_metadata(subscription)
+        if metadata:
+            sources.append(metadata)
+    return sources
+
+
+def _canonical_vision_pack_metadata(
+    pack: dict[str, Any],
+    source_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    metadata = {
+        str(key): value
+        for key, value in (source_metadata or {}).items()
+        if str(key).startswith("vision_tracking_") or key in {"vision_user_id", "vision_user_email"}
     }
-    return _credits_from_session(session_like)
+    metadata.update(
+        {
+            "vision_pack_id": str(pack.get("id") or ""),
+            "vision_pack_name": str(pack.get("name") or ""),
+            "vision_pack_vision_credits": str(int(pack.get("vision_credits") or 0)),
+            "vision_pack_video_credits": str(int(pack.get("video_credits") or 0)),
+            "vision_pack_image_credits": str(int(pack.get("image_credits") or 0)),
+        }
+    )
+    return metadata
 
 
 def _email_from_stripe_invoice(invoice: dict[str, Any]) -> str | None:
@@ -1180,16 +1786,136 @@ def _email_from_stripe_invoice(invoice: dict[str, Any]) -> str | None:
     return None
 
 
+def _validated_vision_invoice(
+    invoice: dict[str, Any],
+    *,
+    allow_legacy: bool = False,
+) -> dict[str, Any] | None:
+    if not isinstance(invoice, dict):
+        return None
+    if invoice.get("object") not in {None, "invoice"}:
+        return None
+    if str(invoice.get("status") or "").strip().lower() != "paid":
+        return None
+    if not str(invoice.get("billing_reason") or "").strip().lower().startswith("subscription_"):
+        return None
+
+    subscription_value = _subscription_value_from_invoice(invoice)
+    subscription_id = _stripe_object_id(subscription_value)
+    if not subscription_id:
+        return None
+    email = _normalize_email(_email_from_stripe_invoice(invoice))
+    if "@" not in email:
+        return None
+
+    metadata_sources = _subscription_metadata_sources_from_invoice(invoice)
+    pack: dict[str, Any] | None = None
+    source_metadata: dict[str, Any] = {}
+    for metadata in metadata_sources:
+        candidate_pack = _vision_pack_from_metadata(metadata)
+        if _has_vision_plan_metadata(metadata) and not candidate_pack:
+            return None
+        if candidate_pack:
+            if pack and candidate_pack.get("id") != pack.get("id"):
+                return None
+            pack = candidate_pack
+            source_metadata.update(metadata)
+        metadata_email = _normalize_email(metadata.get("vision_user_email"))
+        if metadata_email and metadata_email != email:
+            return None
+
+    subscription: dict[str, Any] | None = subscription_value if isinstance(subscription_value, dict) else None
+    if subscription is None:
+        try:
+            fetched_subscription = _retrieve_stripe_subscription(subscription_id)
+        except RuntimeError:
+            fetched_subscription = None
+        if isinstance(fetched_subscription, dict) and _stripe_object_id(fetched_subscription) == subscription_id:
+            subscription = fetched_subscription
+
+    if subscription is not None:
+        subscription_metadata = _stripe_metadata(subscription)
+        candidate_pack = _validated_vision_subscription(
+            subscription,
+            expected_pack=pack,
+            expected_customer_id=_stripe_object_id(invoice.get("customer")) or None,
+            expected_email=email,
+            allow_legacy=allow_legacy and pack is None,
+        )
+        if not candidate_pack:
+            return None
+        if pack and candidate_pack.get("id") != pack.get("id"):
+            return None
+        pack = candidate_pack
+        if subscription_metadata:
+            source_metadata.update(subscription_metadata)
+
+    legacy = pack is None
+    if legacy and not allow_legacy:
+        return None
+    pack = pack or _pack_by_exact_id("studio")
+    if not pack:
+        return None
+    if not _stripe_amounts_match_pack(
+        invoice,
+        pack,
+        subtotal_keys=("subtotal", "subtotal_excluding_tax"),
+        total_keys=("total", "amount_paid", "amount_due"),
+        require_amount=legacy,
+    ):
+        return None
+    return {
+        "pack": pack,
+        "email": email,
+        "subscription": subscription,
+        "metadata": _canonical_vision_pack_metadata(pack, source_metadata),
+        "legacy": legacy,
+    }
+
+
 def _restore_access_for_email(*, email: str, current_access_id: str | None, current_user_id: str | None) -> dict[str, Any] | None:
     sessions = _list_stripe_checkout_sessions_by_email(email)
     restored_entry: dict[str, Any] | None = None
+    current_entry = ACCESS.get(str(current_access_id)) if current_access_id else None
+    anchored_session_ids = {
+        str(session_id or "").strip()
+        for session_id in list((current_entry or {}).get("stripe_sessions") or [])
+        if str(session_id or "").strip() and not str(session_id or "").strip().startswith("invoice:")
+    }
     for session in sessions:
-        if session.get("status") != "complete" or session.get("payment_status") != "paid":
-            continue
         session_id = str(session.get("id") or "").strip()
+        validated_session = _validated_vision_checkout_session(
+            session,
+            expected_email=email,
+            allow_legacy=session_id in anchored_session_ids,
+        )
+        if not validated_session:
+            continue
+        pack, session_is_legacy = validated_session
         if not session_id:
             continue
-        vision_credits, video_credits, image_credits = _credits_from_session(session)
+        subscription_value = session.get("subscription")
+        subscription_id = _stripe_object_id(subscription_value)
+        try:
+            subscription = (
+                subscription_value
+                if isinstance(subscription_value, dict)
+                else _retrieve_stripe_subscription(subscription_id)
+            )
+        except RuntimeError:
+            continue
+        if not isinstance(subscription, dict):
+            continue
+        subscription_pack = _validated_vision_subscription(
+            subscription,
+            expected_pack=pack,
+            expected_customer_id=_stripe_object_id(session.get("customer")) or None,
+            expected_email=email,
+            allow_legacy=session_is_legacy,
+        )
+        if not subscription_pack or not _subscription_summary(subscription).get("active"):
+            continue
+        vision_credits, video_credits, image_credits = _credits_for_validated_pack(subscription_pack)
         if vision_credits <= 0 and video_credits <= 0 and image_credits <= 0:
             continue
         restored_entry = ACCESS.apply_paid_session(
@@ -1229,6 +1955,72 @@ def _access_summary(entry: dict[str, Any] | None) -> dict[str, Any]:
         "image_remaining": image_remaining,
         "access_id": entry.get("id"),
     }
+
+
+def _without_paid_access(summary: dict[str, Any]) -> dict[str, Any]:
+    if summary.get("admin"):
+        return summary
+    return {
+        **summary,
+        "has_access": False,
+        "vision_credits_remaining": 0,
+        "vision_credits_purchased": 0,
+        "video_remaining": 0,
+        "image_remaining": 0,
+    }
+
+
+def _account_entitlement_summary(
+    entry: dict[str, Any] | None,
+    user: dict[str, Any] | None,
+    *,
+    billing_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    summary = _access_summary(entry)
+    if summary.get("admin") or not summary.get("has_access") or not entry:
+        return summary
+
+    bound_user_id = str(entry.get("user_id") or "").strip()
+    bound_email = _normalize_email(entry.get("email"))
+    current_user_id = str((user or {}).get("id") or "").strip()
+    current_email = _normalize_email((user or {}).get("email"))
+    if bound_user_id and bound_user_id != current_user_id:
+        return _without_paid_access(summary)
+    if bound_email and current_email and bound_email != current_email:
+        return _without_paid_access(summary)
+
+    if not user:
+        return summary
+    if billing_context is not None:
+        context = billing_context
+    else:
+        if not os.environ.get("STRIPE_SECRET_KEY", "").strip():
+            return summary
+        try:
+            context = _cached_stripe_billing_context_for_user(user=user, access_entry=entry)
+        except Exception:
+            return summary
+    subscription = context.get("subscription") if isinstance(context, dict) else None
+    # A successfully resolved Vision subscription is authoritative even when a
+    # different Stripe lookup failed. Do not let a partial outage resurrect a
+    # subscription we already know is canceled or otherwise inactive.
+    if isinstance(subscription, dict) and not subscription.get("active"):
+        return _without_paid_access(summary)
+    return summary
+
+
+def _request_entitlement(
+    request: Request,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any]]:
+    access = _access_from_request(request)
+    user = _user_from_request(request)
+    billing_context = None
+    if user and access and not access.get("admin"):
+        try:
+            billing_context = _cached_stripe_billing_context_for_user(user=user, access_entry=access)
+        except Exception:
+            billing_context = None
+    return user, access, _account_entitlement_summary(access, user, billing_context=billing_context)
 
 
 def _pack_summary(pack_id: str | None = None) -> dict[str, Any]:
@@ -1272,6 +2064,16 @@ def _user_summary(user: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def _user_token_for_user(user: dict[str, Any] | None) -> str | None:
+    user_id = str((user or {}).get("id") or "").strip()
+    if not user_id:
+        return None
+    return _sign_user_token({
+        "user_id": user_id,
+        "email": _normalize_email((user or {}).get("email")) or None,
+    })
+
+
 def _request_user_token(request: Request) -> str | None:
     header_token = request.headers.get("x-vision-user", "").strip()
     if header_token:
@@ -1288,7 +2090,18 @@ def _user_from_request(request: Request) -> dict[str, Any] | None:
     user_id = str(payload.get("user_id") or "")
     if not user_id:
         return None
-    return USERS.get(user_id)
+    stored_user = USERS.get(user_id)
+    if stored_user:
+        return stored_user
+    token_email = _normalize_email(payload.get("email"))
+    if "@" not in token_email:
+        return None
+    # The signed identity remains usable across an ephemeral local user-store
+    # restart; paid access is still resolved from the persistent access store.
+    return {
+        "id": user_id,
+        "email": token_email,
+    }
 
 
 def _request_access_token(request: Request) -> str | None:
@@ -1501,11 +2314,16 @@ class CreateJobRequest(BaseModel):
 class CreateCheckoutSessionRequest(BaseModel):
     email: str | None = Field(default=None, max_length=320)
     pack_id: str | None = Field(default=None, max_length=32)
+    return_path: str | None = Field(default=None, max_length=512)
     tracking: dict[str, Any] | None = None
 
 
 class ConfirmCheckoutRequest(BaseModel):
     session_id: str = Field(min_length=10, max_length=255)
+
+
+class CreateCustomerPortalSessionRequest(BaseModel):
+    return_path: str | None = Field(default=None, max_length=512)
 
 
 class AdminUnlockRequest(BaseModel):
@@ -2635,8 +3453,9 @@ class AccessStore:
             if not entry:
                 return None
             requested_amount = max(int(amount or 1), 1)
-            if "vision_credits_remaining" in entry or int(entry.get("vision_credits_purchased", 0) or 0) > 0:
-                remaining_vision_credits = int(entry.get("vision_credits_remaining", 0))
+            remaining_vision_credits = int(entry.get("vision_credits_remaining", 0) or 0)
+            purchased_vision_credits = int(entry.get("vision_credits_purchased", 0) or 0)
+            if remaining_vision_credits > 0 or purchased_vision_credits > 0:
                 if remaining_vision_credits < requested_amount:
                     return None
                 entry["vision_credits_remaining"] = remaining_vision_credits - requested_amount
@@ -3242,6 +4061,12 @@ def _access_storage_label() -> str:
     return "unknown"
 
 
+class AuthCodeRateLimited(RuntimeError):
+    def __init__(self, retry_after: int) -> None:
+        self.retry_after = max(1, int(retry_after))
+        super().__init__(f"Wait {self.retry_after} seconds before requesting another code.")
+
+
 class UserStore:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -3311,14 +4136,25 @@ class UserStore:
         normalized = _normalize_email(email)
         if not normalized:
             raise ValueError("A valid email is required.")
-        code = f"{secrets.randbelow(1_000_000):06d}"
-        expires_at = datetime.now(timezone.utc).timestamp() + (_auth_code_ttl_minutes() * 60)
         with self.lock:
+            now = datetime.now(timezone.utc).timestamp()
+            existing = self.pending_codes.get(normalized) or {}
+            try:
+                last_issued_at = float(existing.get("issued_at_epoch") or 0)
+            except (TypeError, ValueError):
+                last_issued_at = 0
+            retry_after = _auth_code_resend_seconds() - int(now - last_issued_at)
+            if last_issued_at > 0 and retry_after > 0:
+                raise AuthCodeRateLimited(retry_after)
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            expires_at = now + (_auth_code_ttl_minutes() * 60)
             self.pending_codes[normalized] = {
                 "email": normalized,
                 "code_hash": _hash_auth_code(normalized, code),
                 "expires_at": expires_at,
                 "issued_at": _now_iso(),
+                "issued_at_epoch": now,
+                "attempts": 0,
             }
             self.save()
         return code
@@ -3336,7 +4172,19 @@ class UserStore:
                 self.pending_codes.pop(normalized, None)
                 self.save()
                 return None
-            if record.get("code_hash") != _hash_auth_code(normalized, submitted):
+            if record.get("locked"):
+                return None
+            expected_hash = str(record.get("code_hash") or "")
+            submitted_hash = _hash_auth_code(normalized, submitted)
+            if not expected_hash or not hmac.compare_digest(expected_hash, submitted_hash):
+                attempts = int(record.get("attempts") or 0) + 1
+                if attempts >= _auth_code_max_attempts():
+                    record["attempts"] = attempts
+                    record["locked"] = True
+                    record["code_hash"] = ""
+                else:
+                    record["attempts"] = attempts
+                self.save()
                 return None
             self.pending_codes.pop(normalized, None)
             existing = next(
@@ -3644,6 +4492,14 @@ def _stripe_signature_is_valid(payload: bytes, signature_header: str, secret: st
     timestamp = parts.get("t", [""])[0]
     signatures = parts.get("v1", [])
     if not timestamp or not signatures:
+        return False
+    try:
+        signed_at = int(timestamp)
+        tolerance = max(30, min(900, int(os.environ.get("STRIPE_WEBHOOK_TOLERANCE_SECONDS", "300"))))
+    except (TypeError, ValueError):
+        return False
+    now = int(datetime.now(timezone.utc).timestamp())
+    if abs(now - signed_at) > tolerance:
         return False
     signed_payload = f"{timestamp}.".encode("utf-8") + payload
     expected = hmac.new(secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
@@ -4004,9 +4860,18 @@ def access_me(request: Request) -> dict[str, Any]:
         if restored:
             access = restored
     access_summary = _access_summary(access)
+    billing_context: dict[str, Any] = {"customer_id": None, "subscription": None, "lookup_failed": False}
+    if user:
+        try:
+            billing_context = _cached_stripe_billing_context_for_user(user=user, access_entry=access)
+        except Exception:
+            billing_context = {"customer_id": None, "subscription": None, "lookup_failed": True}
+    access_summary = _account_entitlement_summary(access, user, billing_context=billing_context)
     return {
         "user": _user_summary(user),
+        "user_token": _user_token_for_user(user),
         "access": access_summary,
+        "subscription": billing_context.get("subscription"),
         "pack": _pack_summary_for_access(access_summary),
         "packs": _packs_summary_for_access(access_summary),
     }
@@ -4020,6 +4885,12 @@ def request_auth_code(payload: RequestAuthCodeRequest) -> dict[str, Any]:
     try:
         code = USERS.issue_code(normalized)
         _send_auth_code_email(email=normalized, code=code)
+    except AuthCodeRateLimited as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=str(exc),
+            headers={"Retry-After": str(exc.retry_after)},
+        ) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Vision could not send the access code right now: {exc}") from exc
     return {
@@ -4067,18 +4938,26 @@ def verify_auth_code(payload: VerifyAuthCodeRequest, request: Request) -> JSONRe
         except Exception:
             attached_entry = None
 
-    access_summary = _access_summary(attached_entry)
+    billing_context: dict[str, Any] = {"customer_id": None, "subscription": None, "lookup_failed": False}
+    if attached_entry:
+        try:
+            billing_context = _cached_stripe_billing_context_for_user(user=user, access_entry=attached_entry)
+        except Exception:
+            billing_context = {"customer_id": None, "subscription": None, "lookup_failed": True}
+    access_summary = _account_entitlement_summary(attached_entry, user, billing_context=billing_context)
     response = JSONResponse(
         {
             "ok": True,
             "user": _user_summary(user),
             "access": access_summary,
+            "subscription": billing_context.get("subscription"),
             "pack": _pack_summary_for_access(access_summary),
             "packs": _packs_summary_for_access(access_summary),
+            "user_token": _user_token_for_user(user),
             "access_token": _access_token_for_entry(attached_entry) if attached_entry else None,
         }
     )
-    _set_user_cookie(response, request, {"user_id": user["id"]})
+    _set_user_cookie(response, request, {"user_id": user["id"], "email": user.get("email")})
     if attached_entry:
         _set_access_cookie(response, request, _access_token_payload(attached_entry))
     return response
@@ -4091,6 +4970,7 @@ def logout(request: Request) -> JSONResponse:
         {
             "ok": True,
             "user": _user_summary(None),
+            "user_token": None,
             "access": access_summary,
             "pack": _pack_summary_for_access(access_summary),
             "packs": _packs_summary_for_access(access_summary),
@@ -4102,7 +4982,21 @@ def logout(request: Request) -> JSONResponse:
 
 
 @APP.post("/api/prompt/improve")
-def improve_prompt(payload: ImprovePromptRequest) -> dict[str, Any]:
+def improve_prompt(payload: ImprovePromptRequest, request: Request) -> dict[str, Any]:
+    user, access, summary = _request_entitlement(request)
+    if not user and not (access and access.get("admin")):
+        raise HTTPException(status_code=401, detail="Authenticate your Vision account before improving a prompt.")
+    if not summary["has_access"]:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "payment_required",
+                "message": "Start Vision Studio to improve this prompt.",
+                "access": summary,
+                "pack": _pack_summary_for_access(summary),
+                "packs": _packs_summary_for_access(summary),
+            },
+        )
     mode = _normalize_mode(payload.mode)
     result = improve_vision_prompt(prompt=payload.prompt.strip(), mode=mode)
     return {
@@ -4157,13 +5051,55 @@ def admin_unlock(payload: AdminUnlockRequest, request: Request) -> JSONResponse:
 @APP.post("/api/checkout/session")
 def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Request) -> dict[str, Any]:
     user = _user_from_request(request)
-    resolved_email = (payload.email or "").strip() or (str(user.get("email") or "") if user else "")
-    selected_pack = _pack_summary(payload.pack_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authenticate your Vision account before starting checkout.")
+    resolved_email = _normalize_email(user.get("email"))
+    if "@" not in resolved_email:
+        raise HTTPException(status_code=409, detail="Your Vision account does not have a valid checkout email.")
+    selected_pack = _pack_by_exact_id(payload.pack_id or "studio")
+    if not selected_pack:
+        raise HTTPException(status_code=400, detail="Select a valid Vision plan.")
+    try:
+        billing_context = _stripe_billing_context_for_user(
+            user=user,
+            access_entry=ACCESS.find_by_user_id(str(user.get("id") or "")) or ACCESS.find_by_email(resolved_email),
+        )
+    except Exception:
+        billing_context = {"customer_id": None, "subscription": None, "lookup_failed": True}
+    existing_subscription = billing_context.get("subscription") if isinstance(billing_context.get("subscription"), dict) else None
+    existing_customer_id = str(billing_context.get("customer_id") or "").strip()
+    if existing_subscription and existing_subscription.get("active") and existing_customer_id:
+        try:
+            portal = _create_stripe_customer_portal_session(
+                customer_id=existing_customer_id,
+                return_url=_frontend_return_url(request, payload.return_path, default="/studio/"),
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        portal_url = str(portal.get("url") or "").strip()
+        if not portal_url:
+            raise HTTPException(status_code=502, detail="Stripe did not return a customer portal URL.")
+        return {
+            "session_id": None,
+            "url": portal_url,
+            "destination": "billing_portal",
+            "subscription": existing_subscription,
+            "pack": _public_pack(selected_pack),
+            "packs": _packs_summary_for_access(None),
+        }
+    if billing_context.get("lookup_failed") and not existing_subscription:
+        raise HTTPException(
+            status_code=503,
+            detail="Vision could not verify your existing Stripe subscriptions. Please try again before starting a new checkout.",
+        )
     try:
         session = _create_stripe_checkout_session(
             request=request,
-            email=resolved_email or None,
+            email=resolved_email,
+            user_id=str(user.get("id") or ""),
             pack_id=str(selected_pack.get("id") or "studio"),
+            return_path=payload.return_path,
+            customer_id=str(billing_context.get("customer_id") or "") or None,
             tracking=_tracking_context_from_request(payload.tracking, request),
         )
     except RuntimeError as exc:
@@ -4179,29 +5115,69 @@ def create_checkout_session(payload: CreateCheckoutSessionRequest, request: Requ
     }
 
 
+@APP.post("/api/billing/portal")
+def create_customer_portal_session(
+    request: Request,
+    payload: CreateCustomerPortalSessionRequest | None = None,
+) -> dict[str, Any]:
+    user = _user_from_request(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authenticate your Vision account before managing billing.")
+    access = ACCESS.find_by_user_id(str(user.get("id") or "")) or ACCESS.find_by_email(user.get("email"))
+    try:
+        billing_context = _stripe_billing_context_for_user(user=user, access_entry=access)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    customer_id = str(billing_context.get("customer_id") or "").strip()
+    if not customer_id:
+        if billing_context.get("lookup_failed"):
+            raise HTTPException(status_code=503, detail="Vision could not verify your Stripe billing account right now.")
+        raise HTTPException(status_code=404, detail="No Stripe billing account is linked to this Vision account yet.")
+    try:
+        portal = _create_stripe_customer_portal_session(
+            customer_id=customer_id,
+            return_url=_frontend_return_url(request, payload.return_path if payload else None, default="/studio/"),
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    portal_url = str(portal.get("url") or "").strip()
+    if not portal_url:
+        raise HTTPException(status_code=502, detail="Stripe did not return a customer portal URL.")
+    return {
+        "url": portal_url,
+        "subscription": billing_context.get("subscription"),
+    }
+
+
 @APP.post("/api/checkout/confirm")
 def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONResponse:
+    current_user = _user_from_request(request)
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Authenticate your Vision account before confirming checkout.")
+    normalized_session_id = payload.session_id.strip()
+    email = _normalize_email(current_user.get("email"))
+    current_access = ACCESS.find_by_user_id(str(current_user.get("id") or "")) or ACCESS.find_by_email(email)
+    anchored_session_ids = {
+        str(session_id or "").strip()
+        for session_id in list((current_access or {}).get("stripe_sessions") or [])
+    }
+    allow_legacy = normalized_session_id in anchored_session_ids
     try:
-        session = _retrieve_stripe_checkout_session(payload.session_id.strip())
+        session = _retrieve_stripe_checkout_session(normalized_session_id)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    if session.get("status") != "complete" or session.get("payment_status") != "paid":
-        raise HTTPException(status_code=409, detail="Payment is not completed yet for Vision Studio.")
-
-    customer_details = session.get("customer_details") or {}
-    session_pack = _pack_summary((session.get("metadata") or {}).get("vision_pack_id"))
-    email = customer_details.get("email") or session.get("customer_email")
-    current_access = _access_from_request(request)
-    current_user = _user_from_request(request)
+    if _stripe_object_id(session) != normalized_session_id:
+        raise HTTPException(status_code=409, detail="Stripe returned an unexpected checkout session.")
+    session_pack = _validate_checkout_session_for_user(session, current_user, allow_legacy=allow_legacy)
+    _invalidate_stripe_billing_cache(email)
     current_access_id = current_access.get("id") if current_access and not current_access.get("admin") else None
-    normalized_session_id = payload.session_id.strip()
-    vision_credits, video_credits, image_credits = _credits_from_session(session)
+    vision_credits, video_credits, image_credits = _credits_for_validated_pack(session_pack)
     entry = ACCESS.apply_paid_session(
         session_id=normalized_session_id,
         email=email,
         current_access_id=current_access_id,
-        current_user_id=str(current_user.get("id")) if current_user else None,
+        current_user_id=str(current_user.get("id")),
         vision_credits=vision_credits,
         video_credits=video_credits,
         image_credits=image_credits,
@@ -4209,19 +5185,45 @@ def confirm_checkout(payload: ConfirmCheckoutRequest, request: Request) -> JSONR
     if ACCESS.claim_notification(normalized_session_id):
         _notify_purchase_async(session=session, entry=entry)
     access_summary = _access_summary(entry)
+    try:
+        subscription_value = session.get("subscription")
+        subscription_id = _stripe_object_id(subscription_value)
+        subscription = subscription_value if isinstance(subscription_value, dict) else _retrieve_stripe_subscription(subscription_id)
+        validated_subscription_pack = _validated_vision_subscription(
+            subscription,
+            expected_pack=session_pack,
+            expected_customer_id=_stripe_object_id(session.get("customer")) or None,
+            expected_email=email,
+            allow_legacy=allow_legacy,
+        )
+        subscription_summary = (
+            _subscription_summary(
+                subscription,
+                customer_id=_stripe_object_id(session.get("customer")) or None,
+            )
+            if validated_subscription_pack
+            else None
+        )
+    except Exception:
+        subscription_summary = None
     response = JSONResponse(
         {
             "ok": True,
             "user": _user_summary(current_user),
+            "user_token": _user_token_for_user(current_user),
             "access": access_summary,
+            "subscription": subscription_summary,
             "pack": _pack_summary_for_access(access_summary, str(session_pack.get("id") or "")),
             "packs": _packs_summary_for_access(access_summary),
             "access_token": _access_token_for_entry(entry),
         }
     )
     _set_access_cookie(response, request, _access_token_payload(entry))
-    if current_user:
-        _set_user_cookie(response, request, {"user_id": current_user["id"]})
+    _set_user_cookie(
+        response,
+        request,
+        {"user_id": current_user["id"], "email": current_user.get("email")},
+    )
     return response
 
 
@@ -4260,9 +5262,19 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
             return {"ok": True, "handled": False, "invoice_id": invoice_id, "reason": "initial_subscription_invoice"}
         if str(invoice.get("status") or "") not in {"paid"}:
             return {"ok": True, "handled": False, "invoice_id": invoice_id}
-        email = _email_from_stripe_invoice(invoice)
+        validated_invoice = _validated_vision_invoice(invoice)
+        if not validated_invoice:
+            return {
+                "ok": True,
+                "handled": False,
+                "invoice_id": invoice_id,
+                "reason": "not_a_vision_studio_invoice",
+            }
+        email = str(validated_invoice["email"])
+        invoice_pack = validated_invoice["pack"]
+        _invalidate_stripe_billing_cache(email)
         known_user = USERS.find_by_email(email)
-        vision_credits, video_credits, image_credits = _credits_from_subscription_invoice(invoice)
+        vision_credits, video_credits, image_credits = _credits_for_validated_pack(invoice_pack)
         entry = ACCESS.apply_paid_session(
             session_id=f"invoice:{invoice_id}",
             email=email,
@@ -4275,7 +5287,7 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
         if ACCESS.claim_notification(f"invoice:{invoice_id}"):
             invoice_session = {
                 "id": f"invoice:{invoice_id}",
-                "metadata": _subscription_metadata_from_invoice(invoice),
+                "metadata": validated_invoice["metadata"],
                 "amount_total": invoice.get("amount_paid") or invoice.get("total"),
                 "currency": invoice.get("currency"),
                 "customer_email": email,
@@ -4290,18 +5302,25 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
     if not session_id:
         return {"ok": True, "handled": False}
 
-    if event_type == "checkout.session.completed" and session.get("payment_status") not in {"paid", "no_payment_required"}:
-        return {"ok": True, "handled": False, "session_id": session_id}
-
-    customer_details = session.get("customer_details") or {}
-    email = customer_details.get("email") or session.get("customer_email")
+    validated_session = _validated_vision_checkout_session(session, allow_legacy=False)
+    if not validated_session:
+        return {
+            "ok": True,
+            "handled": False,
+            "session_id": session_id,
+            "reason": "not_a_vision_studio_checkout",
+        }
+    session_pack, _ = validated_session
+    email = _checkout_session_email(session)
+    _invalidate_stripe_billing_cache(email)
     known_user = USERS.find_by_email(email)
-    vision_credits, video_credits, image_credits = _credits_from_session(session)
+    metadata_user_id = str(_stripe_metadata(session).get("vision_user_id") or "").strip()
+    vision_credits, video_credits, image_credits = _credits_for_validated_pack(session_pack)
     entry = ACCESS.apply_paid_session(
         session_id=session_id,
         email=email,
         current_access_id=None,
-        current_user_id=str(known_user.get("id")) if known_user else None,
+        current_user_id=metadata_user_id or (str(known_user.get("id")) if known_user else None),
         vision_credits=vision_credits,
         video_credits=video_credits,
         image_credits=image_credits,
@@ -4342,13 +5361,13 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
         resolution=resolution,
         sound_enabled=sound_enabled,
     )
-    prompt_bundle = _auto_enhance_job_prompt(payload.prompt.strip(), mode)
     normalized_quality = _normalize_quality(payload.quality)
     if normalized_quality == "auto":
         normalized_quality = _quality_from_generation_settings(mode, resolution, sound_enabled)
     requested_quality = _effective_job_quality(mode, normalized_quality)
-    access = _access_from_request(request)
-    summary = _access_summary(access)
+    user, access, summary = _request_entitlement(request)
+    if not user and not (access and access.get("admin")):
+        raise HTTPException(status_code=401, detail="Authenticate your Vision account before creating an image.")
     if not summary["has_access"]:
         raise HTTPException(
             status_code=402,
@@ -4373,7 +5392,7 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
                 status_code=402,
                 detail={
                     "code": "insufficient_credits",
-                    "message": "Renew Vision Studio to keep creating inside Vision.",
+                    "message": "Manage your Vision Studio plan to keep creating.",
                     "access": summary,
                     "pack": _pack_summary_for_access(summary),
                     "packs": _packs_summary_for_access(summary),
@@ -4386,6 +5405,9 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
         charged_amount = int(charge.get("amount") if isinstance(charge, dict) else credit_cost["amount"])
         charged_credit_type = str(charge.get("type") if isinstance(charge, dict) else "vision_credits")
 
+    # Authorization and credit consumption must complete before this can call
+    # any prompt-enhancement provider.
+    prompt_bundle = _auto_enhance_job_prompt(payload.prompt.strip(), mode)
     job = JOBS.create(
         str(prompt_bundle["prompt"]),
         requested_quality,

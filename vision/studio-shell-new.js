@@ -4,21 +4,6 @@
     return;
   }
 
-  const currentUrl = new URL(window.location.href);
-  const checkoutState = currentUrl.searchParams.get("checkout");
-  const checkoutSessionId = currentUrl.searchParams.get("session_id");
-  if (checkoutState === "success" || checkoutState === "cancel" || checkoutSessionId) {
-    const redirectUrl = new URL("/", window.location.origin);
-    if (checkoutState) {
-      redirectUrl.searchParams.set("checkout", checkoutState);
-    }
-    if (checkoutSessionId) {
-      redirectUrl.searchParams.set("session_id", checkoutSessionId);
-    }
-    window.location.replace(redirectUrl.toString());
-    return;
-  }
-
   const root = document.getElementById("studio-shell-new-root");
   if (!root) {
     return;
@@ -30,12 +15,13 @@
   const DEFAULT_API_BASE = String(window.VISION_API_BASE || "https://vision-gateway.onrender.com").replace(/\/$/, "");
   const VISION_HISTORY_STORAGE_KEY = "vision_generation_history_v1";
   const VISION_ACCESS_STORAGE_KEY = "vision_access_token";
+  const VISION_USER_STORAGE_KEY = "vision_user_token";
   const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
   const VISION_ASSET_CACHE_DB = "vision_asset_cache_v1";
   const VISION_ASSET_CACHE_STORE = "assets";
   const DEFAULT_PACK_ID = "studio";
   const VISION_DURATION_OPTIONS = [3, 5, 10, 15];
-  const VISION_RESOLUTION_OPTIONS = ["480p", "720p", "1080p", "4k"];
+  const VISION_RESOLUTION_OPTIONS = ["1080p", "4k"];
 
   const trackVisionEvent = (name, payload = {}) =>
     window.VisionTracking && typeof window.VisionTracking.trackEvent === "function"
@@ -64,6 +50,13 @@
     signup_discount_percent: 20,
   };
 
+  const defaultSubscription = {
+    status: "none",
+    active: false,
+    cancel_at_period_end: false,
+    current_period_end: null,
+  };
+
   const defaultPack = {
     id: DEFAULT_PACK_ID,
     name: "Vision Studio",
@@ -90,11 +83,10 @@
   const state = {
     mode: "image",
     durationSeconds: 5,
-    resolution: "720p",
+    resolution: "4k",
     soundEnabled: false,
     scene: "idle",
     prompt: "",
-    referenceAsset: null,
     access: { ...defaultAccess },
     user: { ...defaultUser },
     packs: [],
@@ -111,6 +103,8 @@
     authLoading: false,
     improveLoading: false,
     checkoutLoading: false,
+    portalLoading: false,
+    subscription: { ...defaultSubscription },
     menuOpenFor: "",
     menuAnchor: null,
     assetStatusByPath: {},
@@ -150,7 +144,7 @@
 
   const normalizeResolution = (value) => {
     const normalized = String(value || "").trim().toLowerCase();
-    return VISION_RESOLUTION_OPTIONS.includes(normalized) ? normalized : "720p";
+    return VISION_RESOLUTION_OPTIONS.includes(normalized) ? normalized : "4k";
   };
 
   const formatVisionCredits = (value) => {
@@ -395,12 +389,36 @@
     }
   };
 
+  const readStoredUserToken = () => {
+    try {
+      return window.localStorage.getItem(VISION_USER_STORAGE_KEY) || "";
+    } catch (error) {
+      return "";
+    }
+  };
+
+  const storeUserToken = (token) => {
+    try {
+      if (token) {
+        window.localStorage.setItem(VISION_USER_STORAGE_KEY, token);
+        return;
+      }
+      window.localStorage.removeItem(VISION_USER_STORAGE_KEY);
+    } catch (error) {
+      // Ignore storage failures.
+    }
+  };
+
   const visionFetch = (path, options) => {
     const opts = options || {};
     const headers = { ...(opts.headers || {}) };
     const token = readStoredAccessToken();
     if (token && !headers.Authorization) {
       headers.Authorization = `Bearer ${token}`;
+    }
+    const userToken = readStoredUserToken();
+    if (userToken && !headers["x-vision-user"]) {
+      headers["x-vision-user"] = userToken;
     }
     return fetch(visionApiUrl(path), {
       credentials: "include",
@@ -802,54 +820,6 @@
     button.textContent = originalLabel;
   };
 
-  const formatFileSize = (bytes) => {
-    const value = Number(bytes || 0);
-    if (!Number.isFinite(value) || value <= 0) {
-      return "";
-    }
-    if (value >= 1024 * 1024) {
-      return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-    }
-    if (value >= 1024) {
-      return `${Math.round(value / 1024)} KB`;
-    }
-    return `${value} B`;
-  };
-
-  const clearReferenceAsset = () => {
-    if (state.referenceAsset && state.referenceAsset.url) {
-      try {
-        window.URL.revokeObjectURL(state.referenceAsset.url);
-      } catch (error) {
-        // Ignore object URL cleanup failures.
-      }
-    }
-    state.referenceAsset = null;
-  };
-
-  const setReferenceAsset = (file) => {
-    if (!file) {
-      return;
-    }
-
-    const kind = String(file.type || "").startsWith("video/") ? "video" : "image";
-    if (kind !== "image") {
-      state.currentError = "Vision now accepts image references for this plan.";
-      return;
-    }
-
-    clearReferenceAsset();
-    const url = window.URL.createObjectURL(file);
-    state.referenceAsset = {
-      name: String(file.name || `${kind}-reference`),
-      kind,
-      type: String(file.type || ""),
-      sizeLabel: formatFileSize(file.size),
-      url,
-    };
-    state.currentError = "";
-  };
-
   const getHistoryStorageKeyForEmail = (email) => {
     const identity = normalizeEmail(email).replace(/[^a-z0-9@._-]+/g, "-") || "guest";
     return `${VISION_HISTORY_STORAGE_KEY}:${identity}`;
@@ -980,6 +950,28 @@
     }
   };
 
+  const formatRenewalDate = (value) => {
+    if (!value) {
+      return "";
+    }
+    const numericValue = Number(value);
+    const dateValue = Number.isFinite(numericValue) && numericValue > 0
+      ? new Date(numericValue < 100000000000 ? numericValue * 1000 : numericValue)
+      : new Date(value);
+    if (Number.isNaN(dateValue.getTime())) {
+      return "";
+    }
+    try {
+      return new Intl.DateTimeFormat("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(dateValue);
+    } catch (error) {
+      return "";
+    }
+  };
+
   const summarizePrompt = (prompt, fallback, maxLength) => {
     const cleaned = String(prompt || "").trim().replace(/\s+/g, " ");
     const limit = Number(maxLength || 34);
@@ -1023,9 +1015,9 @@
 
   const hasPackContext = () => {
     const counts = getCreditCounts();
-    return !!state.access.admin || !!state.access.access_id || counts.vision > 0 || counts.video > 0 || counts.image > 0;
+    return !!state.access.admin || !!state.access.has_access || counts.vision > 0 || counts.video > 0 || counts.image > 0;
   };
-  const hasAccountContext = () => !!state.user.authenticated || !!state.user.email || hasPackContext();
+  const hasAccountContext = () => !!state.user.authenticated;
   const isCompactStudioViewport = () =>
     typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
@@ -1033,37 +1025,28 @@
 
   const getAccessLabel = () => {
     if (state.access.admin) {
-      return "Unlimited Vision";
+      return "Studio active";
     }
     if (hasPackContext()) {
-      const counts = getCreditCounts();
-      if (counts.vision > 0 || counts.visionPurchased > 0) {
-        return `${formatVisionCredits(counts.vision)} Vision credits`;
-      }
-      return isUnlimitedImageCount(counts.image) ? "Unlimited 4K images" : `${counts.image} images`;
+      return "Studio active";
     }
-    return "Access required";
+    return "No active plan";
   };
 
   const getAccountPillState = () => {
-    const counts = getCreditCounts();
     if (!hasAccountContext()) {
       return {
         variant: "guest",
-        label: "Access Vision",
-        subtitle: "Log in or start Studio",
+        label: "Sign in",
+        subtitle: "Access your Studio",
       };
     }
     const avatar = state.user.email ? state.user.email.charAt(0).toUpperCase() : "A";
     return {
       variant: "account",
       avatar,
-      label: shortenEmail(state.user.email),
-      subtitle: state.access.admin
-        ? "Unlimited Vision"
-        : counts.vision > 0 || counts.visionPurchased > 0
-          ? `${formatVisionCredits(counts.vision)} Vision credits`
-          : isUnlimitedImageCount(counts.image) ? "Unlimited 4K images" : `${counts.image} images`,
+      label: "Account",
+      subtitle: getAccessLabel(),
     };
   };
 
@@ -1366,8 +1349,15 @@
         throw new Error("Vision access unavailable.");
       }
       const payload = await response.json();
+      if (payload && payload.user_token) {
+        storeUserToken(payload.user_token);
+      }
       state.user = { ...defaultUser, ...(payload && payload.user ? payload.user : {}) };
       state.access = { ...defaultAccess, ...(payload && payload.access ? payload.access : {}) };
+      state.subscription = {
+        ...defaultSubscription,
+        ...(payload && payload.subscription ? payload.subscription : {}),
+      };
       state.packs = normalizePackList(payload && payload.packs ? payload.packs : []);
       state.currentPack = getPackById((payload && payload.pack && payload.pack.id) || DEFAULT_PACK_ID);
       syncRecents();
@@ -1377,6 +1367,7 @@
     } catch (error) {
       state.user = { ...defaultUser };
       state.access = { ...defaultAccess };
+      state.subscription = { ...defaultSubscription };
       state.packs = [];
       state.currentPack = { ...defaultPack };
       syncRecents();
@@ -1390,9 +1381,17 @@
     const url = new URL(window.location.href);
     const sessionId = url.searchParams.get("session_id");
     const checkout = url.searchParams.get("checkout");
+    if (checkout === "cancel") {
+      state.authNote = "Checkout was cancelled. Your account was not charged.";
+      state.accountPanelOpen = true;
+      url.searchParams.delete("checkout");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      return false;
+    }
     if (!sessionId || checkout !== "success") {
       return false;
     }
+    let confirmed = false;
     try {
       const response = await visionFetch("/api/checkout/confirm", {
         method: "POST",
@@ -1415,14 +1414,26 @@
       if (payload && payload.access_token) {
         storeAccessToken(payload.access_token);
       }
+      if (payload && payload.user_token) {
+        storeUserToken(payload.user_token);
+      }
+      confirmed = true;
+      state.authNote = "Your Vision Studio subscription is active.";
+      state.accountPanelOpen = true;
+      state.authStep = state.user.authenticated ? "account" : "email";
     } catch (error) {
       state.authNote = error instanceof Error ? error.message : "Payment confirmation failed.";
+      state.accountPanelOpen = true;
+      state.authStep = state.user.authenticated ? "account" : "email";
+      render();
     } finally {
-      url.searchParams.delete("session_id");
-      url.searchParams.delete("checkout");
-      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      if (confirmed) {
+        url.searchParams.delete("session_id");
+        url.searchParams.delete("checkout");
+        window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      }
     }
-    return true;
+    return confirmed;
   };
 
   const maybeRestorePendingPrompt = () => {
@@ -1525,8 +1536,10 @@
       state.currentPack = getPackById(DEFAULT_PACK_ID);
     }
     state.accountPanelOpen = true;
-    state.authStep = "email";
-    state.authNote = detail && detail.message ? detail.message : "Start Vision Studio to keep creating.";
+    state.authStep = state.user.authenticated ? "account" : "email";
+    state.authNote = state.user.authenticated
+      ? "Start Vision Studio to create unlimited 4K images."
+      : "Sign in first, then start Vision Studio.";
     state.currentJob = null;
     syncScene();
     render();
@@ -1582,7 +1595,7 @@
       });
       const payload = await parseJsonSafely(response);
 
-      if (response.status === 402) {
+      if (response.status === 401 || response.status === 402) {
         handleCheckoutRequired(payload && payload.detail ? payload.detail : null);
         return;
       }
@@ -1665,11 +1678,15 @@
       if (payload && payload.access_token) {
         storeAccessToken(payload.access_token);
       }
+      if (payload && payload.user_token) {
+        storeUserToken(payload.user_token);
+      }
       state.authStep = "account";
       state.authPendingCode = "";
       state.authNote = "";
+      await maybeConfirmCheckout();
       await refreshAccess();
-      state.accountPanelOpen = false;
+      state.accountPanelOpen = true;
       render();
     } catch (error) {
       state.authNote = error instanceof Error ? error.message : "That access code did not work.";
@@ -1683,6 +1700,17 @@
   const logout = async () => {
     state.authLoading = true;
     state.authNote = "Logging out...";
+    storeAccessToken("");
+    storeUserToken("");
+    state.user = { ...defaultUser };
+    state.access = { ...defaultAccess };
+    state.subscription = { ...defaultSubscription };
+    state.authStep = "email";
+    state.authPendingEmail = "";
+    state.authPendingCode = "";
+    state.accountPanelOpen = false;
+    syncRecents();
+    syncScene();
     render();
     try {
       const response = await visionFetch("/api/auth/logout", { method: "POST" });
@@ -1690,17 +1718,8 @@
       if (!response.ok) {
         throw new Error((payload && (payload.detail || payload.message)) || "Vision could not log you out.");
       }
-      storeAccessToken("");
-      state.user = { ...defaultUser };
-      state.access = { ...defaultAccess };
-      state.authStep = "email";
-      state.authPendingEmail = "";
-      state.authPendingCode = "";
-      state.accountPanelOpen = false;
-      syncRecents();
-      syncScene();
     } catch (error) {
-      state.authNote = error instanceof Error ? error.message : "Vision could not log you out.";
+      console.warn("Vision server logout could not be completed.", error);
     } finally {
       state.authLoading = false;
       render();
@@ -1708,6 +1727,13 @@
   };
 
   const openCheckout = async () => {
+    if (!state.user.authenticated) {
+      state.accountPanelOpen = true;
+      state.authStep = "email";
+      state.authNote = "Sign in first, then start Vision Studio.";
+      render();
+      return;
+    }
     const email = normalizeEmail(state.user.email || state.authPendingEmail);
     if (!email || email.indexOf("@") === -1) {
       state.authNote = "Enter an email before opening secure checkout.";
@@ -1737,6 +1763,7 @@
         body: JSON.stringify({
           email,
           pack_id: (selectedPack && selectedPack.id) || DEFAULT_PACK_ID,
+          return_path: "/studio/",
           tracking,
         }),
       });
@@ -1748,6 +1775,30 @@
     } catch (error) {
       state.checkoutLoading = false;
       state.authNote = error instanceof Error ? error.message : "Checkout could not start.";
+      render();
+    }
+  };
+
+  const openCustomerPortal = async () => {
+    if (!state.user.authenticated) {
+      state.authStep = "email";
+      state.authNote = "Sign in to manage your subscription.";
+      render();
+      return;
+    }
+    state.portalLoading = true;
+    state.authNote = "Opening secure billing...";
+    render();
+    try {
+      const response = await visionFetch("/api/billing/portal", { method: "POST" });
+      const payload = await parseJsonSafely(response);
+      if (!response.ok || !payload || !payload.url) {
+        throw new Error((payload && (payload.detail || payload.message)) || "Billing management is unavailable right now.");
+      }
+      window.location.assign(payload.url);
+    } catch (error) {
+      state.portalLoading = false;
+      state.authNote = error instanceof Error ? error.message : "Billing management is unavailable right now.";
       render();
     }
   };
@@ -1775,6 +1826,10 @@
         }),
       });
       const payload = await parseJsonSafely(response);
+      if (response.status === 401 || response.status === 402) {
+        handleCheckoutRequired(payload && payload.detail ? payload.detail : null);
+        return;
+      }
       if (!response.ok || !payload || !payload.improved_prompt) {
         throw new Error((payload && (payload.detail || payload.message)) || "Vision could not improve this prompt.");
       }
@@ -1789,9 +1844,6 @@
 
   const renderHeader = () => {
     const pill = getAccountPillState();
-    const hasAccess = !!state.access.admin || hasPackContext();
-    const compact = isCompactStudioViewport();
-    const checkoutLabel = state.checkoutLoading ? (compact ? "Opening" : "Opening...") : hasAccess ? (compact ? "Renew" : "Renew Vision Studio") : compact ? "Start" : "Start Vision Studio";
     return `
       <header class="vss-header">
         <div class="vss-brand-cluster">
@@ -1802,16 +1854,11 @@
           <a class="vss-home-link" href="/">Back home</a>
         </div>
         <div class="vss-header-actions">
-          ${
-            state.access.admin
-              ? ""
-              : `<button class="vss-credit-topup" type="button" data-buy-credits>${checkoutLabel}</button>`
-          }
-          <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Access Vision" : "Vision account and credits"}" aria-haspopup="dialog" aria-expanded="${state.accountPanelOpen ? "true" : "false"}">
+          <button class="vss-account-pill${pill.variant === "guest" ? " is-guest" : ""}" id="vss-account-pill" type="button" aria-label="${pill.variant === "guest" ? "Sign in to Vision" : "Open Vision account"}" aria-haspopup="dialog" aria-expanded="${state.accountPanelOpen ? "true" : "false"}">
             ${
               pill.variant === "guest"
                 ? `<span class="vss-account-guest-copy">
-                    <span class="vss-account-guest-label">${escapeHtml(compact ? "Access" : pill.label)}</span>
+                    <span class="vss-account-guest-label">${escapeHtml(pill.label)}</span>
                     <span class="vss-account-guest-note">${escapeHtml(pill.subtitle)}</span>
                   </span>`
                 : `<span class="vss-account-avatar">${escapeHtml(pill.avatar)}</span>
@@ -1918,24 +1965,6 @@
       `;
     }
 
-    if (state.referenceAsset) {
-      const referenceMedia =
-        state.referenceAsset.kind === "video"
-          ? `<video class="vss-canvas-video" src="${escapeHtml(state.referenceAsset.url)}" autoplay muted loop playsinline></video>`
-          : `<img class="vss-canvas-image" src="${escapeHtml(state.referenceAsset.url)}" alt="${escapeHtml(state.referenceAsset.name || "Reference asset")}" />`;
-      return `
-        <div class="vss-canvas-media vss-canvas-media--reference">
-          ${referenceMedia}
-          <div class="vss-canvas-scrim"></div>
-          <div class="vss-canvas-reference-meta">
-            <p class="vss-result-label">Reference ready</p>
-            <h2 class="vss-result-title">${escapeHtml(state.referenceAsset.name)}</h2>
-            <p class="vss-result-caption">Loaded in Studio and ready for prompt-led refinement. Replace it any time from the + button.</p>
-          </div>
-        </div>
-      `;
-    }
-
     if (state.recents.length && !getSelectedRecent()) {
       return `
         <div class="vss-canvas-empty vss-canvas-empty--status">
@@ -1954,7 +1983,12 @@
     return `
       <div class="vss-canvas-empty">
         <div class="vss-canvas-empty-copy">
-          <div class="vss-canvas-empty-label">Describe your 4K image</div>
+          <svg class="vss-empty-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="10" y="13" width="44" height="36" rx="5"></rect>
+            <circle cx="42" cy="25" r="5"></circle>
+            <path d="m15 44 12-12 10 10 6-6 10 9"></path>
+          </svg>
+          <div class="vss-canvas-empty-label">Describe the image you want to create</div>
           <div class="vss-canvas-empty-caret" aria-hidden="true"></div>
         </div>
       </div>
@@ -1963,6 +1997,7 @@
 
   const renderCanvas = () => `
     <section class="vss-stage">
+      <h1 class="vss-page-title">Create an image</h1>
       <div class="vss-canvas">
         ${renderCanvasMedia()}
       </div>
@@ -1971,102 +2006,49 @@
   `;
 
   const renderGenerationControls = () => {
-    const cost = getGenerationCost();
-    const showCreditCost = !!state.access.admin || hasPackContext();
     const resolutionButtons = VISION_RESOLUTION_OPTIONS.map((resolution) => {
-      const label = resolution === "4k" ? "4K" : resolution;
-      return `<button class="vss-control-pill${normalizeResolution(state.resolution) === resolution ? " is-active" : ""}" type="button" data-resolution="${resolution}">${label}</button>`;
+      const active = normalizeResolution(state.resolution) === resolution;
+      const label = resolution === "4k" ? "4K" : "1080p";
+      return `<button class="vss-control-pill${active ? " is-active" : ""}" type="button" data-resolution="${resolution}" aria-pressed="${active ? "true" : "false"}">${label}</button>`;
     }).join("");
-    const durationButtons = VISION_DURATION_OPTIONS.map((duration) => (
-      `<button class="vss-control-pill${normalizeDurationSeconds(state.durationSeconds) === duration ? " is-active" : ""}" type="button" data-duration="${duration}">${duration}s</button>`
-    )).join("");
     return `
       <div class="vss-generation-controls" aria-label="Generation settings">
-        ${
-          state.mode === "video"
-            ? `<div class="vss-control-group" aria-label="Video duration">
-                <span>Length</span>
-                <div class="vss-control-pills">${durationButtons}</div>
-              </div>`
-            : ""
-        }
         <div class="vss-control-group" aria-label="Output resolution">
-          <span>${state.mode === "video" ? "Format" : "Image"}</span>
+          <span>Quality</span>
           <div class="vss-control-pills">${resolutionButtons}</div>
         </div>
-        ${
-          state.mode === "video"
-            ? `<button class="vss-sound-toggle${state.soundEnabled ? " is-active" : ""}" type="button" data-sound-toggle aria-pressed="${state.soundEnabled ? "true" : "false"}">
-                <span>Audio</span>
-                <strong>${state.soundEnabled ? "On" : "Off"}</strong>
-              </button>`
-            : ""
-        }
-        ${
-          showCreditCost
-            ? `<div class="vss-credit-cost" title="${escapeHtml(cost.label)}">
-                <span>${escapeHtml(cost.label)}</span>
-                <strong>${state.access.admin ? "Included" : `${formatVisionCredits(cost.amount)} credits`}</strong>
-              </div>`
-            : ""
-        }
       </div>
     `;
   };
 
   const renderDock = () => {
-    const compact = isCompactStudioViewport();
     return `
     <div class="vss-dock">
-      <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/*" />
-      <div class="vss-dock-settings" aria-label="Studio generation controls">
-        <div class="vss-mode-row vss-mode-row--elevated">
-          <div class="vss-mode-switch" role="tablist" aria-label="Mode switch">
-            <button type="button" data-mode="image" class="${state.mode === "image" ? "is-active" : ""}">Image</button>
-          </div>
-          <span class="vss-mode-separator" aria-hidden="true"></span>
-          <span class="vss-mode-access">${escapeHtml(hasPackContext() || state.access.admin ? getAccessLabel() : "Vision Studio")}</span>
-        </div>
-        ${renderGenerationControls()}
-      </div>
       <form class="vss-prompt-bar" id="vss-prompt-form">
-        <button class="vss-add-ref" type="button" aria-label="Upload image reference" title="Add image reference">
-          <span class="vss-add-ref-symbol" aria-hidden="true">+</span>
-        </button>
-        <input
-          class="vss-prompt-input"
-          id="vss-prompt-input"
-          type="text"
-          placeholder="${compact ? "Describe..." : "Describe your 4K image, or add a reference..."}"
-          value="${escapeHtml(state.prompt)}"
-        />
-        <div class="vss-prompt-actions">
+        <div class="vss-prompt-field">
+          <textarea
+            class="vss-prompt-input"
+            id="vss-prompt-input"
+            rows="2"
+            placeholder="Describe the image you want to create"
+          >${escapeHtml(state.prompt)}</textarea>
           <button class="vss-improve vss-improve--inline${state.prompt.trim() ? "" : " is-disabled"}" id="vss-improve-button" type="button" ${
-            state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
-          } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve Prompt"}</button>
+            state.prompt.trim() ? "" : "hidden aria-hidden=\"true\""
+          } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve"}</button>
+        </div>
+        <div class="vss-prompt-actions">
           <button class="vss-submit" type="submit" aria-label="Generate">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M7 12h10"></path>
               <path d="m13 6 6 6-6 6"></path>
             </svg>
           </button>
+          <span class="vss-submit-label">Generate</span>
         </div>
       </form>
-      ${
-        state.referenceAsset
-          ? `<div class="vss-reference-row">
-              <span class="vss-reference-chip">
-                <span class="vss-reference-chip-label">${escapeHtml(state.referenceAsset.kind === "video" ? "Video reference" : "Image reference")}</span>
-                <strong>${escapeHtml(state.referenceAsset.name)}</strong>
-                <span>${escapeHtml(state.referenceAsset.sizeLabel || "")}</span>
-              </span>
-              <button class="vss-reference-clear" id="vss-reference-clear" type="button">Remove</button>
-            </div>`
-          : `<p class="vss-reference-hint">Use + to add an image reference.</p>`
-      }
-      <p class="vss-improve-note vss-improve-note--inline" id="vss-improve-note" ${
-        state.prompt.trim() || state.referenceAsset ? "" : "hidden aria-hidden=\"true\""
-      }>Refine your prompt before you generate.</p>
+      <div class="vss-dock-settings" aria-label="Studio generation controls">
+        ${renderGenerationControls()}
+      </div>
     </div>
   `;
   };
@@ -2139,10 +2121,10 @@
       <div class="vss-rail-inner">
         <div class="vss-rail-head">
           <div>
-            <div class="vss-rail-kicker">Recents</div>
-            <p class="vss-rail-subtitle">Latest generated outputs from this Studio session.</p>
+            <div class="vss-rail-kicker">Recent</div>
+            <p class="vss-rail-subtitle">Your latest images.</p>
           </div>
-          <span class="vss-rail-count">${state.recents.length} saved</span>
+          <span class="vss-rail-count">${state.recents.length}</span>
         </div>
         ${
           state.recents.length
@@ -2196,8 +2178,13 @@
                   .join("")}
               </div>`
             : `<div class="vss-rail-empty">
-                <p class="vss-rail-empty-title">No recents yet</p>
-                <p class="vss-rail-empty-copy">Your latest Vision outputs will collect here after the first generation.</p>
+                <svg class="vss-rail-empty-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                  <rect x="7" y="9" width="34" height="29" rx="4"></rect>
+                  <path d="m11 34 9-9 8 8 5-5 7 7"></path>
+                  <circle cx="32" cy="18" r="3"></circle>
+                </svg>
+                <p class="vss-rail-empty-title">No images yet</p>
+                <p class="vss-rail-empty-copy">Generated images will appear here.</p>
               </div>`
         }
       </div>
@@ -2209,69 +2196,87 @@
       return "";
     }
 
-    const counts = getCreditCounts();
     const signedIn = hasAccountContext();
-    const showAccount = signedIn && state.authStep !== "code";
+    const showAccount = signedIn;
+    const hasActivePlan = !!state.access.admin || !!state.subscription.active || hasPackContext();
     const emailLabel = shortenEmail(state.user.email);
+    const pack = state.currentPack || getPackById(DEFAULT_PACK_ID);
+    const priceLabel = `${formatPackPrice(pack)} / month`;
+    const renewalDate = formatRenewalDate(state.subscription.current_period_end);
+    const renewalCopy = renewalDate
+      ? state.subscription.cancel_at_period_end
+        ? `Access ends ${renewalDate}`
+        : `Renews ${renewalDate}`
+      : "Billed monthly. Cancel anytime.";
 
     return `
       <div class="vss-account-overlay" id="vss-account-overlay">
         <div class="vss-account-panel" role="dialog" aria-modal="true" aria-labelledby="vss-account-title">
           <div class="vss-account-panel-head">
             <div>
-              <div class="vss-account-panel-kicker">${showAccount ? "Account" : "Access"}</div>
-              <h2 class="vss-account-panel-title" id="vss-account-title">${showAccount ? "Vision account and credits" : "Access Vision Studio"}</h2>
-              <p class="vss-account-panel-copy">
-                ${
-                  showAccount
-                    ? "See your credits, manage access and jump back into Vision."
-                    : "Enter your email for a one-time access code, or open secure checkout for Vision Studio."
-                }
-              </p>
+              <div class="vss-account-panel-kicker">${showAccount ? "Account" : "Welcome back"}</div>
+              <h2 class="vss-account-panel-title" id="vss-account-title">${showAccount ? "Your Vision account" : state.authStep === "code" ? "Check your email" : "Sign in to Vision"}</h2>
+              <p class="vss-account-panel-copy">${
+                showAccount
+                  ? "Manage your Studio plan and account."
+                  : state.authStep === "code"
+                    ? `Enter the six-digit code sent to ${escapeHtml(state.authPendingEmail)}.`
+                    : "Use your email to continue. No password needed."
+              }</p>
             </div>
-            <button class="vss-account-panel-close" id="vss-account-panel-close" type="button" aria-label="Close account panel">Close</button>
+            <button class="vss-account-panel-close" id="vss-account-panel-close" type="button" aria-label="Close account panel">×</button>
           </div>
           ${
             showAccount
               ? `<div class="vss-account-summary">
-                  <div class="vss-account-summary-head">
+                  <div class="vss-account-identity">
                     <span class="vss-account-avatar">${escapeHtml((state.user.email || "A").charAt(0).toUpperCase())}</span>
-                  <div class="vss-account-summary-copy">
-                    <strong>${escapeHtml(emailLabel)}</strong>
-                    <span>${escapeHtml(state.access.admin ? "Unlimited Vision access" : getAccessLabel())}</span>
+                    <div class="vss-account-summary-copy">
+                      <strong>${escapeHtml(emailLabel)}</strong>
+                      <span>Signed in</span>
+                    </div>
                   </div>
-                </div>
-                  <div class="vss-account-grid">
-                    <div class="vss-account-tile">
-                      <span>${counts.vision > 0 || counts.visionPurchased > 0 ? "Vision credits" : "Available images"}</span>
-                      <strong>${state.access.admin ? "∞" : counts.vision > 0 || counts.visionPurchased > 0 ? formatVisionCredits(counts.vision) : isUnlimitedImageCount(counts.image) ? "∞ images" : `${counts.image} images`}</strong>
+                  <div class="vss-subscription-card${hasActivePlan ? " is-active" : ""}">
+                    <div class="vss-subscription-status">
+                      <span class="vss-status-dot" aria-hidden="true"></span>
+                      <span>${hasActivePlan ? "Subscription active" : "No active plan"}</span>
                     </div>
-                    <div class="vss-account-tile">
-                      <span>Current output cost</span>
-                      <strong>Included</strong>
+                    <div class="vss-subscription-heading">
+                      <div>
+                        <strong>Vision Studio</strong>
+                        <span>Unlimited 4K images</span>
+                      </div>
+                      <strong class="vss-subscription-price">${escapeHtml(priceLabel)}</strong>
                     </div>
+                    <p class="vss-subscription-renewal">${escapeHtml(hasActivePlan ? renewalCopy : "Start creating in 4K with one simple monthly plan.")}</p>
                   </div>
                   <div class="vss-account-actions">
-                    ${state.access.admin ? "" : `<button class="vss-account-primary" id="vss-buy-pack" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Renew Vision Studio"}</button>`}
+                    ${
+                      hasActivePlan
+                        ? state.access.admin
+                          ? ""
+                          : `<button class="vss-account-primary" id="vss-manage-subscription" type="button" ${state.portalLoading ? "disabled aria-disabled=\"true\"" : ""}>${state.portalLoading ? "Opening..." : "Manage subscription"}</button>`
+                        : `<button class="vss-account-primary" id="vss-buy-pack" type="button" data-buy-credits ${state.checkoutLoading ? "disabled aria-disabled=\"true\"" : ""}>${state.checkoutLoading ? "Opening..." : `Start Vision Studio — ${escapeHtml(formatPackPrice(pack))}`}</button>`
+                    }
                     <button class="vss-account-secondary" id="vss-logout" type="button">${state.authLoading ? "Logging out..." : "Log out"}</button>
                   </div>
                 </div>`
               : `<form class="vss-access-form" id="vss-auth-form">
                   <label class="vss-form-label" for="vss-auth-email">Email</label>
-                  <input class="vss-form-input" id="vss-auth-email" type="email" value="${escapeHtml(state.authPendingEmail)}" placeholder="you@example.com" autocomplete="email" />
+                  <input class="vss-form-input" id="vss-auth-email" type="email" value="${escapeHtml(state.authPendingEmail)}" placeholder="you@example.com" autocomplete="email" ${state.authStep === "code" ? "readonly" : ""} />
                   ${
                     state.authStep === "code"
                       ? `<label class="vss-form-label" for="vss-auth-code">Code</label>
-                         <input class="vss-form-input" id="vss-auth-code" type="text" value="${escapeHtml(state.authPendingCode)}" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" />`
+                         <input class="vss-form-input vss-form-input--code" id="vss-auth-code" type="text" value="${escapeHtml(state.authPendingCode)}" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" />`
                       : ""
                   }
                   <div class="vss-account-actions">
-                    <button class="vss-account-primary" id="vss-auth-submit" type="submit">${state.authLoading ? "Please wait..." : state.authStep === "code" ? "Continue to Vision" : "Send access code"}</button>
-                    <button class="vss-account-secondary" id="vss-buy-pack" type="button" data-buy-credits>${state.checkoutLoading ? "Opening..." : "Start Vision Studio"}</button>
+                    <button class="vss-account-primary" id="vss-auth-submit" type="submit" ${state.authLoading ? "disabled aria-disabled=\"true\"" : ""}>${state.authLoading ? "Please wait..." : state.authStep === "code" ? "Verify and continue" : "Continue with email"}</button>
+                    ${state.authStep === "code" ? '<button class="vss-account-secondary" id="vss-auth-change-email" type="button">Use another email</button>' : ""}
                   </div>
                 </form>`
           }
-          <p class="vss-account-panel-note">${escapeHtml(state.authNote || (showAccount ? "Your monthly creative credits refresh inside Vision Studio." : "We’ll send a one-time access code so your Studio access follows you when you come back."))}</p>
+          <p class="vss-account-panel-note" role="status">${escapeHtml(state.authNote || (showAccount ? "" : "We’ll email you a one-time sign-in code."))}</p>
         </div>
       </div>
     `;
@@ -2300,10 +2305,6 @@
     const promptInput = root.querySelector("#vss-prompt-input");
     const promptForm = root.querySelector("#vss-prompt-form");
     const improveButton = root.querySelector("#vss-improve-button");
-    const improveNote = root.querySelector("#vss-improve-note");
-    const referenceInput = root.querySelector("#vss-reference-input");
-    const addReferenceButton = root.querySelector(".vss-add-ref");
-    const clearReferenceButton = root.querySelector("#vss-reference-clear");
     const recentsList = root.querySelector(".vss-recent-list");
 
     const syncImproveButton = () => {
@@ -2311,13 +2312,8 @@
         return;
       }
       const hasPrompt = !!String(promptInput && promptInput.value ? promptInput.value : state.prompt || "").trim();
-      const hasContext = hasPrompt || !!state.referenceAsset;
-      if (improveNote) {
-        improveNote.hidden = !hasContext;
-        improveNote.setAttribute("aria-hidden", hasContext ? "false" : "true");
-      }
-      improveButton.hidden = !hasContext;
-      improveButton.setAttribute("aria-hidden", hasContext ? "false" : "true");
+      improveButton.hidden = !hasPrompt;
+      improveButton.setAttribute("aria-hidden", hasPrompt ? "false" : "true");
       improveButton.disabled = state.improveLoading || !hasPrompt;
       if (state.improveLoading || !hasPrompt) {
         improveButton.setAttribute("aria-disabled", "true");
@@ -2325,11 +2321,7 @@
         improveButton.removeAttribute("aria-disabled");
       }
       improveButton.classList.toggle("is-disabled", !hasPrompt);
-      if (!hasPrompt && hasContext) {
-        improveButton.title = "Add a prompt to improve this reference.";
-      } else {
-        improveButton.removeAttribute("title");
-      }
+      improveButton.removeAttribute("title");
     };
 
     promptInput?.addEventListener("input", (event) => {
@@ -2348,33 +2340,6 @@
     });
 
     syncImproveButton();
-
-    addReferenceButton?.addEventListener("click", () => {
-      referenceInput?.click();
-    });
-
-    referenceInput?.addEventListener("change", (event) => {
-      const [file] = Array.from(event.target.files || []);
-      if (!file) {
-        return;
-      }
-      setReferenceAsset(file);
-      trackVisionEvent("ReferenceUploaded", {
-        media_type: "image",
-        platform_context: "web",
-        payload: {
-          mime_type: String(file.type || ""),
-          size: Number(file.size || 0),
-        },
-      });
-      event.target.value = "";
-      render();
-    });
-
-    clearReferenceButton?.addEventListener("click", () => {
-      clearReferenceAsset();
-      render();
-    });
 
     root.querySelectorAll("[data-mode]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -2550,18 +2515,28 @@
       requestAccessCode();
     });
 
+    root.querySelector("#vss-auth-change-email")?.addEventListener("click", () => {
+      state.authStep = "email";
+      state.authPendingCode = "";
+      state.authNote = "";
+      render();
+    });
+
     root.querySelectorAll("[data-buy-credits]").forEach((button) => {
       button.addEventListener("click", () => {
-        const email = normalizeEmail(state.user.email || state.authPendingEmail);
-        if (!email || email.indexOf("@") === -1) {
+        if (!state.user.authenticated) {
           state.accountPanelOpen = true;
-          state.authStep = hasAccountContext() ? "account" : "email";
-          state.authNote = "Enter your email to start Vision Studio.";
+          state.authStep = "email";
+          state.authNote = "Sign in first, then start Vision Studio.";
           render();
           return;
         }
         openCheckout();
       });
+    });
+
+    root.querySelector("#vss-manage-subscription")?.addEventListener("click", () => {
+      openCustomerPortal();
     });
 
     root.querySelector("#vss-logout")?.addEventListener("click", () => {

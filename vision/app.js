@@ -96,13 +96,21 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "136";
+const STUDIO_SHELL_ASSET_VERSION = "143";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
 const VISION_ACCESS_STORAGE_KEY = "vision_access_token";
+const VISION_USER_STORAGE_KEY = "vision_user_token";
 const VISION_PENDING_PROMPT_KEY = "vision_pending_prompt";
 const VISION_HISTORY_STORAGE_KEY = "vision_generation_history_v1";
+
+const STUDIO_PLAN_BENEFITS = [
+  "Unlimited 4K image generation",
+  "Prompt enhancement included",
+  "Recent image history",
+  "Watermark-free downloads",
+];
 
 const trackVisionEvent = (name, payload = {}) =>
   window.VisionTracking && typeof window.VisionTracking.trackEvent === "function"
@@ -135,15 +143,7 @@ const defaultPacks = [
     value_label: "Unlimited 4K images every month.",
     badge: "Monthly",
     cta_label: "Start Vision Studio",
-    features: [
-      "Upload your own images",
-      "Animate and edit your images",
-      "4K mode available",
-      "Prompt enhancement included",
-      "Private image gallery",
-      "No watermark",
-      "Images refresh monthly",
-    ],
+    features: [...STUDIO_PLAN_BENEFITS],
   },
 ];
 
@@ -229,6 +229,26 @@ const storeAccessToken = (token) => {
   }
 };
 
+const readStoredUserToken = () => {
+  try {
+    return window.localStorage.getItem(VISION_USER_STORAGE_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+};
+
+const storeUserToken = (token) => {
+  try {
+    if (token) {
+      window.localStorage.setItem(VISION_USER_STORAGE_KEY, token);
+      return;
+    }
+    window.localStorage.removeItem(VISION_USER_STORAGE_KEY);
+  } catch (error) {
+    // Ignore storage failures in restricted browsing modes.
+  }
+};
+
 const savePendingPrompt = (prompt, mode) => {
   try {
     window.sessionStorage.setItem(
@@ -283,6 +303,10 @@ const visionFetch = (path, options = {}) => {
   const token = readStoredAccessToken();
   if (token && !headers.Authorization) {
     headers.Authorization = `Bearer ${token}`;
+  }
+  const userToken = readStoredUserToken();
+  if (userToken && !headers["x-vision-user"]) {
+    headers["x-vision-user"] = userToken;
   }
   return fetch(visionApiUrl(path), {
     credentials: "include",
@@ -566,6 +590,8 @@ let studioSelectedHistoryId = "";
 let lastSubscribeTrigger = null;
 let authPendingEmail = "";
 let authStep = "email";
+let authIntent = "access";
+let pendingCheckoutIntent = null;
 let studioTransitionInFlight = false;
 let studioShellAssetPromise = null;
 
@@ -694,10 +720,18 @@ const getStudioCreditLabel = () => {
   return isUnlimitedImageCount(counts.image) ? "Unlimited 4K images" : `${counts.image} images`;
 };
 
-const hasStudioPackContext = () => !!accessState.admin || !!accessState.access_id || hasStudioCredits();
+const hasStudioPackContext = () => !!accessState.admin || !!accessState.has_access || hasStudioCredits();
 
 const hasStudioAccountContext = () =>
   !!currentUser.authenticated || !!currentUser.email || hasStudioPackContext();
+
+const normalizeAccountEmail = (email) => String(email || "").trim().toLowerCase();
+
+const hasAuthenticatedUser = () =>
+  !!readStoredUserToken() && !!currentUser.authenticated && !!normalizeAccountEmail(currentUser.email);
+
+const isAuthenticatedForCheckout = (email) =>
+  hasAuthenticatedUser() && normalizeAccountEmail(currentUser.email) === normalizeAccountEmail(email);
 
 const syncTopbarCta = () => {
   if (!topbarCta) {
@@ -1003,7 +1037,7 @@ const renderStudioDashboard = () => {
   }
   if (studioTopupButton) {
     studioTopupButton.hidden = adminMode;
-    studioTopupButton.textContent = hasPack ? "Renew Vision Studio" : "Start Vision Studio";
+    studioTopupButton.textContent = hasPack ? "Manage plan" : "Start Vision Studio";
   }
   renderStudioHistory();
 
@@ -1592,6 +1626,9 @@ const setMode = (mode) => {
 };
 
 const setAuthModalState = (open) => {
+  if (authModal) {
+    authModal.hidden = !open;
+  }
   body.classList.toggle("auth-open", open);
   authModal?.classList.toggle("is-open", open);
   authModal?.setAttribute("aria-hidden", open ? "false" : "true");
@@ -1599,7 +1636,7 @@ const setAuthModalState = (open) => {
     return;
   }
   window.setTimeout(() => {
-    if (hasStudioAccountContext()) {
+    if (authStep === "account") {
       authLogout?.focus();
       return;
     }
@@ -1617,14 +1654,14 @@ const setAuthLoading = (loading, label) => {
     if (label) {
       authSubmit.textContent = label;
     } else if (!loading) {
-      authSubmit.textContent = authStep === "code" ? "Continue to Vision" : "Send access code";
+      authSubmit.textContent = authStep === "code" ? "Verify and continue" : "Continue with email";
     }
   }
   if (authEmail) {
-    authEmail.disabled = loading || hasStudioAccountContext();
+    authEmail.disabled = loading || authStep === "account";
   }
   if (authCode) {
-    authCode.disabled = loading || hasStudioAccountContext();
+    authCode.disabled = loading || authStep === "account";
   }
 };
 
@@ -1632,7 +1669,8 @@ const updateSubscribeSubmitLabel = () => {
   if (!subscribeSubmit) {
     return;
   }
-  subscribeSubmit.textContent = "Start Vision Studio";
+  const email = normalizeAccountEmail(subscribeEmail?.value || currentUser.email);
+  subscribeSubmit.textContent = isAuthenticatedForCheckout(email) ? "Continue to checkout" : "Verify & continue";
 };
 
 const renderSubscribePackOptions = () => {
@@ -1647,15 +1685,7 @@ const renderSubscribePackOptions = () => {
     card.className = `subscribe-pack-card${selected ? " is-selected" : ""}${pack.badge ? " has-badge" : ""}`;
     card.dataset.packId = pack.id;
     card.setAttribute("aria-pressed", selected ? "true" : "false");
-    const featureIcons = ["UP", "FX", "4K", "PRO", "GAL", "NO", "REF"];
-    const studioRows = [
-      { label: pack.total_credit_label || pack.credit_label || "Unlimited 4K images every month", icon: "∞" },
-      { label: pack.image_label || "Unlimited 4K images", icon: "IMG" },
-      ...(Array.isArray(pack.features) ? pack.features : []).map((label, index) => ({
-        label,
-        icon: featureIcons[index] || "•",
-      })),
-    ];
+    const studioRows = STUDIO_PLAN_BENEFITS.map((label) => ({ label, icon: "✓" }));
     const featureMarkup = studioRows
       .filter((row) => row.label)
       .map((row) => `<li data-plan-icon="${row.icon}"><span>${row.label}</span></li>`)
@@ -1687,11 +1717,6 @@ const renderSubscribePackOptions = () => {
         </div>
         ${pack.badge ? `<span class="subscribe-pack-badge">${pack.badge}</span>` : ""}
       </div>
-      <div class="subscribe-plan-summary">
-        <span>${pack.image_label || "Unlimited 4K images"}</span>
-        <span>Private image gallery</span>
-        <span>No watermark</span>
-      </div>
       <ul class="subscribe-pack-features subscribe-plan-table">${featureMarkup}</ul>
       <span class="subscribe-pack-card-cta" data-short-label="${shortCtaLabel}">${pack.cta_label || "Start Vision Studio"}</span>
     `;
@@ -1708,17 +1733,28 @@ const renderSubscribePackOptions = () => {
 };
 
 const renderAuthState = () => {
-  const signedIn = hasStudioAccountContext();
-  const showAccount = authStep === "account" || signedIn;
+  const showAccount = authStep === "account";
   const counts = getStudioCreditCounts();
   const hasPack = hasStudioPackContext();
   if (authTitle) {
-    authTitle.textContent = showAccount ? "Your Vision account." : "Access Vision Studio.";
+    authTitle.textContent = showAccount
+      ? "Your Vision account"
+      : authIntent === "checkout"
+        ? "Verify your email."
+        : authStep === "code"
+          ? "Check your email"
+          : "Sign in to Vision";
   }
   if (authCopy) {
     authCopy.textContent = showAccount
-      ? "See your monthly image access and manage your Studio plan."
-      : "Enter your email and Vision will send you a one-time access code to return to your Studio from any device.";
+      ? "Manage your Studio access and account."
+      : authIntent === "checkout"
+        ? authStep === "code"
+          ? "Enter the one-time code from your email. Checkout opens after verification."
+          : "Use your email to continue to secure checkout."
+        : authStep === "code"
+          ? "Enter the six-digit code we sent to your email."
+          : "Use your email to continue. No password needed.";
   }
   if (authAccount) {
     authAccount.hidden = !showAccount;
@@ -1749,7 +1785,7 @@ const renderAuthState = () => {
       authBuyPack.hidden = true;
     } else {
       authBuyPack.hidden = false;
-      authBuyPack.textContent = hasPack ? "Renew Vision Studio" : "Start Vision Studio";
+      authBuyPack.textContent = hasPack ? "Manage subscription" : "Start Vision Studio";
     }
   }
   if (authCodeRow) {
@@ -1759,10 +1795,12 @@ const renderAuthState = () => {
     authReset.hidden = authStep !== "code";
   }
   if (authSubmit) {
-    authSubmit.textContent = authStep === "code" ? "Continue to Vision" : "Send access code";
+    authSubmit.textContent = authStep === "code" ? "Verify and continue" : "Continue with email";
   }
   if (authNote && !showAccount && authStep === "email") {
-    authNote.textContent = "We’ll send a one-time access code so your Studio access follows you when you come back.";
+    authNote.textContent = authIntent === "checkout"
+      ? "Verify once, then continue to secure Stripe checkout."
+      : "We’ll email you a one-time sign-in code.";
   }
   if (authEmail && currentUser.email && !authEmail.value) {
     authEmail.value = currentUser.email;
@@ -1799,7 +1837,7 @@ const renderAccessState = (access, pack, user, packs) => {
       trigger.textContent = "Vision unlocked";
       return;
     }
-    trigger.textContent = hasStudioPackContext() ? "Renew Vision Studio" : "Start Vision Studio";
+    trigger.textContent = hasStudioPackContext() ? "Manage plan" : "Start Vision Studio";
   });
 
   syncTopbarCta();
@@ -1810,7 +1848,11 @@ const renderAccessState = (access, pack, user, packs) => {
 const setSubscribeLoading = (loading, label = null) => {
   if (subscribeSubmit) {
     subscribeSubmit.disabled = loading;
-    subscribeSubmit.textContent = loading ? label || subscribeSubmit.textContent : "Start Vision Studio";
+    if (loading) {
+      subscribeSubmit.textContent = label || subscribeSubmit.textContent;
+    } else {
+      updateSubscribeSubmitLabel();
+    }
   }
   if (subscribeEmail) {
     subscribeEmail.disabled = loading;
@@ -1823,12 +1865,15 @@ const setSubscribeContent = (context = {}) => {
   const pendingMode = "image";
   const title =
     reason === "insufficient_credits" || accessState.access_id
-      ? "Renew Vision Studio."
+      ? "Manage Vision Studio."
       : "Start Vision Studio.";
   const copy = pendingPrompt
     ? `Start Studio for this ${pendingMode} idea. Vision will resume your current prompt right after payment so you can keep creating without starting over.`
-    : "One monthly plan for unlimited 4K images, uploads, edits, private gallery, and no-watermark exports.";
-  const note = "Cancel anytime. No hidden fees.";
+    : "Unlimited 4K image generation, prompt enhancement, recent image history, and watermark-free downloads.";
+  const checkoutEmail = normalizeAccountEmail(subscribeEmail?.value || currentUser.email);
+  const note = isAuthenticatedForCheckout(checkoutEmail)
+    ? "Secure monthly checkout with Stripe. Cancel anytime."
+    : "We’ll verify your email before Stripe checkout. Cancel anytime.";
 
   if (subscribeKicker) {
     subscribeKicker.textContent = "Vision / Studio";
@@ -1853,6 +1898,9 @@ const setSubscribeContent = (context = {}) => {
 };
 
 const setSubscribeState = (open, context = {}) => {
+  if (subscribeModal) {
+    subscribeModal.hidden = !open;
+  }
   body.classList.toggle("subscribe-open", open);
   subscribeModal?.classList.toggle("is-open", open);
   subscribeModal?.setAttribute("aria-hidden", open ? "false" : "true");
@@ -1874,9 +1922,13 @@ const setSubscribeState = (open, context = {}) => {
   }, 220);
 };
 
-const openAccessVision = async ({ forceEmail = false, email = "", autoSend = false } = {}) => {
+const openAccessVision = async ({ forceEmail = false, email = "", autoSend = false, intent = "access" } = {}) => {
   const normalizedEmail = String(email || currentUser.email || "").trim();
-  authStep = forceEmail ? "email" : hasStudioAccountContext() ? "account" : "email";
+  authIntent = intent;
+  if (authIntent !== "checkout") {
+    pendingCheckoutIntent = null;
+  }
+  authStep = forceEmail ? "email" : hasAuthenticatedUser() ? "account" : "email";
   authPendingEmail = "";
   if (authCode) {
     authCode.value = "";
@@ -1885,7 +1937,9 @@ const openAccessVision = async ({ forceEmail = false, email = "", autoSend = fal
     authEmail.value = normalizedEmail;
   }
   if (authNote && authStep === "email") {
-    authNote.textContent = "Enter your email and Vision will send you a one-time access code to return to your Studio from any device.";
+    authNote.textContent = authIntent === "checkout"
+      ? "Verify once, then continue to secure Stripe checkout."
+      : "Enter your email and Vision will send you a one-time access code to return to your Studio from any device.";
   }
   renderAuthState();
   setSubscribeState(false);
@@ -1902,6 +1956,9 @@ const loadAccessState = async () => {
       return;
     }
     const payload = await response.json();
+    if (Object.prototype.hasOwnProperty.call(payload, "user_token")) {
+      storeUserToken(payload?.user_token || "");
+    }
     renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
   } catch (error) {
     renderAccessState(defaultAccess, currentPack, defaultUser, currentPacks);
@@ -1938,6 +1995,9 @@ const maybeOpenPublicIntent = async () => {
 
 const requestAuthCode = async (email) => {
   authPendingEmail = email;
+  if (pendingCheckoutIntent) {
+    pendingCheckoutIntent.email = normalizeAccountEmail(email);
+  }
   setAuthLoading(true, "Sending code...");
   try {
     const response = await visionFetch("/api/auth/request-code", {
@@ -1982,16 +2042,50 @@ const verifyAuthCode = async (email, code) => {
     if (!response.ok) {
       throw new Error(payload?.detail || payload?.message || "That access code did not work.");
     }
+    if (!payload?.user_token) {
+      throw new Error("Vision could not establish a secure account session. Please request a new code.");
+    }
     if (payload?.access_token) {
       storeAccessToken(payload.access_token);
     }
-    renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
+    if (payload?.user_token) {
+      storeUserToken(payload.user_token);
+    }
+    const verifiedEmail = normalizeAccountEmail(payload?.user?.email || email);
+    const verifiedUser = {
+      ...defaultUser,
+      ...(payload?.user || {}),
+      authenticated: true,
+      email: verifiedEmail,
+    };
+    renderAccessState(
+      payload?.access || accessState,
+      payload?.pack || currentPack,
+      verifiedUser,
+      payload?.packs || currentPacks,
+    );
     authStep = "email";
     authPendingEmail = "";
     if (authCode) {
       authCode.value = "";
     }
+    const checkoutIntent = pendingCheckoutIntent;
+    pendingCheckoutIntent = null;
+    authIntent = "access";
     setAuthModalState(false);
+    if (checkoutIntent) {
+      selectedPackId = checkoutIntent.packId || selectedPackId;
+      currentPack = findPackById(selectedPackId, currentPacks);
+      if (subscribeEmail) {
+        subscribeEmail.value = verifiedEmail;
+      }
+      setSubscribeState(true, {
+        reason: "checkout",
+        packId: selectedPackId,
+      });
+      await beginCheckout(verifiedEmail);
+      return;
+    }
     if (!isStudioRoute) {
       await mountStudioInternally();
     }
@@ -2006,6 +2100,17 @@ const verifyAuthCode = async (email, code) => {
 
 const logoutUser = async () => {
   setAuthLoading(true, "Logging out...");
+  storeAccessToken("");
+  storeUserToken("");
+  pendingCheckoutIntent = null;
+  authIntent = "access";
+  authStep = "email";
+  authPendingEmail = "";
+  if (authCode) {
+    authCode.value = "";
+  }
+  renderAccessState(defaultAccess, currentPack, defaultUser, currentPacks);
+  setAuthModalState(false);
   try {
     const response = await visionFetch("/api/auth/logout", {
       method: "POST",
@@ -2014,24 +2119,62 @@ const logoutUser = async () => {
     if (!response.ok) {
       throw new Error(payload?.detail || payload?.message || "Vision could not log you out.");
     }
-    storeAccessToken("");
-    authStep = "email";
-    authPendingEmail = "";
-    if (authCode) {
-      authCode.value = "";
-    }
-    renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
-    setAuthModalState(false);
   } catch (error) {
-    if (authNote) {
-      authNote.textContent = error instanceof Error ? error.message : "Vision could not log you out.";
-    }
+    console.warn("Vision server logout could not be completed.", error);
   } finally {
     setAuthLoading(false);
   }
 };
 
+const openBillingPortal = async () => {
+  if (!hasAuthenticatedUser()) {
+    await openAccessVision({ forceEmail: true, intent: "access" });
+    return;
+  }
+  if (authBuyPack) {
+    authBuyPack.disabled = true;
+    authBuyPack.textContent = "Opening billing...";
+  }
+  try {
+    const response = await visionFetch("/api/billing/portal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ return_path: "/" }),
+    });
+    const payload = await parseJsonSafely(response);
+    if (!response.ok || !payload?.url) {
+      throw new Error(payload?.detail || payload?.message || "Billing management is unavailable right now.");
+    }
+    window.location.assign(payload.url);
+  } catch (error) {
+    if (authBuyPack) {
+      authBuyPack.disabled = false;
+      authBuyPack.textContent = "Manage subscription";
+    }
+    if (authNote) {
+      authNote.textContent = error instanceof Error ? error.message : "Billing management is unavailable right now.";
+    }
+  }
+};
+
 const beginCheckout = async (email) => {
+  const normalizedEmail = normalizeAccountEmail(email);
+  if (!isAuthenticatedForCheckout(normalizedEmail)) {
+    pendingCheckoutIntent = {
+      email: normalizedEmail,
+      packId: selectedPackId,
+    };
+    setSubscribeLoading(false);
+    setSubscribeState(false);
+    await openAccessVision({
+      forceEmail: true,
+      email: normalizedEmail,
+      autoSend: true,
+      intent: "checkout",
+    });
+    return;
+  }
+
   setSubscribeLoading(true, "Opening secure checkout...");
   if (subscribeNote) {
     subscribeNote.textContent = "Preparing secure checkout...";
@@ -2041,7 +2184,7 @@ const beginCheckout = async (email) => {
     const selectedPack = findPackById(selectedPackId, currentPacks);
     const checkoutEvent = trackVisionEvent("CheckoutStarted", {
       ...packTrackingPayload(selectedPack),
-      customer_email: email,
+      customer_email: normalizedEmail,
       platform_context: "web",
     });
     const tracking = getVisionTrackingContext({
@@ -2054,7 +2197,12 @@ const beginCheckout = async (email) => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, pack_id: selectedPackId, tracking }),
+      body: JSON.stringify({
+        email: normalizedEmail,
+        pack_id: selectedPackId,
+        tracking,
+        return_path: "/",
+      }),
     });
     const payload = await parseJsonSafely(response);
     if (!response.ok || !payload?.url) {
@@ -2127,7 +2275,7 @@ const queueGeneration = async (prompt, mode) => {
     });
     const payload = await parseJsonSafely(response);
 
-    if (response.status === 402) {
+    if (response.status === 401 || response.status === 402) {
       setGenerationState(false);
       currentStudioJob = null;
       renderStudioDashboard();
@@ -2210,7 +2358,22 @@ const confirmCheckoutIfNeeded = async () => {
     if (payload?.access_token) {
       storeAccessToken(payload.access_token);
     }
-    renderAccessState(payload.access, payload.pack, payload.user, payload.packs);
+    if (payload?.user_token) {
+      storeUserToken(payload.user_token);
+    }
+    const confirmedUser = {
+      ...currentUser,
+      ...(payload?.user || {}),
+    };
+    if (readStoredUserToken() && normalizeAccountEmail(confirmedUser.email)) {
+      confirmedUser.authenticated = true;
+    }
+    renderAccessState(
+      { ...accessState, ...(payload?.access || {}) },
+      payload?.pack || currentPack,
+      confirmedUser,
+      payload?.packs || currentPacks,
+    );
     stripUrlParams("checkout", "session_id");
     return payload;
   } catch (error) {
@@ -2255,6 +2418,12 @@ const improvePrompt = async () => {
       }),
     });
     const payload = await parseJsonSafely(response);
+    if (response.status === 401 || response.status === 402) {
+      const detail = payload?.detail && typeof payload.detail === "object" ? payload.detail : {};
+      handleCheckoutRequired(detail, rawPrompt, selectedMode);
+      setPromptHelper(detail.message || "Start Vision Studio to use prompt enhancement.", "warning");
+      return;
+    }
     if (!response.ok || !payload?.improved_prompt) {
       throw new Error(payload?.detail || payload?.message || "Vision could not improve this prompt right now.");
     }
@@ -2341,7 +2510,8 @@ topbarCta?.addEventListener("click", (event) => {
     return;
   }
   event.preventDefault();
-  authStep = hasStudioAccountContext() ? "account" : "email";
+  authStep = hasAuthenticatedUser() ? "account" : "email";
+  authIntent = "access";
   renderAuthState();
   setAuthModalState(true);
 });
@@ -2420,6 +2590,8 @@ subscribeClose?.addEventListener("click", () => {
 });
 
 authClose?.addEventListener("click", () => {
+  pendingCheckoutIntent = null;
+  authIntent = "access";
   setAuthModalState(false);
 });
 
@@ -2431,13 +2603,25 @@ subscribeModal?.addEventListener("click", (event) => {
 
 authModal?.addEventListener("click", (event) => {
   if (event.target === authModal) {
+    pendingCheckoutIntent = null;
+    authIntent = "access";
     setAuthModalState(false);
+  }
+});
+
+subscribeEmail?.addEventListener("input", () => {
+  updateSubscribeSubmitLabel();
+  if (subscribeNote) {
+    const email = normalizeAccountEmail(subscribeEmail.value);
+    subscribeNote.textContent = isAuthenticatedForCheckout(email)
+      ? "Secure monthly checkout with Stripe. Cancel anytime."
+      : "We’ll verify your email before Stripe checkout. Cancel anytime.";
   }
 });
 
 subscribeForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const email = subscribeEmail?.value?.trim();
+  const email = normalizeAccountEmail(subscribeEmail?.value);
   if (!email) {
     subscribeEmail?.focus();
     return;
@@ -2479,7 +2663,9 @@ authReset?.addEventListener("click", () => {
     authCode.value = "";
   }
   if (authNote) {
-    authNote.textContent = "We’ll send a one-time access code so your Studio access follows you when you come back.";
+    authNote.textContent = authIntent === "checkout"
+      ? "Verify once, then continue to secure Stripe checkout."
+      : "We’ll email you a one-time sign-in code.";
   }
   renderAuthState();
 });
@@ -2488,7 +2674,11 @@ authLogout?.addEventListener("click", async () => {
   await logoutUser();
 });
 
-authBuyPack?.addEventListener("click", () => {
+authBuyPack?.addEventListener("click", async () => {
+  if (hasStudioPackContext()) {
+    await openBillingPortal();
+    return;
+  }
   setAuthModalState(false);
   setSubscribeState(true, {
     reason: accessState.access_id ? "insufficient_credits" : "unlock",
@@ -2504,7 +2694,8 @@ authEnterStudio?.addEventListener("click", () => {
 });
 
 studioAccountButton?.addEventListener("click", () => {
-  authStep = hasStudioAccountContext() ? "account" : "email";
+  authStep = hasAuthenticatedUser() ? "account" : "email";
+  authIntent = "access";
   renderAuthState();
   setAuthModalState(true);
 });
@@ -2580,6 +2771,8 @@ document.addEventListener("keydown", (event) => {
   }
 
   if (event.key === "Escape" && body.classList.contains("auth-open")) {
+    pendingCheckoutIntent = null;
+    authIntent = "access";
     setAuthModalState(false);
     topbarCta?.focus();
     return;
@@ -2616,18 +2809,9 @@ const initializeVision = async () => {
   syncTopbarCta();
   const unlockedAdmin = await unlockAdminIfNeeded();
   const confirmedCheckout = await confirmCheckoutIfNeeded();
-  if (confirmedCheckout && !isStudioRoute) {
-    const checkoutEmail = String(confirmedCheckout?.user?.email || currentUser.email || "").trim();
-    storeAccessToken("");
-    renderAccessState(defaultAccess, currentPack, { ...defaultUser, email: checkoutEmail }, currentPacks);
-    await openAccessVision({
-      forceEmail: true,
-      email: checkoutEmail,
-      autoSend: Boolean(checkoutEmail),
-    });
-    return;
+  if (!confirmedCheckout) {
+    await loadAccessState();
   }
-  await loadAccessState();
   await maybeOpenPublicIntent();
   if (isStudioRoute) {
     setSearchState(true);
