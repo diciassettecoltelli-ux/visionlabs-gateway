@@ -6,6 +6,7 @@ import json
 import re
 import shlex
 import sys
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,9 @@ VIDEO_PAYLOAD_FILE = RUNTIME_ROOT / "kling_submit_payload.sample.json"
 IMAGE_PAYLOAD_FILE = RUNTIME_ROOT / "kling_image_submit_payload.sample.json"
 
 HEADER_FLAGS = {"-H", "--header"}
+COOKIE_FLAGS = {"-b", "--cookie"}
 DATA_FLAGS = {"--data", "--data-raw", "--data-binary", "--data-ascii"}
+VOLATILE_COOKIE_NAMES = frozenset({"kwfv1", "kwssectoken", "kwscode"})
 
 
 def _read_input(path: str | None) -> str:
@@ -54,6 +57,10 @@ def _parse_curl(raw: str) -> tuple[str | None, dict[str, str], str | None]:
             if ":" in header:
                 name, value = header.split(":", 1)
                 headers[name.strip().lower()] = value.strip()
+            i += 2
+            continue
+        if token in COOKIE_FLAGS and i + 1 < len(tokens):
+            headers["cookie"] = tokens[i + 1]
             i += 2
             continue
         if token in DATA_FLAGS and i + 1 < len(tokens):
@@ -126,12 +133,28 @@ def _clean_headers(headers: dict[str, str]) -> tuple[str | None, dict[str, str]]
         "authority",
         "x-request-id",
         "priority",
+        "kww",
+        "ktrace-context",
     }
     for key, value in headers.items():
         if key in excluded:
             continue
         cleaned[key] = value
     return cookie_header, cleaned
+
+
+def _clean_cookie_header(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    stable: list[str] = []
+    for part in raw.split(";"):
+        if "=" not in part:
+            continue
+        name, value = part.split("=", 1)
+        name = name.strip()
+        if name and name not in VOLATILE_COOKIE_NAMES:
+            stable.append(f"{name}={value.strip()}")
+    return "; ".join(stable) or None
 
 
 def _parse_body(raw_body: str | None) -> dict[str, Any]:
@@ -187,6 +210,7 @@ def main() -> None:
     payload = _parse_body(raw_body)
     kind = _detect_kind(payload, args.kind)
     cookie_header, request_headers = _clean_headers(headers)
+    cookie_header = _clean_cookie_header(cookie_header)
 
     if not cookie_header:
         raise SystemExit("Missing Cookie header in the curl request.")
@@ -199,7 +223,8 @@ def main() -> None:
 
     print(f"Imported Kling {kind} request.")
     if url:
-        print(f"Submit URL: {url}")
+        parsed_url = urllib.parse.urlsplit(url)
+        print(f"Submit URL: {parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}")
     print(f"Cookie header written to: {COOKIE_HEADER_FILE}")
     print(f"Request headers written to: {REQUEST_HEADERS_FILE}")
     print(f"Payload written to: {target_file}")

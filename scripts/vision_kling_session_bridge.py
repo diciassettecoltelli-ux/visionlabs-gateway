@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -8,6 +9,7 @@ import shutil
 import sqlite3
 import subprocess
 import tempfile
+import threading
 import time
 import ssl
 import urllib.parse
@@ -42,6 +44,19 @@ FORMATTER_BUNDLE_URL = (
 SIG4_RUNTIME_SCRIPT = Path(
     os.environ.get("VISION_KLING_SIG4_RUNTIME_SCRIPT", str(REPO_ROOT / "scripts/kling_sig4_runtime.mjs"))
 )
+VOLATILE_COOKIE_NAMES = frozenset({"kwfv1", "kwssectoken", "kwscode"})
+VOLATILE_REQUEST_HEADER_NAMES = frozenset({"kww", "ktrace-context"})
+AUTH_PROBE_TTL_SECONDS = 45.0
+AUTH_PROBE_WAIT_SECONDS = 150.0
+SIG4_SIGN_TIMEOUT_SECONDS = 60.0
+AUTH_PROBE_LOCK = threading.Lock()
+AUTH_PROBE_CONDITION = threading.Condition(AUTH_PROBE_LOCK)
+AUTH_PROBE_CACHE: dict[str, Any] = {
+    "fingerprint": "",
+    "checked_monotonic": 0.0,
+    "result": None,
+    "in_flight": False,
+}
 
 COOKIE_FILES = ("Cookies", "Default/Cookies")
 LEVELDB_DIRS = (
@@ -58,6 +73,10 @@ TEXT_TOKEN_RE = re.compile(
 
 class SessionBridgeNotReadyError(RuntimeError):
     """Raised when the Kling web session is not yet reusable server-side."""
+
+
+class SessionBridgeAuthenticationError(SessionBridgeNotReadyError):
+    """Raised when Kling rejects the configured web session."""
 
 
 @dataclass
@@ -555,18 +574,30 @@ def status() -> dict[str, Any]:
 def status_image() -> dict[str, Any]:
     artifacts = _collect_artifacts()
     payload = _status_payload(artifacts)
-    image_ready = (
+    image_configured = (
         bool(payload.get("runtime_cookie_ready"))
         and bool(payload.get("web_contract", {}).get("signature_query_param"))
         and bool(payload.get("runtime_image_submit_payload_ready"))
     )
+    auth_probe = (
+        _probe_image_auth(artifacts)
+        if image_configured
+        else {
+            "state": "not_configured",
+            "checked_at": None,
+            "message": "Kling image bridge configuration is incomplete.",
+        }
+    )
+    image_ready = image_configured and auth_probe.get("state") == "authenticated"
     missing: list[str] = []
     if not payload.get("runtime_cookie_ready"):
         missing.append("runtime cookie header")
     if not payload.get("runtime_image_submit_payload_ready"):
         missing.append("real image submit payload")
     if image_ready:
-        message = "Kling image bridge is ready with runtime cookies and image payload."
+        message = "Kling image bridge is authenticated and ready with the 2K unlimited contract."
+    elif image_configured:
+        message = str(auth_probe.get("message") or "Kling image authentication is unavailable.")
     else:
         joined = " and ".join(missing) if missing else "runtime setup"
         message = (
@@ -578,6 +609,8 @@ def status_image() -> dict[str, Any]:
         "ready": image_ready,
         "message": message,
         "mode": "kling_web_image_bridge",
+        "auth_state": auth_probe.get("state"),
+        "auth_checked_at": auth_probe.get("checked_at"),
         "image_contract": {
             "resolution": "2k",
             "show_price": 0,
@@ -590,12 +623,16 @@ def prepare() -> dict[str, Any]:
     return status()
 
 
-def sign_submit_payload(*, request_body: dict[str, Any], query: dict[str, Any] | None = None) -> dict[str, Any]:
-    query = query or {}
+def sign_request_payload(
+    *,
+    path: str,
+    request_body: dict[str, Any] | None = None,
+    query: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     payload = {
-        "url": "/api/task/submit",
-        "query": query,
-        "requestBody": request_body,
+        "url": path,
+        "query": query or {},
+        "requestBody": request_body or {},
     }
     proc = subprocess.run(
         ["node", str(SIG4_RUNTIME_SCRIPT)],
@@ -603,8 +640,13 @@ def sign_submit_payload(*, request_body: dict[str, Any], query: dict[str, Any] |
         text=True,
         capture_output=True,
         check=True,
+        timeout=SIG4_SIGN_TIMEOUT_SECONDS,
     )
     return json.loads(proc.stdout)
+
+
+def sign_submit_payload(*, request_body: dict[str, Any], query: dict[str, Any] | None = None) -> dict[str, Any]:
+    return sign_request_payload(path="/api/task/submit", request_body=request_body, query=query)
 
 
 def _first_found(obj: Any, keys: tuple[str, ...]) -> Any:
@@ -646,13 +688,23 @@ def _status_value(payload: dict[str, Any]) -> str:
 
 
 def _request_headers(artifacts: BridgeArtifacts, *, include_content_type: bool = True) -> dict[str, str]:
-    headers = dict(artifacts.runtime_request_headers.headers if artifacts.runtime_request_headers else {})
+    headers: dict[str, str] = {}
+    for name, value in (artifacts.runtime_request_headers.headers if artifacts.runtime_request_headers else {}).items():
+        normalized_name = name.lower()
+        if normalized_name in VOLATILE_REQUEST_HEADER_NAMES or normalized_name == "cookie":
+            continue
+        headers[normalized_name] = value
     if include_content_type:
         headers.setdefault("content-type", "application/json")
     else:
         headers.pop("content-type", None)
     if artifacts.runtime_cookie_header:
-        headers["cookie"] = artifacts.runtime_cookie_header.raw
+        stable_cookies = {
+            name: value
+            for name, value in artifacts.runtime_cookie_header.cookies.items()
+            if name not in VOLATILE_COOKIE_NAMES
+        }
+        headers["cookie"] = "; ".join(f"{name}={value}" for name, value in stable_cookies.items())
     return headers
 
 
@@ -662,6 +714,7 @@ def _json_request(
     method: str,
     headers: dict[str, str],
     payload: dict[str, Any] | None = None,
+    timeout: float = 300,
 ) -> dict[str, Any]:
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
@@ -669,10 +722,14 @@ def _json_request(
     last_error: Exception | None = None
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(request, timeout=300, context=context) as response:
+            with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
                 return json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", "ignore")
+            if exc.code == 401:
+                raise SessionBridgeAuthenticationError(
+                    "The Kling connection is no longer authenticated. Renew the Kling web session before generating."
+                ) from exc
             raise RuntimeError(f"Kling session bridge HTTP {exc.code}: {body}") from exc
         except (urllib.error.URLError, ConnectionResetError) as exc:
             last_error = exc
@@ -680,6 +737,86 @@ def _json_request(
                 break
             time.sleep(2 * (attempt + 1))
     raise RuntimeError(f"Kling session bridge network error after retries: {last_error}") from last_error
+
+
+def _probe_image_auth(artifacts: BridgeArtifacts) -> dict[str, Any]:
+    headers = _request_headers(artifacts, include_content_type=False)
+    cookie_header = str(headers.get("cookie") or "")
+    fingerprint = hashlib.sha256(cookie_header.encode("utf-8")).hexdigest()
+    with AUTH_PROBE_CONDITION:
+        while True:
+            now_monotonic = time.monotonic()
+            cached = AUTH_PROBE_CACHE.get("result")
+            if (
+                cached
+                and AUTH_PROBE_CACHE.get("fingerprint") == fingerprint
+                and now_monotonic - float(AUTH_PROBE_CACHE.get("checked_monotonic") or 0.0) < AUTH_PROBE_TTL_SECONDS
+            ):
+                return dict(cached)
+            if not AUTH_PROBE_CACHE.get("in_flight"):
+                AUTH_PROBE_CACHE["in_flight"] = True
+                break
+            if not AUTH_PROBE_CONDITION.wait(timeout=AUTH_PROBE_WAIT_SECONDS):
+                return {
+                    "state": "unavailable",
+                    "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "message": "Vision could not verify the Kling connection right now.",
+                }
+
+    checked_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    result: dict[str, Any] | None = None
+    try:
+        signed = sign_request_payload(path="/api/user/info")
+        signature = signed.get("signResult") or signed.get("signature") or signed.get("__NS_hxfalcon")
+        caver = signed.get("caver") or "2"
+        if not signature:
+            raise RuntimeError("Kling authentication probe signing failed.")
+        query = urllib.parse.urlencode({"__NS_hxfalcon": signature, "caver": str(caver)})
+        response = _json_request(
+            f"https://kling.ai/api/user/info?{query}",
+            method="GET",
+            headers=headers,
+            timeout=20,
+        )
+        authenticated = (
+            response.get("status") == 200
+            and response.get("result") == 1
+            and isinstance(response.get("data"), dict)
+        )
+        result = {
+            "state": "authenticated" if authenticated else "invalid",
+            "checked_at": checked_at,
+            "message": (
+                "Kling web session is authenticated."
+                if authenticated
+                else "The Kling connection must be renewed before image generation can continue."
+            ),
+        }
+    except SessionBridgeAuthenticationError:
+        result = {
+            "state": "invalid",
+            "checked_at": checked_at,
+            "message": "The Kling connection must be renewed before image generation can continue.",
+        }
+    except Exception:
+        result = {
+            "state": "unavailable",
+            "checked_at": checked_at,
+            "message": "Vision could not verify the Kling connection right now.",
+        }
+    finally:
+        with AUTH_PROBE_CONDITION:
+            if result is not None:
+                AUTH_PROBE_CACHE.update(
+                    fingerprint=fingerprint,
+                    checked_monotonic=time.monotonic(),
+                    result=dict(result),
+                )
+            AUTH_PROBE_CACHE["in_flight"] = False
+            AUTH_PROBE_CONDITION.notify_all()
+    if result is None:
+        raise RuntimeError("Kling authentication probe did not produce a result.")
+    return result
 
 
 def _download(url: str, output_video: Path, *, headers: dict[str, str]) -> Path:
@@ -802,15 +939,7 @@ def _extract_task_id(payload: dict[str, Any]) -> str | None:
 
 
 def _build_status_url(task_id: str) -> str:
-    payload = {"url": "/api/task/status", "query": {"taskId": task_id}, "requestBody": {}}
-    proc = subprocess.run(
-        ["node", str(SIG4_RUNTIME_SCRIPT)],
-        input=json.dumps(payload),
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-    signed = json.loads(proc.stdout)
+    signed = sign_request_payload(path="/api/task/status", query={"taskId": task_id})
     sig = signed.get("signResult") or signed.get("signature") or signed.get("__NS_hxfalcon")
     caver = signed.get("caver") or "2"
     query = urllib.parse.urlencode({"taskId": task_id, "__NS_hxfalcon": sig, "caver": str(caver)})
