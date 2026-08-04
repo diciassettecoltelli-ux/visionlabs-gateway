@@ -53,6 +53,7 @@ from vision_kling_session_bridge import status as kling_session_bridge_status
 PROCESS_ACCESS_SECRET = secrets.token_urlsafe(48)
 STRIPE_BILLING_CACHE_LOCK = threading.Lock()
 STRIPE_BILLING_CACHE: dict[str, dict[str, Any]] = {}
+VISION_STUDIO_LEGACY_PRICE_CENTS = frozenset({99})
 
 
 def _resolve_default_vision_root() -> Path:
@@ -596,8 +597,8 @@ def _default_pack_catalog() -> list[dict[str, Any]]:
             "name": "Vision Studio",
             "subtitle": "Unlimited 4K images",
             "description": "Monthly access for unlimited 4K image generation, prompt enhancement, recent image history, and watermark-free downloads.",
-            "price_cents": 99,
-            "original_price_cents": 99,
+            "price_cents": 199,
+            "original_price_cents": 199,
             "currency": "eur",
             "vision_credits": 0,
             "credit_label": "Unlimited 4K images",
@@ -677,7 +678,18 @@ def _pack_by_exact_id(pack_id: str | None) -> dict[str, Any] | None:
 
 
 def _pack_price_cents() -> int:
-    return int(_pack_summary().get("price_cents") or 99)
+    return int(_pack_summary().get("price_cents") or 199)
+
+
+def _accepted_pack_price_cents(pack: dict[str, Any]) -> set[int]:
+    accepted = {int(pack.get("price_cents") or 0)}
+    if str(pack.get("id") or "").strip().lower() == "studio":
+        accepted.update(VISION_STUDIO_LEGACY_PRICE_CENTS)
+    return accepted
+
+
+def _pack_accepts_price_cents(pack: dict[str, Any], amount: int | None) -> bool:
+    return amount is not None and amount in _accepted_pack_price_cents(pack)
 
 
 def _pack_currency() -> str:
@@ -1167,7 +1179,7 @@ def _create_stripe_checkout_session(
         "billing_address_collection": "auto",
         "line_items[0][quantity]": "1",
         "line_items[0][price_data][currency]": str(pack.get("currency") or "eur"),
-        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") if pack.get("price_cents") is not None else 99),
+        "line_items[0][price_data][unit_amount]": str(pack.get("price_cents") if pack.get("price_cents") is not None else 199),
         "line_items[0][price_data][recurring][interval]": "month",
         "line_items[0][price_data][recurring][interval_count]": "1",
         "line_items[0][price_data][product_data][name]": str(pack.get("name") or "Vision Studio"),
@@ -1323,7 +1335,7 @@ def _stripe_amounts_match_pack(
         if value.get(key) is None:
             continue
         valid, amount = _stripe_optional_int(value.get(key))
-        if not valid or amount != int(pack.get("price_cents") or 0):
+        if not valid or not _pack_accepts_price_cents(pack, amount):
             return False
         subtotal_present = True
         break
@@ -1343,7 +1355,7 @@ def _stripe_amounts_match_pack(
     if not subtotal_present and total_present:
         # Old Stripe objects did not always include a separate subtotal. In that
         # compatibility case, the exact paid total must identify the Vision plan.
-        return first_total == int(pack.get("price_cents") or 0)
+        return _pack_accepts_price_cents(pack, first_total)
     if require_amount and not subtotal_present:
         return False
     return subtotal_present or total_present or not require_amount
@@ -1380,7 +1392,7 @@ def _subscription_price_matches_pack(
     valid_amount, unit_amount = _stripe_optional_int(price.get("unit_amount"))
     if not valid_amount:
         return False
-    if unit_amount is not None and unit_amount != int(pack.get("price_cents") or 0):
+    if unit_amount is not None and not _pack_accepts_price_cents(pack, unit_amount):
         return False
     interval = str(recurring.get("interval") or "").strip().lower()
     if interval and interval != "month":

@@ -96,7 +96,7 @@ const runningOnLocalVision = ["localhost", "127.0.0.1"].includes(window.location
 const VISION_API_BASE =
   configuredApiBase || (runningOnLocalVision ? "http://127.0.0.1:8787" : "https://vision-gateway.onrender.com");
 const VISION_STUDIO_PATH = "/studio/";
-const STUDIO_SHELL_ASSET_VERSION = "144";
+const STUDIO_SHELL_ASSET_VERSION = "145";
 const STUDIO_SHELL_CSS_HREF = `/studio-shell-new.css?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const STUDIO_SHELL_JS_HREF = `/studio-shell-new.js?v=${STUDIO_SHELL_ASSET_VERSION}`;
 const isStudioRoute = /^\/studio\/?$/.test(window.location.pathname);
@@ -128,8 +128,8 @@ const defaultPacks = [
     name: "Vision Studio",
     subtitle: "Unlimited 4K images",
     description: "Unlimited 4K image creation for visual creators.",
-    price_cents: 99,
-    original_price_cents: 99,
+    price_cents: 199,
+    original_price_cents: 199,
     currency: "eur",
     vision_credits: 0,
     credit_label: "Unlimited 4K images",
