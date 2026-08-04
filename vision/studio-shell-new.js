@@ -23,6 +23,8 @@
   const VISION_DURATION_OPTIONS = [3, 5, 10, 15];
   const VISION_RESOLUTION_OPTIONS = ["1080p", "4k"];
   const VISION_ASPECT_RATIO_OPTIONS = ["1:1", "16:9", "9:16", "4:5", "3:4", "4:3", "3:2"];
+  const VISION_REFERENCE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+  const VISION_REFERENCE_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
   const VISION_ASPECT_RATIO_LABELS = {
     "1:1": "Square 1:1",
     "16:9": "Landscape 16:9",
@@ -98,6 +100,8 @@
     soundEnabled: false,
     scene: "idle",
     prompt: "",
+    referenceAsset: null,
+    referenceError: "",
     access: { ...defaultAccess },
     user: { ...defaultUser },
     packs: [],
@@ -448,6 +452,165 @@
     });
   };
 
+  const formatReferenceFileSize = (bytes) => {
+    const value = Number(bytes || 0);
+    if (!Number.isFinite(value) || value <= 0) {
+      return "";
+    }
+    if (value >= 1024 * 1024) {
+      return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    return `${Math.max(1, Math.round(value / 1024))} KB`;
+  };
+
+  const getReferenceMimeType = (file) => {
+    const rawType = String((file && file.type) || "").trim().toLowerCase();
+    if (rawType === "image/jpg") {
+      return "image/jpeg";
+    }
+    if (VISION_REFERENCE_IMAGE_TYPES.has(rawType)) {
+      return rawType;
+    }
+    const name = String((file && file.name) || "").trim().toLowerCase();
+    if (name.endsWith(".png")) {
+      return "image/png";
+    }
+    if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+      return "image/jpeg";
+    }
+    if (name.endsWith(".webp")) {
+      return "image/webp";
+    }
+    return "";
+  };
+
+  const clearReferenceAsset = () => {
+    const previewUrl = state.referenceAsset && state.referenceAsset.previewUrl;
+    if (previewUrl) {
+      try {
+        window.URL.revokeObjectURL(previewUrl);
+      } catch (error) {
+        // Ignore object URL cleanup failures.
+      }
+    }
+    state.referenceAsset = null;
+    state.referenceError = "";
+  };
+
+  const setReferenceAsset = (file) => {
+    if (!file) {
+      return false;
+    }
+    const mimeType = getReferenceMimeType(file);
+    if (!mimeType) {
+      state.referenceError = "Use one PNG, JPG or WebP image.";
+      return false;
+    }
+    const size = Number(file.size || 0);
+    if (!Number.isFinite(size) || size <= 0) {
+      state.referenceError = "This image is empty or unavailable.";
+      return false;
+    }
+    if (size > VISION_REFERENCE_IMAGE_MAX_BYTES) {
+      state.referenceError = "Reference images must be 10 MB or smaller.";
+      return false;
+    }
+
+    clearReferenceAsset();
+    try {
+      state.referenceAsset = {
+        file,
+        name: String(file.name || "reference-image"),
+        mimeType,
+        size,
+        sizeLabel: formatReferenceFileSize(size),
+        previewUrl: window.URL.createObjectURL(file),
+        referenceId: "",
+        status: "ready",
+      };
+      state.referenceError = "";
+      return true;
+    } catch (error) {
+      state.referenceAsset = null;
+      state.referenceError = "Vision could not preview this image.";
+      return false;
+    }
+  };
+
+  const uploadReferenceImage = async () => {
+    const asset = state.referenceAsset;
+    if (!asset) {
+      return { referenceId: "", checkoutRequired: false, detail: null };
+    }
+    if (asset.referenceId) {
+      return { referenceId: asset.referenceId, checkoutRequired: false, detail: null };
+    }
+
+    asset.status = "uploading";
+    state.referenceError = "";
+    render();
+
+    let response;
+    let payload;
+    try {
+      let filenameHeader = "reference-image";
+      try {
+        filenameHeader = encodeURIComponent(String(asset.name || "reference-image").slice(0, 180));
+      } catch (error) {
+        // Keep the ASCII-safe fallback filename.
+      }
+      response = await visionFetch("/api/reference-images", {
+        method: "POST",
+        headers: {
+          "Content-Type": asset.mimeType,
+          "X-Vision-Filename": filenameHeader,
+        },
+        body: asset.file,
+      });
+      payload = await parseJsonSafely(response);
+    } catch (error) {
+      if (state.referenceAsset === asset) {
+        asset.status = "ready";
+        state.referenceError = error instanceof Error ? error.message : "Vision could not upload this reference.";
+        render();
+      }
+      throw error;
+    }
+
+    if (response.status === 401 || response.status === 402) {
+      if (state.referenceAsset === asset) {
+        asset.status = "ready";
+        render();
+      }
+      return {
+        referenceId: "",
+        checkoutRequired: true,
+        detail: payload && payload.detail ? payload.detail : null,
+      };
+    }
+
+    const referenceId = String((payload && payload.reference_image_id) || "").trim();
+    if (!response.ok || !referenceId) {
+      const message = String(
+        (payload && (payload.detail || payload.message)) || "Vision could not upload this reference.",
+      );
+      if (state.referenceAsset === asset) {
+        asset.status = "ready";
+        state.referenceError = message;
+        render();
+      }
+      throw new Error(message);
+    }
+
+    if (state.referenceAsset !== asset) {
+      throw new Error("The selected reference changed before upload completed.");
+    }
+    asset.referenceId = referenceId;
+    asset.status = "uploaded";
+    render();
+    return { referenceId, checkoutRequired: false, detail: null };
+  };
+
   const openAssetCacheDb = () => {
     if (!window.indexedDB) {
       return Promise.resolve(null);
@@ -619,6 +782,14 @@
   };
 
   window.addEventListener("beforeunload", () => {
+    const referencePreviewUrl = state.referenceAsset && state.referenceAsset.previewUrl;
+    if (referencePreviewUrl) {
+      try {
+        window.URL.revokeObjectURL(referencePreviewUrl);
+      } catch (error) {
+        // Ignore object URL cleanup failures.
+      }
+    }
     Object.values(state.assetObjectUrlsByPath).forEach((objectUrl) => {
       if (!objectUrl) {
         return;
@@ -1585,6 +1756,27 @@
 
     const generationCost = getGenerationCost();
     savePendingPrompt(prompt, state.mode, state.aspectRatio);
+    let referenceImageId = "";
+    if (state.referenceAsset) {
+      try {
+        const referenceUpload = await uploadReferenceImage();
+        if (referenceUpload.checkoutRequired) {
+          handleCheckoutRequired(referenceUpload.detail);
+          return;
+        }
+        referenceImageId = String(referenceUpload.referenceId || "").trim();
+        if (!referenceImageId) {
+          return;
+        }
+      } catch (error) {
+        if (!state.referenceError) {
+          state.referenceError = error instanceof Error ? error.message : "Vision could not upload this reference.";
+          render();
+        }
+        return;
+      }
+    }
+
     state.currentError = "";
     state.currentJob = {
       id: `local-${Date.now()}`,
@@ -1625,6 +1817,7 @@
           resolution: generationCost.resolution,
           aspect_ratio: generationCost.aspect_ratio,
           sound_enabled: generationCost.sound_enabled,
+          ...(referenceImageId ? { reference_image_id: referenceImageId } : {}),
         }),
       });
       const payload = await parseJsonSafely(response);
@@ -1639,6 +1832,7 @@
       }
 
       stopPolling();
+      clearReferenceAsset();
       state.currentJob = payload;
       pendingPollJobId = String(payload.id);
       syncScene();
@@ -2065,9 +2259,22 @@
   };
 
   const renderDock = () => {
+    const referenceAsset = state.referenceAsset;
+    const referenceUploading = !!referenceAsset && referenceAsset.status === "uploading";
+    const referenceStatus = state.referenceError
+      ? state.referenceError
+      : referenceUploading
+        ? "Uploading..."
+        : referenceAsset && referenceAsset.status === "uploaded"
+          ? "Uploaded"
+          : "Ready";
     return `
     <div class="vss-dock">
+      <input class="vss-hidden" id="vss-reference-input" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" />
       <form class="vss-prompt-bar" id="vss-prompt-form">
+        <button class="vss-add-ref" id="vss-add-reference" type="button" aria-label="Add a PNG, JPG or WebP reference image, maximum 10 MB" title="Add reference image" ${referenceUploading ? "disabled aria-disabled=\"true\"" : ""}>
+          <span class="vss-add-ref-symbol" aria-hidden="true">+</span>
+        </button>
         <div class="vss-prompt-field">
           <textarea
             class="vss-prompt-input"
@@ -2080,7 +2287,7 @@
           } ${state.prompt.trim() ? "" : "disabled aria-disabled=\"true\""}>${state.improveLoading ? "Improving..." : "Improve"}</button>
         </div>
         <div class="vss-prompt-actions">
-          <button class="vss-submit" type="submit" aria-label="Generate">
+          <button class="vss-submit" type="submit" aria-label="Generate" ${referenceUploading ? "disabled aria-disabled=\"true\"" : ""}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M7 12h10"></path>
               <path d="m13 6 6 6-6 6"></path>
@@ -2089,6 +2296,24 @@
           <span class="vss-submit-label">Generate</span>
         </div>
       </form>
+      ${
+        referenceAsset
+          ? `<div class="vss-reference-row${state.referenceError ? " is-error" : ""}" role="status" aria-live="polite">
+              <div class="vss-reference-chip">
+                <img class="vss-reference-thumbnail" src="${escapeHtml(referenceAsset.previewUrl)}" alt="" />
+                <span class="vss-reference-copy">
+                  <strong class="vss-reference-name" title="${escapeHtml(referenceAsset.name)}">${escapeHtml(referenceAsset.name)}</strong>
+                  <span class="vss-reference-status">${escapeHtml(referenceAsset.sizeLabel)}${referenceAsset.sizeLabel ? " · " : ""}${escapeHtml(referenceStatus)}</span>
+                </span>
+              </div>
+              <button class="vss-reference-clear" id="vss-reference-clear" type="button" ${referenceUploading ? "disabled aria-disabled=\"true\"" : ""}>Remove</button>
+            </div>`
+          : state.referenceError
+            ? `<div class="vss-reference-row is-error" role="alert">
+                <span class="vss-reference-error">${escapeHtml(state.referenceError)}</span>
+              </div>`
+            : ""
+      }
       <div class="vss-dock-settings" aria-label="Studio generation controls">
         ${renderGenerationControls()}
       </div>
@@ -2348,6 +2573,9 @@
     const promptInput = root.querySelector("#vss-prompt-input");
     const promptForm = root.querySelector("#vss-prompt-form");
     const improveButton = root.querySelector("#vss-improve-button");
+    const referenceInput = root.querySelector("#vss-reference-input");
+    const addReferenceButton = root.querySelector("#vss-add-reference");
+    const clearReferenceButton = root.querySelector("#vss-reference-clear");
     const recentsList = root.querySelector(".vss-recent-list");
 
     const syncImproveButton = () => {
@@ -2383,6 +2611,35 @@
     });
 
     syncImproveButton();
+
+    addReferenceButton?.addEventListener("click", () => {
+      referenceInput?.click();
+    });
+
+    referenceInput?.addEventListener("change", (event) => {
+      const [file] = Array.from(event.target.files || []);
+      event.target.value = "";
+      if (!file) {
+        return;
+      }
+      const accepted = setReferenceAsset(file);
+      if (accepted) {
+        trackVisionEvent("ReferenceSelected", {
+          media_type: "image",
+          platform_context: "web",
+          payload: {
+            mime_type: String(state.referenceAsset && state.referenceAsset.mimeType || ""),
+            size: Number(file.size || 0),
+          },
+        });
+      }
+      render();
+    });
+
+    clearReferenceButton?.addEventListener("click", () => {
+      clearReferenceAsset();
+      render();
+    });
 
     root.querySelectorAll("[data-mode]").forEach((button) => {
       button.addEventListener("click", () => {

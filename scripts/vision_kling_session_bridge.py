@@ -632,7 +632,10 @@ def sign_request_payload(
     payload = {
         "url": path,
         "query": query or {},
-        "requestBody": request_body or {},
+        # Kling's Sig4 interceptor signs GET requests with a JSON null body.
+        # An empty object produces a different signature for query-bearing
+        # endpoints such as /api/upload/issue/token.
+        "requestBody": request_body,
     }
     proc = subprocess.run(
         ["node", str(SIG4_RUNTIME_SCRIPT)],
@@ -739,6 +742,186 @@ def _json_request(
     raise RuntimeError(f"Kling session bridge network error after retries: {last_error}") from last_error
 
 
+def _signed_get(
+    artifacts: BridgeArtifacts,
+    path: str,
+    query: dict[str, Any] | None = None,
+    *,
+    timeout: float = 60,
+) -> dict[str, Any]:
+    request_query = query or {}
+    signed = sign_request_payload(path=path, query=request_query)
+    signature = signed.get("signature") or signed.get("__NS_hxfalcon") or signed.get("signResult")
+    caver = signed.get("caver") or "2"
+    if not signature:
+        raise RuntimeError("Kling request signing failed.")
+    encoded_query = urllib.parse.urlencode(
+        {
+            "__NS_hxfalcon": signature,
+            "caver": str(caver),
+            **request_query,
+        }
+    )
+    return _json_request(
+        f"https://kling.ai{path}?{encoded_query}",
+        method="GET",
+        headers=_request_headers(artifacts, include_content_type=False),
+        timeout=timeout,
+    )
+
+
+def _upload_endpoint_url(endpoint: str, path: str, query: dict[str, Any]) -> str:
+    normalized_endpoint = str(endpoint or "").strip().rstrip("/")
+    if not normalized_endpoint:
+        raise RuntimeError("Kling did not provide a reference upload endpoint.")
+    if not normalized_endpoint.startswith(("http://", "https://")):
+        normalized_endpoint = f"https://{normalized_endpoint}"
+    return f"{normalized_endpoint}{path}?{urllib.parse.urlencode(query)}"
+
+
+def _upload_json_request(
+    url: str,
+    *,
+    method: str,
+    payload: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: float = 300,
+) -> dict[str, Any]:
+    request = urllib.request.Request(url, data=payload, headers=headers or {}, method=method)
+    context = ssl.create_default_context(cafile=certifi.where())
+    try:
+        with urllib.request.urlopen(request, timeout=timeout, context=context) as response:
+            raw = response.read()
+    except urllib.error.HTTPError as exc:
+        # Never echo the upload URL: it contains the temporary upload token.
+        raise RuntimeError(f"Kling reference upload HTTP {exc.code}.") from exc
+    except (urllib.error.URLError, ConnectionResetError) as exc:
+        raise RuntimeError("Kling reference upload network error.") from exc
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Kling reference upload returned an invalid response.") from exc
+    return value if isinstance(value, dict) else {}
+
+
+def _upload_reference_chunks(endpoint: str, upload_token: str, file_bytes: bytes) -> None:
+    file_size = len(file_bytes)
+    whole_digest = hashlib.md5(file_bytes).hexdigest()
+    resume_payload = _upload_json_request(
+        _upload_endpoint_url(
+            endpoint,
+            "/api/upload/resume",
+            {"upload_token": upload_token, "content_md5": whole_digest},
+        ),
+        method="GET",
+        headers={"X-File-MD5": whole_digest},
+    )
+    resume_data = resume_payload.get("data") if isinstance(resume_payload.get("data"), dict) else {}
+    if bool(resume_data.get("existed")):
+        return
+
+    existing_fragments: set[int] = set()
+    fragment_list = resume_data.get("fragment_list") or resume_data.get("fragmentList") or []
+    if isinstance(fragment_list, list):
+        for item in fragment_list:
+            fragment_id = item.get("id") if isinstance(item, dict) else item
+            try:
+                existing_fragments.add(int(fragment_id))
+            except (TypeError, ValueError):
+                continue
+
+    mebibyte = 1024 * 1024
+    chunk_size = max(((file_size + mebibyte * 10_000 - 1) // (mebibyte * 10_000)) * mebibyte, mebibyte)
+    chunk_size = min(chunk_size, 200 * mebibyte)
+    fragment_count = (file_size + chunk_size - 1) // chunk_size
+    for fragment_id in range(fragment_count):
+        if fragment_id in existing_fragments:
+            continue
+        start = fragment_id * chunk_size
+        end = min(start + chunk_size, file_size)
+        fragment = file_bytes[start:end]
+        fragment_digest = hashlib.md5(fragment).hexdigest()
+        _upload_json_request(
+            _upload_endpoint_url(
+                endpoint,
+                "/api/upload/fragment",
+                {
+                    "upload_token": upload_token,
+                    "fragment_id": str(fragment_id),
+                    "content_md5": fragment_digest,
+                },
+            ),
+            method="POST",
+            payload=fragment,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "Content-Range": f"bytes {start}-{end - 1}/{file_size}",
+                "X-File-MD5": fragment_digest,
+            },
+        )
+
+    _upload_json_request(
+        _upload_endpoint_url(
+            endpoint,
+            "/api/upload/complete",
+            {"fragment_count": str(fragment_count), "upload_token": upload_token},
+        ),
+        method="POST",
+        payload=b"",
+    )
+
+
+def _upload_image_reference(artifacts: BridgeArtifacts, image_path: Path) -> dict[str, Any]:
+    resolved_path = image_path.expanduser().resolve()
+    if not resolved_path.is_file():
+        raise FileNotFoundError(resolved_path)
+    file_bytes = resolved_path.read_bytes()
+    if not file_bytes:
+        raise RuntimeError("The reference image is empty.")
+
+    suffix = resolved_path.suffix.lower() if resolved_path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"} else ".png"
+    issued = _signed_get(
+        artifacts,
+        "/api/upload/issue/token",
+        {"filename": f"vision-reference{suffix}"},
+    )
+    issued_data = issued.get("data") if isinstance(issued.get("data"), dict) else {}
+    upload_token = str(issued_data.get("token") or "")
+    endpoints = issued_data.get("httpEndpoints") or issued_data.get("http_endpoints") or []
+    if not upload_token or not isinstance(endpoints, list) or not endpoints:
+        raise RuntimeError("Kling did not open a reference upload lane.")
+
+    last_error: Exception | None = None
+    for endpoint in endpoints:
+        try:
+            _upload_reference_chunks(str(endpoint), upload_token, file_bytes)
+            last_error = None
+            break
+        except RuntimeError as exc:
+            last_error = exc
+    if last_error is not None:
+        raise RuntimeError("Kling could not receive the reference image.") from last_error
+
+    verified = _signed_get(
+        artifacts,
+        "/api/upload/verify/token",
+        {"token": upload_token, "type": "image"},
+    )
+    verified_data = verified.get("data") if isinstance(verified.get("data"), dict) else {}
+    reference_url = str(verified_data.get("url") or "")
+    upload_asset_id = verified_data.get("uploadAssetId") or verified_data.get("upload_asset_id")
+    if not reference_url or upload_asset_id in {None, ""}:
+        raise RuntimeError("Kling could not verify the reference image.")
+    return {
+        "name": "image_1",
+        "inputType": "URL",
+        "url": reference_url,
+        "fromUploadId": upload_asset_id,
+    }
+
+
 def _probe_image_auth(artifacts: BridgeArtifacts) -> dict[str, Any]:
     headers = _request_headers(artifacts, include_content_type=False)
     cookie_header = str(headers.get("cookie") or "")
@@ -837,15 +1020,22 @@ def _download(url: str, output_video: Path, *, headers: dict[str, str]) -> Path:
     raise RuntimeError(f"Kling session bridge download error after retries: {last_error}") from last_error
 
 
-def _override_prompt_in_payload(template: dict[str, Any], prompt: str) -> dict[str, Any]:
+def _override_prompt_in_payload(
+    template: dict[str, Any],
+    prompt: str,
+    *,
+    rich_prompt: str | None = None,
+) -> dict[str, Any]:
     payload = json.loads(json.dumps(template))
     arguments = payload.get("arguments", [])
     if isinstance(arguments, list):
         for item in arguments:
             if not isinstance(item, dict):
                 continue
-            if item.get("name") in {"prompt", "rich_prompt"}:
+            if item.get("name") == "prompt":
                 item["value"] = prompt
+            elif item.get("name") == "rich_prompt":
+                item["value"] = rich_prompt if rich_prompt is not None else prompt
     return payload
 
 
@@ -903,12 +1093,16 @@ def _override_image_quality(
     payload: dict[str, Any],
     quality: str,
     aspect_ratio: str | None = "16:9",
+    *,
+    reference_input: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     tuned = json.loads(json.dumps(payload))
     settings = _image_quality_settings(quality)
     if settings != {"resolution": "2k", "show_price": 0, "unlimited": True}:
         raise RuntimeError("Kling image generation must use the 2K unlimited contract.")
-    if _env_bool("VISION_KLING_IMAGE_TEXT_ONLY", True):
+    if reference_input is not None:
+        tuned["inputs"] = [json.loads(json.dumps(reference_input))]
+    elif _env_bool("VISION_KLING_IMAGE_TEXT_ONLY", True):
         tuned["inputs"] = []
     _set_argument_value(tuned, "img_resolution", settings["resolution"], set_by_user=True)
     _set_argument_value(tuned, "imageCount", "1", set_by_user=True)
@@ -946,7 +1140,11 @@ def _build_status_url(task_id: str) -> str:
     return f"https://kling.ai/api/task/status?{query}"
 
 
-def _extract_download_url(payload: dict[str, Any]) -> str | None:
+def _extract_download_url(
+    payload: dict[str, Any],
+    *,
+    allow_generic_fallback: bool = True,
+) -> str | None:
     works = payload.get("data", {}).get("works") if isinstance(payload.get("data"), dict) else None
     if isinstance(works, list):
         for work in works:
@@ -962,6 +1160,12 @@ def _extract_download_url(payload: dict[str, Any]) -> str | None:
                     if value.startswith("/"):
                         return f"https://kling.ai{value}"
                     return value
+    if not allow_generic_fallback:
+        # Reference-image jobs echo their uploaded source under taskInfo.inputs.
+        # Treating that generic URL as a finished output makes the bridge return
+        # the source image before Kling has generated anything. For these jobs,
+        # only data.works[].resource is an acceptable result.
+        return None
     value = _first_found(
         payload,
         (
@@ -993,6 +1197,8 @@ def _generate_asset(
     payload_template: RuntimeSubmitPayload,
     output_filename: str,
     metadata_filename: str,
+    rich_prompt: str | None = None,
+    reference_used: bool = False,
 ) -> Path:
     artifacts = _collect_artifacts()
     state = _status_payload(artifacts)
@@ -1004,49 +1210,93 @@ def _generate_asset(
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    request_body = _override_prompt_in_payload(payload_template.payload, prompt)
+    request_body = _override_prompt_in_payload(
+        payload_template.payload,
+        prompt,
+        rich_prompt=rich_prompt,
+    )
     signed = sign_submit_payload(request_body=request_body, query={})
     sig4_value = signed.get("signature") or signed.get("__NS_hxfalcon") or signed.get("signResult")
     caver = signed.get("caver") or _first_found(signed.get("payload", {}), ("caver",)) or "2"
     if not sig4_value:
+        if reference_used:
+            raise RuntimeError("Kling reference image signing failed.")
         raise RuntimeError(f"Kling session bridge signing failed: {signed}")
 
     submit_query = urllib.parse.urlencode({"__NS_hxfalcon": sig4_value, "caver": str(caver)})
     submit_url = f"https://kling.ai/api/task/submit?{submit_query}"
     submit_headers = _request_headers(artifacts)
-    created = _json_request(submit_url, method="POST", headers=submit_headers, payload=request_body)
+    try:
+        created = _json_request(submit_url, method="POST", headers=submit_headers, payload=request_body)
+    except SessionBridgeAuthenticationError:
+        raise
+    except RuntimeError:
+        if reference_used:
+            raise RuntimeError("Kling could not start the reference image generation.") from None
+        raise
     task_id = _extract_task_id(created)
     if not task_id:
+        if reference_used:
+            raise RuntimeError("Kling did not return a task for the reference image generation.")
         raise RuntimeError(f"Kling web submit response did not contain a recognizable task id: {created}")
 
     deadline = time.time() + 1800
     status_payload = created
     status_value = _status_value(status_payload)
     status_headers = _request_headers(artifacts, include_content_type=False)
-    download_url = _extract_download_url(status_payload)
+    download_url = _extract_download_url(
+        status_payload,
+        allow_generic_fallback=not reference_used,
+    )
     while not _status_done(status_value) and not download_url:
         if _status_error(status_value):
+            if reference_used:
+                raise RuntimeError(f"Kling reference image generation failed with status={status_value}.")
             raise RuntimeError(f"Kling web task failed with status={status_value}: {status_payload}")
         if time.time() > deadline:
             raise TimeoutError(f"Kling web task {task_id} exceeded timeout.")
         time.sleep(8)
-        status_payload = _json_request(_build_status_url(task_id), method="GET", headers=status_headers)
+        try:
+            status_payload = _json_request(_build_status_url(task_id), method="GET", headers=status_headers)
+        except SessionBridgeAuthenticationError:
+            raise
+        except RuntimeError:
+            if reference_used:
+                raise RuntimeError("Kling could not read the reference image generation status.") from None
+            raise
         status_value = _status_value(status_payload)
-        download_url = _extract_download_url(status_payload)
+        download_url = _extract_download_url(
+            status_payload,
+            allow_generic_fallback=not reference_used,
+        )
 
     if not download_url:
+        if reference_used:
+            raise RuntimeError("Kling completed the reference image generation without an output image.")
         raise RuntimeError(f"Kling web task completed but no download URL was present: {status_payload}")
 
     saved_asset = _download(download_url, output_dir / output_filename, headers=status_headers)
-    metadata = {
+    metadata: dict[str, Any] = {
         "provider": "kling_web_session_bridge",
         "prompt": prompt,
         "output_asset": str(saved_asset),
         "task_id": task_id,
-        "submit_response": created,
-        "status_payload": status_payload,
-        "signed_submit": signed,
     }
+    if reference_used:
+        # Reference upload URLs and asset identifiers are short-lived private
+        # material. Generated output metadata can be served publicly, so keep
+        # only the non-sensitive task summary for image-to-image requests.
+        metadata.update(
+            reference_image=True,
+            submit_status=_status_value(created),
+            final_status=status_value,
+        )
+    else:
+        metadata.update(
+            submit_response=created,
+            status_payload=status_payload,
+            signed_submit=signed,
+        )
     (output_dir / metadata_filename).write_text(
         json.dumps(metadata, indent=2) + "\n",
         encoding="utf-8",
@@ -1078,6 +1328,7 @@ def generate_image(
     output_dir: str | Path,
     quality: str = "studio",
     aspect_ratio: str = "16:9",
+    image_path: str | Path | None = None,
 ) -> Path:
     artifacts = _collect_artifacts()
     state = status_image()
@@ -1086,11 +1337,18 @@ def generate_image(
             "Kling image bridge is not ready yet. "
             f"Cookie ready={state['runtime_cookie_ready']} payload ready={state['runtime_image_submit_payload_ready']}."
         )
+    reference_input: dict[str, Any] | None = None
+    rich_prompt: str | None = None
+    if image_path is not None:
+        reference_input = _upload_image_reference(artifacts, Path(image_path))
+        rich_prompt = f"<<<image_1>>> {prompt}".strip()
+
     tuned_payload = RuntimeSubmitPayload(
         payload=_override_image_quality(
             artifacts.runtime_image_submit_payload.payload,
             quality,
             aspect_ratio,
+            reference_input=reference_input,
         )
     )
     return _generate_asset(
@@ -1099,6 +1357,8 @@ def generate_image(
         payload_template=tuned_payload,
         output_filename="kling_image_bridge.png",
         metadata_filename="kling_image_bridge_metadata.json",
+        rich_prompt=rich_prompt,
+        reference_used=reference_input is not None,
     )
 
 

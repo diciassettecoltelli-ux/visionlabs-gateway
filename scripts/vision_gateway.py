@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import copy
 import hashlib
@@ -18,6 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+import warnings
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
@@ -29,7 +31,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from PIL import Image
+from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
 from run_google_nano_banana2 import status as google_image_status
@@ -2328,14 +2330,261 @@ RUNTIME_ROOT = VISION_ROOT / ".runtime"
 JOBS_FILE = RUNTIME_ROOT / "jobs.json"
 ACCESS_FILE = RUNTIME_ROOT / "access.json"
 OUTPUT_ROOT = VISION_ROOT / "generated"
+REFERENCE_IMAGE_ROOT = RUNTIME_ROOT / "reference_images"
 DISABLE_FILE = RUNTIME_ROOT / "gateway.disabled"
 USERS_FILE = RUNTIME_ROOT / "users.json"
 TRACKING_DEBUG_EVENTS_FILE = RUNTIME_ROOT / "tracking_events.debug.jsonl"
+REFERENCE_IMAGE_MAX_BYTES = 10 * 1024 * 1024
+REFERENCE_IMAGE_MIN_DIMENSION = 300
+REFERENCE_IMAGE_MAX_DIMENSION = 5792
+REFERENCE_IMAGE_TTL_SECONDS = 60 * 60
+REFERENCE_IMAGE_CLAIM_MAX_AGE_SECONDS = 24 * 60 * 60
+REFERENCE_IMAGE_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
+REFERENCE_IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
+REFERENCE_IMAGE_FORMATS = {"PNG", "JPEG", "WEBP"}
+REFERENCE_IMAGE_LOCK = threading.Lock()
 
-for path in (RUNTIME_ROOT, OUTPUT_ROOT):
+for path in (RUNTIME_ROOT, OUTPUT_ROOT, REFERENCE_IMAGE_ROOT):
     path.mkdir(parents=True, exist_ok=True)
+try:
+    REFERENCE_IMAGE_ROOT.chmod(0o700)
+except OSError:
+    pass
 
 APP.mount("/generated", StaticFiles(directory=str(OUTPUT_ROOT)), name="generated")
+
+
+class ReferenceImageTooLarge(ValueError):
+    pass
+
+
+def _reference_image_paths(reference_image_id: str) -> tuple[Path, Path]:
+    normalized = str(reference_image_id or "").strip().lower()
+    if not REFERENCE_IMAGE_ID_PATTERN.fullmatch(normalized):
+        raise ValueError("Invalid reference image id.")
+    root = REFERENCE_IMAGE_ROOT.resolve()
+    image_path = (root / f"{normalized}.image").resolve()
+    metadata_path = (root / f"{normalized}.json").resolve()
+    try:
+        image_path.relative_to(root)
+        metadata_path.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("Invalid reference image path.") from exc
+    return image_path, metadata_path
+
+
+def _write_reference_metadata(metadata_path: Path, metadata: dict[str, Any]) -> None:
+    temporary_path = metadata_path.with_name(f".{metadata_path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary_path.open("x", encoding="utf-8") as handle:
+            json.dump(metadata, handle, separators=(",", ":"), sort_keys=True)
+        try:
+            temporary_path.chmod(0o600)
+        except OSError:
+            pass
+        os.replace(temporary_path, metadata_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+def _read_reference_metadata(metadata_path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _delete_reference_image(reference_image_id: str, *, owner_key: str | None = None) -> None:
+    try:
+        image_path, metadata_path = _reference_image_paths(reference_image_id)
+    except ValueError:
+        return
+    with REFERENCE_IMAGE_LOCK:
+        metadata = _read_reference_metadata(metadata_path)
+        if owner_key and metadata and not hmac.compare_digest(str(metadata.get("owner_key") or ""), owner_key):
+            return
+        image_path.unlink(missing_ok=True)
+        metadata_path.unlink(missing_ok=True)
+
+
+def _cleanup_expired_reference_images(*, now: float | None = None) -> None:
+    current_time = float(now if now is not None else datetime.now(timezone.utc).timestamp())
+    with REFERENCE_IMAGE_LOCK:
+        for metadata_path in REFERENCE_IMAGE_ROOT.glob("*.json"):
+            reference_image_id = metadata_path.stem.lower()
+            if not REFERENCE_IMAGE_ID_PATTERN.fullmatch(reference_image_id):
+                metadata_path.unlink(missing_ok=True)
+                continue
+            metadata = _read_reference_metadata(metadata_path)
+            try:
+                expires_at = float((metadata or {}).get("expires_at_epoch") or 0)
+                claimed_at = float((metadata or {}).get("claimed_at_epoch") or 0)
+            except (TypeError, ValueError):
+                expires_at = 0
+                claimed_at = 0
+            claimed = bool((metadata or {}).get("claimed"))
+            should_delete = (
+                (not claimed and expires_at <= current_time)
+                or (claimed and claimed_at > 0 and claimed_at + REFERENCE_IMAGE_CLAIM_MAX_AGE_SECONDS <= current_time)
+                or metadata is None
+            )
+            if should_delete:
+                image_path, _ = _reference_image_paths(reference_image_id)
+                image_path.unlink(missing_ok=True)
+                metadata_path.unlink(missing_ok=True)
+        orphan_cutoff = current_time - REFERENCE_IMAGE_TTL_SECONDS
+        for candidate in REFERENCE_IMAGE_ROOT.iterdir():
+            if not candidate.is_file() or candidate.suffix not in {".image", ".upload"}:
+                continue
+            if candidate.suffix == ".image" and candidate.with_suffix(".json").is_file():
+                continue
+            try:
+                stale = candidate.stat().st_mtime <= orphan_cutoff
+            except OSError:
+                continue
+            if stale:
+                candidate.unlink(missing_ok=True)
+
+
+def _sanitize_reference_image(source_path: Path, destination_path: Path) -> dict[str, Any]:
+    temporary_path = destination_path.with_name(f".{destination_path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(source_path) as probe:
+                source_format = str(probe.format or "").upper()
+                if source_format not in REFERENCE_IMAGE_FORMATS:
+                    raise ValueError("Unsupported reference image format.")
+                if int(getattr(probe, "n_frames", 1) or 1) != 1:
+                    raise ValueError("Animated reference images are not supported.")
+                width, height = probe.size
+                if not (
+                    REFERENCE_IMAGE_MIN_DIMENSION <= width <= REFERENCE_IMAGE_MAX_DIMENSION
+                    and REFERENCE_IMAGE_MIN_DIMENSION <= height <= REFERENCE_IMAGE_MAX_DIMENSION
+                ):
+                    raise ValueError("Reference image dimensions are outside the supported range.")
+                probe.verify()
+
+            with Image.open(source_path) as source:
+                if int(getattr(source, "n_frames", 1) or 1) != 1:
+                    raise ValueError("Animated reference images are not supported.")
+                try:
+                    normalized = ImageOps.exif_transpose(source)
+                except (SyntaxError, TypeError, ValueError):
+                    # Corrupt ancillary EXIF must not survive re-encoding or
+                    # turn an otherwise decodable static image into a 500.
+                    normalized = source.copy()
+                normalized.load()
+                width, height = normalized.size
+                if not (
+                    REFERENCE_IMAGE_MIN_DIMENSION <= width <= REFERENCE_IMAGE_MAX_DIMENSION
+                    and REFERENCE_IMAGE_MIN_DIMENSION <= height <= REFERENCE_IMAGE_MAX_DIMENSION
+                ):
+                    raise ValueError("Reference image dimensions are outside the supported range.")
+
+                normalized = normalized.convert("RGBA" if "A" in normalized.getbands() else "RGB")
+                # A single canonical format gives the private, extensionless
+                # file an unambiguous type when it is handed to Kling. Saving
+                # without source info/exif/icc arguments strips user metadata.
+                normalized.save(temporary_path, format="PNG", optimize=True)
+
+        if temporary_path.stat().st_size > REFERENCE_IMAGE_MAX_BYTES:
+            raise ReferenceImageTooLarge("The normalized reference image exceeds the upload limit.")
+        try:
+            temporary_path.chmod(0o600)
+        except OSError:
+            pass
+        os.replace(temporary_path, destination_path)
+        return {
+            "width": width,
+            "height": height,
+            "source_format": source_format,
+            "format": "PNG",
+            "mime_type": "image/png",
+            "size_bytes": destination_path.stat().st_size,
+            "sha256": hashlib.sha256(destination_path.read_bytes()).hexdigest(),
+        }
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+def _claim_reference_image(reference_image_id: str, owner_key: str) -> Path:
+    try:
+        image_path, metadata_path = _reference_image_paths(reference_image_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Reference image not found.") from exc
+    now = datetime.now(timezone.utc).timestamp()
+    with REFERENCE_IMAGE_LOCK:
+        metadata = _read_reference_metadata(metadata_path)
+        if not metadata or not image_path.is_file():
+            raise HTTPException(status_code=404, detail="Reference image not found.")
+        if not hmac.compare_digest(str(metadata.get("owner_key") or ""), owner_key):
+            raise HTTPException(status_code=404, detail="Reference image not found.")
+        try:
+            expires_at = float(metadata.get("expires_at_epoch") or 0)
+        except (TypeError, ValueError):
+            expires_at = 0
+        if expires_at <= now:
+            image_path.unlink(missing_ok=True)
+            metadata_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=410, detail="Reference image expired. Upload it again.")
+        if metadata.get("claimed"):
+            raise HTTPException(status_code=409, detail="Reference image has already been used.")
+        metadata["claimed"] = True
+        metadata["claimed_at"] = _now_iso()
+        metadata["claimed_at_epoch"] = now
+        _write_reference_metadata(metadata_path, metadata)
+    return image_path
+
+
+def _resolve_claimed_reference_image(reference_image_id: str, owner_key: str) -> Path:
+    try:
+        image_path, metadata_path = _reference_image_paths(reference_image_id)
+    except ValueError as exc:
+        raise RuntimeError("The reference image id is invalid.") from exc
+    with REFERENCE_IMAGE_LOCK:
+        metadata = _read_reference_metadata(metadata_path)
+        if not metadata or not image_path.is_file():
+            raise RuntimeError("The reference image is no longer available. Upload it again.")
+        if not hmac.compare_digest(str(metadata.get("owner_key") or ""), owner_key):
+            raise RuntimeError("The reference image does not belong to this job.")
+        if not metadata.get("claimed"):
+            raise RuntimeError("The reference image was not claimed for generation.")
+        expected_hash = str(metadata.get("sha256") or "")
+    actual_hash = hashlib.sha256(image_path.read_bytes()).hexdigest()
+    if not expected_hash or not hmac.compare_digest(expected_hash, actual_hash):
+        raise RuntimeError("The reference image failed its integrity check.")
+    return image_path
+
+
+def _owner_key(user: dict[str, Any] | None, access: dict[str, Any] | None) -> str | None:
+    user_id = str((user or {}).get("id") or "").strip()
+    if user_id:
+        return f"user:{user_id}"
+    if access and access.get("admin"):
+        return "admin"
+    return None
+
+
+def _request_owner_key(request: Request) -> str | None:
+    return _owner_key(_user_from_request(request), _access_from_request(request))
+
+
+def _public_job(job: dict[str, Any]) -> dict[str, Any]:
+    payload = copy.deepcopy(job)
+    for key in (
+        "owner_key",
+        "reference_image_id",
+        "charged_access_id",
+        "charged_mode",
+        "charged_amount",
+        "charged_credit_type",
+        "credit_refunded",
+        "output_path",
+    ):
+        payload.pop(key, None)
+    return payload
 
 
 class CreateJobRequest(BaseModel):
@@ -2347,6 +2596,7 @@ class CreateJobRequest(BaseModel):
     resolution: str | None = Field(default=None, min_length=2, max_length=8)
     aspect_ratio: str | None = Field(default=None, min_length=3, max_length=16)
     sound_enabled: bool | None = False
+    reference_image_id: str | None = Field(default=None, min_length=32, max_length=32, pattern=r"^[0-9a-fA-F]{32}$")
 
 
 class CreateCheckoutSessionRequest(BaseModel):
@@ -3145,6 +3395,8 @@ class JobsStore:
         charged_credit_type: str | None = None,
         credit_cost: dict[str, Any] | None = None,
         generation_settings: dict[str, Any] | None = None,
+        owner_key: str,
+        reference_image_id: str | None = None,
     ) -> dict[str, Any]:
         with self.lock:
             job_id = uuid.uuid4().hex[:12]
@@ -3170,6 +3422,8 @@ class JobsStore:
                 "credit_cost": credit_cost or {},
                 "generation_settings": generation_settings or {},
                 "credit_refunded": False,
+                "owner_key": owner_key,
+                "reference_image_id": reference_image_id,
             }
             self.jobs[job_id] = job
             self.save()
@@ -3235,6 +3489,8 @@ class PostgresJobsStore:
         charged_credit_type: str | None = None,
         credit_cost: dict[str, Any] | None = None,
         generation_settings: dict[str, Any] | None = None,
+        owner_key: str,
+        reference_image_id: str | None = None,
     ) -> dict[str, Any]:
         with self.lock:
             job_id = uuid.uuid4().hex[:12]
@@ -3260,6 +3516,8 @@ class PostgresJobsStore:
                 "credit_cost": credit_cost or {},
                 "generation_settings": generation_settings or {},
                 "credit_refunded": False,
+                "owner_key": owner_key,
+                "reference_image_id": reference_image_id,
             }
             with self._connect() as connection:
                 with connection.cursor() as cursor:
@@ -4610,6 +4868,8 @@ def _process_job(job_id: str) -> None:
     if not job:
         return
     output_dir = OUTPUT_ROOT / job_id
+    reference_image_id = str(job.get("reference_image_id") or "").strip().lower()
+    owner_key = str(job.get("owner_key") or "").strip()
     try:
         generation_settings = job.get("generation_settings") if isinstance(job.get("generation_settings"), dict) else {}
         if job.get("mode") == "image":
@@ -4622,12 +4882,24 @@ def _process_job(job_id: str) -> None:
                 message="Shaping the still image inside Vision.",
             )
             JOBS.update(job_id, status="generating", message="Building the still frame inside Vision.")
-            output_image = generate_kling_image(
-                prompt=job["prompt"],
-                output_dir=output_dir,
-                quality="studio",
-                aspect_ratio=requested_aspect_ratio,
-            )
+            if reference_image_id:
+                if not owner_key:
+                    raise RuntimeError("The reference image job is missing its owner.")
+                reference_image_path = _resolve_claimed_reference_image(reference_image_id, owner_key)
+                output_image = generate_kling_image(
+                    prompt=job["prompt"],
+                    output_dir=output_dir,
+                    quality="studio",
+                    aspect_ratio=requested_aspect_ratio,
+                    image_path=reference_image_path,
+                )
+            else:
+                output_image = generate_kling_image(
+                    prompt=job["prompt"],
+                    output_dir=output_dir,
+                    quality="studio",
+                    aspect_ratio=requested_aspect_ratio,
+                )
             output_image = _fit_image_to_aspect_ratio(output_image, requested_aspect_ratio)
             JOBS.update(
                 job_id,
@@ -4776,6 +5048,9 @@ def _process_job(job_id: str) -> None:
             message="Vision could not complete the render before import.",
             error=str(exc),
         )
+    finally:
+        if reference_image_id:
+            _delete_reference_image(reference_image_id, owner_key=owner_key or None)
 
 
 def _worker_loop() -> None:
@@ -5362,9 +5637,107 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
     }
 
 
+@APP.post("/api/reference-images", status_code=201)
+async def upload_reference_image(request: Request) -> dict[str, Any]:
+    user, access, summary = await asyncio.to_thread(_request_entitlement, request)
+    owner_key = _owner_key(user, access)
+    if not owner_key:
+        raise HTTPException(status_code=401, detail="Authenticate your Vision account before uploading a reference image.")
+    if not summary["has_access"]:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "payment_required",
+                "message": "Start Vision Studio before uploading a reference image.",
+                "access": summary,
+                "pack": _pack_summary_for_access(summary),
+                "packs": _packs_summary_for_access(summary),
+            },
+        )
+
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if content_type not in REFERENCE_IMAGE_CONTENT_TYPES:
+        raise HTTPException(status_code=415, detail="Upload a PNG, JPEG, or WebP image.")
+    content_length = request.headers.get("content-length", "").strip()
+    if content_length:
+        try:
+            declared_size = int(content_length)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length header.") from exc
+        if declared_size <= 0:
+            raise HTTPException(status_code=400, detail="Reference image is empty.")
+        if declared_size > REFERENCE_IMAGE_MAX_BYTES:
+            raise HTTPException(status_code=413, detail="Reference image must be 10 MB or smaller.")
+
+    await asyncio.to_thread(_cleanup_expired_reference_images)
+    reference_image_id = uuid.uuid4().hex
+    image_path, metadata_path = _reference_image_paths(reference_image_id)
+    raw_path = REFERENCE_IMAGE_ROOT / f".{reference_image_id}.upload"
+    received_size = 0
+    try:
+        with raw_path.open("xb") as handle:
+            try:
+                raw_path.chmod(0o600)
+            except OSError:
+                pass
+            async for chunk in request.stream():
+                if not chunk:
+                    continue
+                received_size += len(chunk)
+                if received_size > REFERENCE_IMAGE_MAX_BYTES:
+                    raise HTTPException(status_code=413, detail="Reference image must be 10 MB or smaller.")
+                handle.write(chunk)
+        if received_size <= 0:
+            raise HTTPException(status_code=400, detail="Reference image is empty.")
+
+        try:
+            image_details = await asyncio.to_thread(_sanitize_reference_image, raw_path, image_path)
+        except ReferenceImageTooLarge as exc:
+            raise HTTPException(status_code=413, detail="Reference image must be 10 MB or smaller after validation.") from exc
+        except (
+            Image.DecompressionBombError,
+            Image.DecompressionBombWarning,
+            UnidentifiedImageError,
+            OSError,
+            SyntaxError,
+            ValueError,
+        ) as exc:
+            raise HTTPException(status_code=422, detail="Reference image is invalid or unsupported.") from exc
+
+        now = datetime.now(timezone.utc)
+        expires_at_epoch = now.timestamp() + REFERENCE_IMAGE_TTL_SECONDS
+        metadata = {
+            "id": reference_image_id,
+            "owner_key": owner_key,
+            "created_at": now.isoformat(),
+            "created_at_epoch": now.timestamp(),
+            "expires_at": datetime.fromtimestamp(expires_at_epoch, timezone.utc).isoformat(),
+            "expires_at_epoch": expires_at_epoch,
+            "claimed": False,
+            **image_details,
+        }
+        with REFERENCE_IMAGE_LOCK:
+            _write_reference_metadata(metadata_path, metadata)
+        return {
+            "reference_image_id": reference_image_id,
+            "expires_at": metadata["expires_at"],
+            "width": image_details["width"],
+            "height": image_details["height"],
+            "mime_type": image_details["mime_type"],
+            "size_bytes": image_details["size_bytes"],
+        }
+    except Exception:
+        image_path.unlink(missing_ok=True)
+        metadata_path.unlink(missing_ok=True)
+        raise
+    finally:
+        raw_path.unlink(missing_ok=True)
+
+
 @APP.post("/api/jobs")
 def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
     mode = _normalize_mode(payload.mode)
+    reference_image_id = str(payload.reference_image_id or "").strip().lower() or None
     duration_seconds = _normalize_duration_seconds(payload.duration_seconds)
     requested_resolution = _normalize_resolution(payload.resolution)
     resolution = "2k" if mode == "image" else requested_resolution
@@ -5393,6 +5766,9 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
     user, access, summary = _request_entitlement(request)
     if not user and not (access and access.get("admin")):
         raise HTTPException(status_code=401, detail="Authenticate your Vision account before creating an image.")
+    owner_key = _owner_key(user, access)
+    if not owner_key:
+        raise HTTPException(status_code=401, detail="Authenticate your Vision account before creating an image.")
     if not summary["has_access"]:
         raise HTTPException(
             status_code=402,
@@ -5404,65 +5780,108 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
                 "packs": _packs_summary_for_access(summary),
             },
         )
+    if reference_image_id and mode != "image":
+        raise HTTPException(status_code=400, detail="Reference images are supported only for image generation.")
 
     charged_access_id: str | None = None
     charged_mode: str | None = None
     charged_amount: int | None = None
     charged_credit_type: str | None = None
-    if not summary["admin"]:
-        access_id = summary["access_id"]
-        consumed = ACCESS.consume(str(access_id), mode, amount=int(credit_cost["amount"])) if access_id else None
-        if consumed is None:
-            raise HTTPException(
-                status_code=402,
-                detail={
-                    "code": "insufficient_credits",
-                    "message": "Manage your Vision Studio plan to keep creating.",
-                    "access": summary,
-                    "pack": _pack_summary_for_access(summary),
-                    "packs": _packs_summary_for_access(summary),
-                    "credit_cost": credit_cost,
-                },
-            )
-        charged_access_id = str(access_id)
-        charged_mode = mode
-        charge = consumed.get("charge") if isinstance(consumed, dict) else None
-        charged_amount = int(charge.get("amount") if isinstance(charge, dict) else credit_cost["amount"])
-        charged_credit_type = str(charge.get("type") if isinstance(charge, dict) else "vision_credits")
+    reference_claimed = False
+    job: dict[str, Any] | None = None
+    try:
+        if not summary["admin"]:
+            access_id = summary["access_id"]
+            consumed = ACCESS.consume(str(access_id), mode, amount=int(credit_cost["amount"])) if access_id else None
+            if consumed is None:
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "code": "insufficient_credits",
+                        "message": "Manage your Vision Studio plan to keep creating.",
+                        "access": summary,
+                        "pack": _pack_summary_for_access(summary),
+                        "packs": _packs_summary_for_access(summary),
+                        "credit_cost": credit_cost,
+                    },
+                )
+            charged_access_id = str(access_id)
+            charged_mode = mode
+            charge = consumed.get("charge") if isinstance(consumed, dict) else None
+            charged_amount = int(charge.get("amount") if isinstance(charge, dict) else credit_cost["amount"])
+            charged_credit_type = str(charge.get("type") if isinstance(charge, dict) else "vision_credits")
 
-    # Authorization and credit consumption must complete before this can call
-    # any prompt-enhancement provider.
-    prompt_bundle = _auto_enhance_job_prompt(payload.prompt.strip(), mode)
-    job = JOBS.create(
-        str(prompt_bundle["prompt"]),
-        requested_quality,
-        mode=mode,
-        charged_access_id=charged_access_id,
-        charged_mode=charged_mode,
-        charged_amount=charged_amount,
-        charged_credit_type=charged_credit_type,
-        credit_cost=credit_cost,
-        generation_settings=generation_settings,
-    )
-    job = JOBS.update(
-        job["id"],
-        source_prompt=prompt_bundle.get("source_prompt"),
-        prompt_summary=prompt_bundle.get("prompt_summary"),
-        prompt_provider=prompt_bundle.get("prompt_provider"),
-        prompt_model=prompt_bundle.get("prompt_model"),
-        prompt_enhanced=bool(prompt_bundle.get("prompt_enhanced")),
-        prompt_enhancement_error=prompt_bundle.get("prompt_enhancement_error"),
-    )
-    QUEUE.put(job["id"])
-    return job
+        if reference_image_id:
+            _claim_reference_image(reference_image_id, owner_key)
+            reference_claimed = True
+
+        # Authorization, reference ownership, and credit consumption must all
+        # complete before this can call any prompt-enhancement provider.
+        prompt_bundle = _auto_enhance_job_prompt(payload.prompt.strip(), mode)
+        job = JOBS.create(
+            str(prompt_bundle["prompt"]),
+            requested_quality,
+            mode=mode,
+            charged_access_id=charged_access_id,
+            charged_mode=charged_mode,
+            charged_amount=charged_amount,
+            charged_credit_type=charged_credit_type,
+            credit_cost=credit_cost,
+            generation_settings=generation_settings,
+            owner_key=owner_key,
+            reference_image_id=reference_image_id,
+        )
+        job = JOBS.update(
+            job["id"],
+            source_prompt=prompt_bundle.get("source_prompt"),
+            prompt_summary=prompt_bundle.get("prompt_summary"),
+            prompt_provider=prompt_bundle.get("prompt_provider"),
+            prompt_model=prompt_bundle.get("prompt_model"),
+            prompt_enhanced=bool(prompt_bundle.get("prompt_enhanced")),
+            prompt_enhancement_error=prompt_bundle.get("prompt_enhancement_error"),
+        )
+        QUEUE.put(job["id"])
+        return _public_job(job)
+    except Exception:
+        if job is not None:
+            try:
+                _refund_job_credit(job)
+                JOBS.update(
+                    str(job["id"]),
+                    status="failed",
+                    message="Vision could not queue this generation.",
+                    error="Job setup failed before generation.",
+                )
+            except Exception:
+                pass
+        elif charged_access_id and charged_mode:
+            try:
+                ACCESS.refund(
+                    charged_access_id,
+                    charged_mode,
+                    amount=int(charged_amount or 1),
+                    credit_type=charged_credit_type or None,
+                )
+            except Exception:
+                pass
+        if reference_image_id and reference_claimed:
+            _delete_reference_image(reference_image_id, owner_key=owner_key)
+        raise
 
 
 @APP.get("/api/jobs/{job_id}")
-def get_job(job_id: str) -> dict[str, Any]:
+def get_job(job_id: str, request: Request) -> dict[str, Any]:
     job = JOBS.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
-    return job
+    job_owner_key = str(job.get("owner_key") or "").strip()
+    if job_owner_key:
+        requester_owner_key = _request_owner_key(request)
+        if not requester_owner_key:
+            raise HTTPException(status_code=401, detail="Authenticate your Vision account before viewing this job.")
+        if requester_owner_key != "admin" and not hmac.compare_digest(job_owner_key, requester_owner_key):
+            raise HTTPException(status_code=404, detail="Job not found.")
+    return _public_job(job)
 
 
 @APP.get("/api/assets/status")
