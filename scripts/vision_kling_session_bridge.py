@@ -578,6 +578,11 @@ def status_image() -> dict[str, Any]:
         "ready": image_ready,
         "message": message,
         "mode": "kling_web_image_bridge",
+        "image_contract": {
+            "resolution": "2k",
+            "show_price": 0,
+            "unlimited": True,
+        },
     }
 
 
@@ -718,6 +723,7 @@ def _set_argument_value(payload: dict[str, Any], name: str, value: Any, *, set_b
     arguments = payload.get("arguments")
     if not isinstance(arguments, list):
         return
+    matched = False
     for item in arguments:
         if not isinstance(item, dict):
             continue
@@ -725,7 +731,9 @@ def _set_argument_value(payload: dict[str, Any], name: str, value: Any, *, set_b
             item["value"] = value
             if set_by_user is not None:
                 item["setByUser"] = set_by_user
-            return
+            matched = True
+    if matched:
+        return
     new_item: dict[str, Any] = {"name": name, "value": value}
     if set_by_user is not None:
         new_item["setByUser"] = set_by_user
@@ -733,26 +741,11 @@ def _set_argument_value(payload: dict[str, Any], name: str, value: Any, *, set_b
 
 
 def _image_quality_settings(quality: str) -> dict[str, Any]:
-    normalized = quality if quality in {"fast", "studio", "director"} else "studio"
-    resolution = {
-        "fast": os.environ.get("VISION_KLING_IMAGE_FAST_RESOLUTION", "1k").strip().lower(),
-        "studio": os.environ.get("VISION_KLING_IMAGE_STANDARD_RESOLUTION", "2k").strip().lower(),
-        "director": os.environ.get("VISION_KLING_IMAGE_PREMIUM_RESOLUTION", "4k").strip().lower(),
-    }[normalized]
-    show_price = {
-        "fast": int(os.environ.get("VISION_KLING_IMAGE_FAST_SHOW_PRICE", "0").strip() or "0"),
-        "studio": int(os.environ.get("VISION_KLING_IMAGE_STANDARD_SHOW_PRICE", "0").strip() or "0"),
-        "director": int(os.environ.get("VISION_KLING_IMAGE_PREMIUM_SHOW_PRICE", "200").strip() or "200"),
-    }[normalized]
-    unlimited = {
-        "fast": _env_bool("VISION_KLING_IMAGE_FAST_UNLIMITED", True),
-        "studio": _env_bool("VISION_KLING_IMAGE_STANDARD_UNLIMITED", True),
-        "director": _env_bool("VISION_KLING_IMAGE_PREMIUM_UNLIMITED", False),
-    }[normalized]
+    del quality
     return {
-        "resolution": resolution,
-        "show_price": show_price,
-        "unlimited": unlimited,
+        "resolution": "2k",
+        "show_price": 0,
+        "unlimited": True,
     }
 
 
@@ -776,6 +769,8 @@ def _override_image_quality(
 ) -> dict[str, Any]:
     tuned = json.loads(json.dumps(payload))
     settings = _image_quality_settings(quality)
+    if settings != {"resolution": "2k", "show_price": 0, "unlimited": True}:
+        raise RuntimeError("Kling image generation must use the 2K unlimited contract.")
     if _env_bool("VISION_KLING_IMAGE_TEXT_ONLY", True):
         tuned["inputs"] = []
     _set_argument_value(tuned, "img_resolution", settings["resolution"], set_by_user=True)
@@ -784,6 +779,20 @@ def _override_image_quality(
     _set_argument_value(tuned, "showPrice", settings["show_price"])
     _set_argument_value(tuned, "__isUnLimited", settings["unlimited"])
     _set_argument_value(tuned, "aspect_ratio", _kling_image_aspect_ratio(aspect_ratio), set_by_user=True)
+
+    required_arguments = {
+        "img_resolution": "2k",
+        "imageCount": "1",
+        "showPrice": 0,
+        "__isUnLimited": True,
+    }
+    arguments = tuned.get("arguments")
+    if not isinstance(arguments, list):
+        raise RuntimeError("Kling image payload is missing its arguments list.")
+    for name, expected in required_arguments.items():
+        values = [item.get("value") for item in arguments if isinstance(item, dict) and item.get("name") == name]
+        if not values or any(value != expected for value in values):
+            raise RuntimeError(f"Kling image payload violates the 2K unlimited contract for {name}.")
     return tuned
 
 

@@ -32,7 +32,6 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, Field
 
-from run_google_nano_banana2 import generate_image as generate_google_image
 from run_google_nano_banana2 import status as google_image_status
 from run_google_prompt_enhancer import improve_prompt as improve_vision_prompt
 from run_google_prompt_enhancer import status as google_prompt_status
@@ -40,7 +39,6 @@ from run_google_veo31 import generate_video as generate_google_veo_video
 from run_google_veo31 import status as google_video_status
 from run_kling_api import generate_video as generate_kling_api_video
 from run_kling_api import status as kling_api_status
-from run_openai_image import generate_image as generate_openai_image
 from run_openai_image import status as openai_image_status
 from run_seedance_modelark import generate_video as generate_seedance_video
 from run_seedance_modelark import status as seedance_status
@@ -139,10 +137,10 @@ def _default_generation_provider() -> str:
 
 
 def _default_image_provider() -> str:
-    configured = os.environ.get("VISION_GATEWAY_DEFAULT_IMAGE_PROVIDER", "").strip()
-    if configured:
-        return _normalize_generation_provider(configured)
-    return _normalize_generation_provider(os.environ.get("VISION_GATEWAY_DEFAULT_GENERATION_PROVIDER", "auto"))
+    # Image generation is intentionally pinned to the authenticated Kling web
+    # session bridge.  Do not silently spend credits with another provider when
+    # that session is unavailable.
+    return "kling"
 
 
 def _normalize_generation_provider(value: str | None) -> str:
@@ -186,6 +184,8 @@ def _normalize_resolution(value: str | None) -> str:
         return "720p"
     if normalized in {"1080", "1080p", "fullhd", "fhd"}:
         return "1080p"
+    if normalized in {"2k", "1440", "1440p", "qhd"}:
+        return "2k"
     if normalized in {"4k", "2160", "2160p", "uhd"}:
         return "4k"
     return "720p"
@@ -578,19 +578,11 @@ def _image_route_for_provider(provider: str) -> dict[str, str] | None:
     return None
 
 
-def _select_image_route(preferred_provider: str | None = None) -> dict[str, str]:
-    requested = _normalize_generation_provider(preferred_provider) if preferred_provider else _default_image_provider()
-    if requested != "auto":
-        route = _image_route_for_provider(requested)
-        if route:
-            return route
-        raise RuntimeError(f"{requested.capitalize()} image generation is not ready yet for this Vision deployment.")
-
-    for provider in ("kling", "google", "openai"):
-        route = _image_route_for_provider(provider)
-        if route:
-            return route
-    raise RuntimeError("No image generation provider is ready yet for this Vision deployment.")
+def _select_image_route(_preferred_provider: str | None = None) -> dict[str, str]:
+    route = _image_route_for_provider("kling")
+    if route:
+        return route
+    raise RuntimeError("Kling image generation is not ready yet for this Vision deployment.")
 
 
 def _now_iso() -> str:
@@ -4610,7 +4602,7 @@ def _process_job(job_id: str) -> None:
         generation_settings = job.get("generation_settings") if isinstance(job.get("generation_settings"), dict) else {}
         if job.get("mode") == "image":
             requested_aspect_ratio = _normalize_aspect_ratio(generation_settings.get("aspect_ratio"))
-            route = _select_image_route(generation_settings.get("provider"))
+            route = _select_image_route("kling")
             JOBS.update(
                 job_id,
                 provider=route["provider"],
@@ -4618,30 +4610,12 @@ def _process_job(job_id: str) -> None:
                 message="Shaping the still image inside Vision.",
             )
             JOBS.update(job_id, status="generating", message="Building the still frame inside Vision.")
-            if route["provider"] == "kling_image":
-                output_image = generate_kling_image(
-                    prompt=job["prompt"],
-                    output_dir=output_dir,
-                    quality=str(job.get("quality") or "studio"),
-                    aspect_ratio=requested_aspect_ratio,
-                )
-            elif route["provider"] == "openai_image":
-                output_image = generate_openai_image(
-                    prompt=job["prompt"],
-                    output_dir=output_dir,
-                    model=route["model"],
-                    size=route.get("size"),
-                    quality=str(job.get("quality") or "studio"),
-                    aspect_ratio=requested_aspect_ratio,
-                )
-            else:
-                output_image = generate_google_image(
-                    prompt=job["prompt"],
-                    output_dir=output_dir,
-                    model=route["model"],
-                    fallback_models=route.get("fallback_models", ""),
-                    aspect_ratio=requested_aspect_ratio,
-                )
+            output_image = generate_kling_image(
+                prompt=job["prompt"],
+                output_dir=output_dir,
+                quality="studio",
+                aspect_ratio=requested_aspect_ratio,
+            )
             output_image = _fit_image_to_aspect_ratio(output_image, requested_aspect_ratio)
             JOBS.update(
                 job_id,
@@ -5380,10 +5354,11 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
 def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
     mode = _normalize_mode(payload.mode)
     duration_seconds = _normalize_duration_seconds(payload.duration_seconds)
-    resolution = _normalize_resolution(payload.resolution)
+    requested_resolution = _normalize_resolution(payload.resolution)
+    resolution = "2k" if mode == "image" else requested_resolution
     aspect_ratio = _normalize_aspect_ratio(payload.aspect_ratio)
     sound_enabled = bool(payload.sound_enabled) if mode == "video" else False
-    provider = _normalize_generation_provider(payload.provider)
+    provider = "kling" if mode == "image" else _normalize_generation_provider(payload.provider)
     if mode == "video" and provider == "openai":
         provider = "auto"
     generation_settings = {
@@ -5399,8 +5374,8 @@ def create_job(payload: CreateJobRequest, request: Request) -> dict[str, Any]:
         resolution=resolution,
         sound_enabled=sound_enabled,
     )
-    normalized_quality = _normalize_quality(payload.quality)
-    if normalized_quality == "auto":
+    normalized_quality = "studio" if mode == "image" else _normalize_quality(payload.quality)
+    if mode != "image" and normalized_quality == "auto":
         normalized_quality = _quality_from_generation_settings(mode, resolution, sound_enabled)
     requested_quality = _effective_job_quality(mode, normalized_quality)
     user, access, summary = _request_entitlement(request)
