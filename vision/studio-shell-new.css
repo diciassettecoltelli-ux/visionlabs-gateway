@@ -369,7 +369,8 @@ body.vss-viewer-open {
 
 .vss-canvas-image,
 .vss-canvas-video {
-  object-fit: cover;
+  object-fit: contain;
+  background: #0e0f12;
 }
 
 .vss-canvas-media--reference .vss-canvas-image,
@@ -3159,6 +3160,14 @@ html.vss-html body {
   backdrop-filter: none;
 }
 
+.vss-control-group--format {
+  max-width: 100%;
+}
+
+.vss-control-group--format .vss-control-pills {
+  flex-wrap: wrap;
+}
+
 .vss-control-group > span {
   font-size: 0.56rem;
   color: var(--vss-text-muted);
@@ -3619,6 +3628,35 @@ html.vss-html body {
 
   .vss-dock-settings {
     padding-top: 1px;
+  }
+
+  .vss-generation-controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .vss-control-group {
+    box-sizing: border-box;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .vss-control-group--format {
+    align-items: flex-start;
+  }
+
+  .vss-control-group--format > span {
+    padding-top: 7px;
+  }
+
+  .vss-control-group--format .vss-control-pills {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .vss-rail {

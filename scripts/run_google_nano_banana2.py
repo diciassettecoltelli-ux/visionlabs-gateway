@@ -9,6 +9,23 @@ from typing import Any
 
 DEFAULT_IMAGE_MODEL = "imagen-4.0-generate-001"
 DEFAULT_IMAGE_FALLBACK_MODELS = ("imagen-4.0-fast-generate-001",)
+VISION_ASPECT_RATIOS = {"1:1", "16:9", "9:16", "4:5", "3:4", "4:3", "3:2"}
+IMAGEN_ASPECT_RATIOS = {"1:1", "16:9", "9:16", "3:4", "4:3"}
+
+
+def _normalize_aspect_ratio(value: str | None) -> str:
+    normalized = str(value or "16:9").strip().lower().replace(" ", "")
+    return normalized if normalized in VISION_ASPECT_RATIOS else "16:9"
+
+
+def _imagen_aspect_ratio(value: str | None) -> str:
+    normalized = _normalize_aspect_ratio(value)
+    if normalized in IMAGEN_ASPECT_RATIOS:
+        return normalized
+    return {
+        "4:5": "3:4",
+        "3:2": "4:3",
+    }.get(normalized, "16:9")
 
 
 def _resolve_api_key() -> str:
@@ -138,6 +155,7 @@ def generate_image(
     model: str | None = None,
     fallback_models: str | None = None,
     input_images: list[str | Path] | None = None,
+    aspect_ratio: str = "16:9",
 ) -> Path:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -151,6 +169,8 @@ def generate_image(
 
     client = genai.Client(api_key=_resolve_api_key())
     normalized_inputs = [Path(value).expanduser().resolve() for value in (input_images or [])]
+    requested_aspect_ratio = _normalize_aspect_ratio(aspect_ratio)
+    provider_aspect_ratio = _imagen_aspect_ratio(requested_aspect_ratio)
     candidate_models = _candidate_models(model, fallback_models)
     failures: list[str] = []
 
@@ -181,7 +201,7 @@ def generate_image(
                     prompt=prompt,
                     config=types.GenerateImagesConfig(
                         numberOfImages=1,
-                        aspectRatio="16:9",
+                        aspectRatio=provider_aspect_ratio,
                         outputMimeType="image/png",
                         addWatermark=False,
                         enhancePrompt=True,
@@ -197,6 +217,8 @@ def generate_image(
                 "mime_type": mime_type,
                 "input_images": [str(path) for path in normalized_inputs],
                 "fallback_models": candidate_models[1:],
+                "requested_aspect_ratio": requested_aspect_ratio,
+                "provider_aspect_ratio": provider_aspect_ratio,
             }
             (output_dir / "google_image_metadata.json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
             return saved_image
@@ -212,6 +234,7 @@ def main() -> None:
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--output-image")
     parser.add_argument("--input-image", action="append", default=[])
+    parser.add_argument("--aspect-ratio", default="16:9", choices=sorted(VISION_ASPECT_RATIOS))
     parser.add_argument("--model", default=_default_primary_model())
     parser.add_argument("--fallback-models", default=os.getenv("GOOGLE_IMAGE_FALLBACK_MODELS", ",".join(DEFAULT_IMAGE_FALLBACK_MODELS)))
     args = parser.parse_args()
@@ -223,6 +246,7 @@ def main() -> None:
         model=args.model,
         fallback_models=args.fallback_models,
         input_images=args.input_image,
+        aspect_ratio=args.aspect_ratio,
     )
     print(saved_image)
 

@@ -22,6 +22,16 @@
   const DEFAULT_PACK_ID = "studio";
   const VISION_DURATION_OPTIONS = [3, 5, 10, 15];
   const VISION_RESOLUTION_OPTIONS = ["1080p", "4k"];
+  const VISION_ASPECT_RATIO_OPTIONS = ["1:1", "16:9", "9:16", "4:5", "3:4", "4:3", "3:2"];
+  const VISION_ASPECT_RATIO_LABELS = {
+    "1:1": "Square 1:1",
+    "16:9": "Landscape 16:9",
+    "9:16": "Portrait 9:16",
+    "4:5": "Portrait 4:5",
+    "3:4": "Portrait 3:4",
+    "4:3": "Landscape 4:3",
+    "3:2": "Landscape 3:2",
+  };
 
   const trackVisionEvent = (name, payload = {}) =>
     window.VisionTracking && typeof window.VisionTracking.trackEvent === "function"
@@ -84,6 +94,7 @@
     mode: "image",
     durationSeconds: 5,
     resolution: "4k",
+    aspectRatio: "16:9",
     soundEnabled: false,
     scene: "idle",
     prompt: "",
@@ -147,6 +158,11 @@
     return VISION_RESOLUTION_OPTIONS.includes(normalized) ? normalized : "4k";
   };
 
+  const normalizeAspectRatio = (value) => {
+    const normalized = String(value || "").trim().toLowerCase().replace(/\s+/g, "");
+    return VISION_ASPECT_RATIO_OPTIONS.includes(normalized) ? normalized : "16:9";
+  };
+
   const formatVisionCredits = (value) => {
     const amount = Math.max(0, Number(value || 0));
     if (!Number.isFinite(amount)) {
@@ -157,6 +173,7 @@
 
   const getGenerationCost = () => {
     const resolution = normalizeResolution(state.resolution);
+    const aspectRatio = normalizeAspectRatio(state.aspectRatio);
     const duration = normalizeDurationSeconds(state.durationSeconds);
     if (state.mode === "image") {
       const premiumImage = resolution === "4k";
@@ -165,6 +182,7 @@
         label: premiumImage ? "Premium image" : "Standard image",
         duration_seconds: null,
         resolution,
+        aspect_ratio: aspectRatio,
         sound_enabled: false,
       };
     }
@@ -174,6 +192,7 @@
         label: `4K video · ${duration}s`,
         duration_seconds: duration,
         resolution,
+        aspect_ratio: aspectRatio,
         sound_enabled: Boolean(state.soundEnabled),
       };
     }
@@ -183,6 +202,7 @@
         label: `Full HD video · ${duration}s`,
         duration_seconds: duration,
         resolution,
+        aspect_ratio: aspectRatio,
         sound_enabled: Boolean(state.soundEnabled),
       };
     }
@@ -191,6 +211,7 @@
       label: `Standard video · ${duration}s`,
       duration_seconds: duration,
       resolution,
+      aspect_ratio: aspectRatio,
       sound_enabled: Boolean(state.soundEnabled),
     };
   };
@@ -610,13 +631,14 @@
     });
   });
 
-  const savePendingPrompt = (prompt, mode) => {
+  const savePendingPrompt = (prompt, mode, aspectRatio) => {
     try {
       window.sessionStorage.setItem(
         VISION_PENDING_PROMPT_KEY,
         JSON.stringify({
           prompt: String(prompt || ""),
           mode: "image",
+          aspect_ratio: normalizeAspectRatio(aspectRatio),
           saved_at: Date.now(),
         }),
       );
@@ -638,6 +660,7 @@
       return {
         prompt: String(parsed.prompt || ""),
         mode: "image",
+        aspect_ratio: normalizeAspectRatio(parsed.aspect_ratio),
       };
     } catch (error) {
       return null;
@@ -854,6 +877,7 @@
       type: item.type === "image" ? "image" : "video",
       src: normalizedSrc,
       prompt: String(item.prompt || ""),
+      aspect_ratio: normalizeAspectRatio(item.aspect_ratio),
       created_at: item.created_at || "",
     };
   };
@@ -871,6 +895,7 @@
         String(item.id || "") !== normalized.id ||
         String(item.src || "") !== normalized.src ||
         String(item.prompt || "") !== normalized.prompt ||
+        String(item.aspect_ratio || "") !== normalized.aspect_ratio ||
         (item.type === "image" ? "image" : "video") !== normalized.type ||
         String(item.created_at || "") !== normalized.created_at
       ) {
@@ -1101,6 +1126,7 @@
         kind: item.type === "image" ? "image" : "video",
         src: item.src,
         prompt: String(item.prompt || ""),
+        aspectRatio: normalizeAspectRatio(item.aspect_ratio),
         createdAt: item.created_at || "",
       }));
     if (!state.selectedId || !state.recents.some((item) => item.id === state.selectedId)) {
@@ -1181,6 +1207,11 @@
       type: (job.output_type || job.mode || "video").toLowerCase() === "image" ? "image" : "video",
       src: resolvedSrc,
       prompt: String(job.prompt || ""),
+      aspect_ratio: normalizeAspectRatio(
+        job.generation_settings && job.generation_settings.aspect_ratio
+          ? job.generation_settings.aspect_ratio
+          : state.aspectRatio,
+      ),
       created_at: job.completed_at || job.updated_at || new Date().toISOString(),
     };
     const items = readStudioHistory().filter((entry) => String(entry.id || "") !== item.id);
@@ -1443,6 +1474,7 @@
     }
     state.prompt = pending.prompt;
     state.mode = pending.mode;
+    state.aspectRatio = normalizeAspectRatio(pending.aspect_ratio);
     render();
   };
 
@@ -1552,7 +1584,7 @@
     }
 
     const generationCost = getGenerationCost();
-    savePendingPrompt(prompt, state.mode);
+    savePendingPrompt(prompt, state.mode, state.aspectRatio);
     state.currentError = "";
     state.currentJob = {
       id: `local-${Date.now()}`,
@@ -1575,6 +1607,7 @@
         credit_cost: generationCost.amount,
         duration_seconds: generationCost.duration_seconds,
         resolution: generationCost.resolution,
+        aspect_ratio: generationCost.aspect_ratio,
         sound_enabled: generationCost.sound_enabled,
       },
     });
@@ -1590,6 +1623,7 @@
           mode: state.mode,
           duration_seconds: generationCost.duration_seconds,
           resolution: generationCost.resolution,
+          aspect_ratio: generationCost.aspect_ratio,
           sound_enabled: generationCost.sound_enabled,
         }),
       });
@@ -2011,11 +2045,20 @@
       const label = resolution === "4k" ? "4K" : "1080p";
       return `<button class="vss-control-pill${active ? " is-active" : ""}" type="button" data-resolution="${resolution}" aria-pressed="${active ? "true" : "false"}">${label}</button>`;
     }).join("");
+    const aspectRatioButtons = VISION_ASPECT_RATIO_OPTIONS.map((aspectRatio) => {
+      const active = normalizeAspectRatio(state.aspectRatio) === aspectRatio;
+      const accessibleLabel = VISION_ASPECT_RATIO_LABELS[aspectRatio] || aspectRatio;
+      return `<button class="vss-control-pill${active ? " is-active" : ""}" type="button" data-aspect-ratio="${aspectRatio}" aria-label="${accessibleLabel}" title="${accessibleLabel}" aria-pressed="${active ? "true" : "false"}">${aspectRatio}</button>`;
+    }).join("");
     return `
       <div class="vss-generation-controls" aria-label="Generation settings">
         <div class="vss-control-group" aria-label="Output resolution">
           <span>Quality</span>
           <div class="vss-control-pills">${resolutionButtons}</div>
+        </div>
+        <div class="vss-control-group vss-control-group--format" aria-label="Image format">
+          <span>Format</span>
+          <div class="vss-control-pills">${aspectRatioButtons}</div>
         </div>
       </div>
     `;
@@ -2358,6 +2401,13 @@
     root.querySelectorAll("[data-resolution]").forEach((button) => {
       button.addEventListener("click", () => {
         state.resolution = normalizeResolution(button.getAttribute("data-resolution"));
+        render();
+      });
+    });
+
+    root.querySelectorAll("[data-aspect-ratio]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.aspectRatio = normalizeAspectRatio(button.getAttribute("data-aspect-ratio"));
         render();
       });
     });

@@ -756,7 +756,24 @@ def _image_quality_settings(quality: str) -> dict[str, Any]:
     }
 
 
-def _override_image_quality(payload: dict[str, Any], quality: str) -> dict[str, Any]:
+def _normalize_image_aspect_ratio(value: str | None) -> str:
+    normalized = str(value or "16:9").strip().lower().replace(" ", "")
+    return normalized if normalized in {"1:1", "16:9", "9:16", "4:5", "3:4", "4:3", "3:2"} else "16:9"
+
+
+def _kling_image_aspect_ratio(value: str | None) -> str:
+    normalized = _normalize_image_aspect_ratio(value)
+    return {
+        "4:5": "3:4",
+        "3:2": "4:3",
+    }.get(normalized, normalized)
+
+
+def _override_image_quality(
+    payload: dict[str, Any],
+    quality: str,
+    aspect_ratio: str | None = "16:9",
+) -> dict[str, Any]:
     tuned = json.loads(json.dumps(payload))
     settings = _image_quality_settings(quality)
     if _env_bool("VISION_KLING_IMAGE_TEXT_ONLY", True):
@@ -766,6 +783,7 @@ def _override_image_quality(payload: dict[str, Any], quality: str) -> dict[str, 
     _set_argument_value(tuned, "story_mode", False)
     _set_argument_value(tuned, "showPrice", settings["show_price"])
     _set_argument_value(tuned, "__isUnLimited", settings["unlimited"])
+    _set_argument_value(tuned, "aspect_ratio", _kling_image_aspect_ratio(aspect_ratio), set_by_user=True)
     return tuned
 
 
@@ -916,7 +934,13 @@ def generate(*, prompt: str, output_dir: str | Path) -> Path:
     )
 
 
-def generate_image(*, prompt: str, output_dir: str | Path, quality: str = "studio") -> Path:
+def generate_image(
+    *,
+    prompt: str,
+    output_dir: str | Path,
+    quality: str = "studio",
+    aspect_ratio: str = "16:9",
+) -> Path:
     artifacts = _collect_artifacts()
     state = status_image()
     if not state["ready"] or not artifacts.runtime_image_submit_payload:
@@ -925,7 +949,11 @@ def generate_image(*, prompt: str, output_dir: str | Path, quality: str = "studi
             f"Cookie ready={state['runtime_cookie_ready']} payload ready={state['runtime_image_submit_payload_ready']}."
         )
     tuned_payload = RuntimeSubmitPayload(
-        payload=_override_image_quality(artifacts.runtime_image_submit_payload.payload, quality)
+        payload=_override_image_quality(
+            artifacts.runtime_image_submit_payload.payload,
+            quality,
+            aspect_ratio,
+        )
     )
     return _generate_asset(
         prompt=prompt,

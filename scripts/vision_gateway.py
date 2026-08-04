@@ -29,6 +29,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from PIL import Image
 from pydantic import BaseModel, Field
 
 from run_google_nano_banana2 import generate_image as generate_google_image
@@ -206,9 +207,42 @@ def _normalize_aspect_ratio(value: str | None) -> str:
         "square": "1:1",
     }
     normalized = aliases.get(normalized, normalized)
-    if normalized in {"16:9", "9:16", "1:1"}:
+    if normalized in {"1:1", "16:9", "9:16", "4:5", "3:4", "4:3", "3:2"}:
         return normalized
     return "16:9"
+
+
+def _fit_image_to_aspect_ratio(image_path: str | Path, aspect_ratio: str | None) -> Path:
+    path = Path(image_path)
+    normalized = _normalize_aspect_ratio(aspect_ratio)
+    width_ratio, height_ratio = (int(part) for part in normalized.split(":", 1))
+    target_ratio = width_ratio / height_ratio
+
+    with Image.open(path) as source:
+        source.load()
+        width, height = source.size
+        if width <= 0 or height <= 0:
+            raise RuntimeError("Generated image has invalid dimensions.")
+
+        current_ratio = width / height
+        if abs(current_ratio - target_ratio) <= 0.001:
+            return path
+
+        if current_ratio > target_ratio:
+            crop_width = max(1, min(width, round(height * target_ratio)))
+            left = max(0, (width - crop_width) // 2)
+            crop_box = (left, 0, left + crop_width, height)
+        else:
+            crop_height = max(1, min(height, round(width / target_ratio)))
+            top = max(0, (height - crop_height) // 2)
+            crop_box = (0, top, width, top + crop_height)
+
+        cropped = source.crop(crop_box)
+        if cropped.mode not in {"1", "L", "LA", "P", "RGB", "RGBA"}:
+            cropped = cropped.convert("RGBA" if "A" in cropped.getbands() else "RGB")
+        cropped.save(path, format="PNG")
+
+    return path
 
 
 def _quality_from_generation_settings(mode: str, resolution: str, sound_enabled: bool) -> str:
@@ -4575,6 +4609,7 @@ def _process_job(job_id: str) -> None:
     try:
         generation_settings = job.get("generation_settings") if isinstance(job.get("generation_settings"), dict) else {}
         if job.get("mode") == "image":
+            requested_aspect_ratio = _normalize_aspect_ratio(generation_settings.get("aspect_ratio"))
             route = _select_image_route(generation_settings.get("provider"))
             JOBS.update(
                 job_id,
@@ -4588,6 +4623,7 @@ def _process_job(job_id: str) -> None:
                     prompt=job["prompt"],
                     output_dir=output_dir,
                     quality=str(job.get("quality") or "studio"),
+                    aspect_ratio=requested_aspect_ratio,
                 )
             elif route["provider"] == "openai_image":
                 output_image = generate_openai_image(
@@ -4596,7 +4632,7 @@ def _process_job(job_id: str) -> None:
                     model=route["model"],
                     size=route.get("size"),
                     quality=str(job.get("quality") or "studio"),
-                    aspect_ratio=str(generation_settings.get("aspect_ratio") or "9:16"),
+                    aspect_ratio=requested_aspect_ratio,
                 )
             else:
                 output_image = generate_google_image(
@@ -4604,7 +4640,9 @@ def _process_job(job_id: str) -> None:
                     output_dir=output_dir,
                     model=route["model"],
                     fallback_models=route.get("fallback_models", ""),
+                    aspect_ratio=requested_aspect_ratio,
                 )
+            output_image = _fit_image_to_aspect_ratio(output_image, requested_aspect_ratio)
             JOBS.update(
                 job_id,
                 status="ready",

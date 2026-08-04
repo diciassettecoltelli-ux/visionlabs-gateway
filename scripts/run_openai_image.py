@@ -53,9 +53,9 @@ def _size_for_aspect_ratio(aspect_ratio: str | None) -> str:
     if configured in ALLOWED_SIZES and configured != "auto":
         return configured
     normalized = str(aspect_ratio or "").strip().lower().replace(" ", "")
-    if normalized in {"9:16", "vertical", "portrait", "reel", "tiktok"}:
+    if normalized in {"9:16", "4:5", "3:4", "vertical", "portrait", "reel", "tiktok"}:
         return "1024x1536"
-    if normalized in {"16:9", "horizontal", "landscape", "wide"}:
+    if normalized in {"16:9", "4:3", "3:2", "horizontal", "landscape", "wide"}:
         return "1536x1024"
     if normalized in {"1:1", "square"}:
         return "1024x1024"
@@ -153,6 +153,7 @@ def generate_image(
         "size": image_size,
         "quality": image_quality,
         "background": background,
+        "requested_aspect_ratio": str(aspect_ratio or ""),
         "output": str(output_path),
     }
     (output_dir / "openai_image_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
